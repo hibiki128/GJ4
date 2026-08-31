@@ -1,0 +1,19 @@
+{
+  "DefaultProfile": "App",
+  "Profiles": {
+    "App": {
+      "VcxprojPath": "..\\app\\app.vcxproj",
+      "StripPrefixes": [],
+      "RootFileNames": [
+        "main.cpp"
+      ]
+    },
+    "Hagine": {
+      "VcxprojPath": "..\\module\\Hagine\\Hagine.vcxproj",
+      "StripPrefixes": [],
+      "RootFileNames": [
+        "main.cpp"
+      ]
+    }
+  }
+}

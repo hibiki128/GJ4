@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <!--
+    プロセスの ANSI コードページを UTF-8 に固定する。
+
+    エンジン内部の文字列は UTF-8 前提 (AssetPath / StringUtility) だが、
+    std::filesystem::path や std::ifstream などのナロー文字列 API は
+    既定ではプロセスの ANSI コードページ (日本語環境なら CP932) として解釈する。
+    そのため exe を日本語を含むパスへ置くと、UTF-8 のアセットパスが
+    CP932 として誤解釈されてファイルが見つからず、起動に失敗していた。
+    ここで ACP を UTF-8 にすることで両者の解釈が一致する。
+
+    ※ Windows 10 バージョン 1903 以降で有効。
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    </windowsSettings>
+  </application>
+</assembly>

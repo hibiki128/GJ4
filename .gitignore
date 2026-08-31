@@ -1,0 +1,15 @@
+# Visual Studio
+**/.vs/*
+**/*.va/*
+**/*.user
+**/*.lnk
+
+#user defines
+**/[Ll]og/
+**/[Bb]in/
+Generated
+**/imgui.ini
+*.dat
+**/imgui_editor.ini
+**/imgui_game.ini
+**/ImGuiSetting/Frags.json
