@@ -8,20 +8,16 @@ using namespace Hagine;
 
 void GameScene::Initialize()
 {
-    /// ===================================================
-    /// 初期化
-    /// ===================================================
-    BaseScene::Initialize();
-    vp_.Initialize();
+	/// ===================================================
+	/// 初期化
+	/// ===================================================
+	BaseScene::Initialize();
 
-    debugCamera_ = std::make_unique<DebugCamera>();
-    debugCamera_->Initialize(&vp_);
-
-    // 3Dオブジェクトの描画（ポストエフェクトあり）
-    pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
-        {
-            pObjectManager_->Draw(vp);
-        });
+	// 3Dオブジェクトの描画（ポストエフェクトあり）
+	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
+		{
+			pObjectManager_->Draw(vp);
+		});
 
     // スプライトの描画（ポストエフェクトなし）
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
@@ -41,16 +37,52 @@ void GameScene::Initialize()
 
 void GameScene::Finalize()
 {
-    /// ===================================================
-    /// 終了処理
-    /// ===================================================
-    BaseScene::Finalize();
+	/// ===================================================
+	/// 終了処理
+	/// ===================================================
+	BaseScene::Finalize();
 }
 
 void GameScene::Update()
 {
-    /// ===================================================
-    /// 更新処理
-    /// ===================================================
-    vp_.UpdateMatrix();
+	/// ===================================================
+	/// 更新処理
+	/// ===================================================
+}
+
+void GameScene::AddSceneSetting() {
+	/// ===================================================
+	///シーン設定(デバッグ)
+	/// ===================================================
+	DrawDebugCameraImGui();
+	camera_->ShowDebugWindow();
+}
+
+void GameScene::AddObjectSetting()
+{
+	/// ===================================================
+	/// オブジェクト設定（デバッグ）
+	/// ===================================================
+}
+void GameScene::AddParticleSetting()
+{
+	/// ===================================================
+	/// パーティクル設定（デバッグ）
+	/// ===================================================
+}
+
+void GameScene::CameraUpdate()
+{
+	/// ===================================================
+	/// カメラ更新
+	/// ===================================================
+	UpdateDebugCamera();
+}
+
+void GameScene::ChangeScene() {
+	/// ===================================================
+	/// シーン切り替え
+	/// ===================================================
+
+	//pSceneManager_->NextSceneReservation();
 }

@@ -52,6 +52,16 @@ public:
     /// </summary>
     void AddParticleSetting() override {};
 
+    /// <summary>
+    /// カメラの更新
+    /// </summary>
+    void CameraUpdate();
+
+    /// <summary>
+    /// シーン切り替え
+    /// </summary>
+    void ChangeScene();
+
 private:
     std::unique_ptr<Player> player_;
 };
