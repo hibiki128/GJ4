@@ -50,4 +50,14 @@ public:
     /// パーティクル設定を追加
     /// </summary>
     void AddParticleSetting() override {};
+
+    /// <summary>
+    /// カメラの更新
+    /// </summary>
+    void CameraUpdate();
+
+    /// <summary>
+    /// シーン切り替え
+    /// </summary>
+    void ChangeScene();
 };
