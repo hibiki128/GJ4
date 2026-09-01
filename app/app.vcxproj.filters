@@ -33,6 +33,7 @@
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
+    <ClCompile Include="Application\Input\GameInput.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Character\ColorStruct.h">
@@ -47,6 +48,7 @@
     <ClInclude Include="src\scene\GameScene.h">
       <Filter>src\scene</Filter>
     </ClInclude>
+    <ClInclude Include="Application\Input\GameInput.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />
