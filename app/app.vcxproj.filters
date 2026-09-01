@@ -8,6 +8,7 @@
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
+    <ClCompile Include="Application\Character\Player\Player.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -30,5 +31,7 @@
     <ClInclude Include="src\scene\GameScene.h">
       <Filter>src\scene</Filter>
     </ClInclude>
+    <ClInclude Include="Application\Character\Player\Player.h" />
+    <ClInclude Include="Application\Character\ColorStruct.h" />
   </ItemGroup>
 </Project>
