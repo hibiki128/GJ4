@@ -32,7 +32,7 @@ void GameScene::Initialize()
 	player_ = std::make_unique<Player>();
     player_->Init("Player");
 
-	pObjectManager_->AddObject(std::move(player_));
+	pObjectManager_->RegisterExternal(player_.get());
 }
 
 void GameScene::Finalize()

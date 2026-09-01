@@ -1,37 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="src\main.cpp" />
+    <Filter Include="Application">
+      <UniqueIdentifier>{5FD57636-4984-BE7C-ADFC-614C1B1B62FC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character">
+      <UniqueIdentifier>{D492E095-03B0-FE22-045A-4B8DBA37A80A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player">
+      <UniqueIdentifier>{E9D8B358-61CA-D321-BD4A-3BA1136F09F1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{C202D925-8342-8CAB-FBAC-54DFA101AD31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\framework">
+      <UniqueIdentifier>{CF54C32F-4A7F-DA77-7AED-54D4A08E1C58}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\scene">
+      <UniqueIdentifier>{72706981-6907-EF9F-9DF9-4B763CF81236}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Application\Character\Player\Player.cpp">
+      <Filter>Application\Character\Player</Filter>
+    </ClCompile>
     <ClCompile Include="src\framework\GJ4App.cpp">
       <Filter>src\framework</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
-    <ClCompile Include="Application\Character\Player\Player.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="src">
-      <UniqueIdentifier>{7906a8a4-c281-4241-813c-6513f085326e}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\framework">
-      <UniqueIdentifier>{f4adf179-8e90-490f-b4a9-fd2467fefdf0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\scene">
-      <UniqueIdentifier>{20c70a38-4e1d-4c71-bfa9-ed9056713bbb}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
-    <Manifest Include="app.manifest" />
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="Application\Character\ColorStruct.h">
+      <Filter>Application\Character</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Player.h">
+      <Filter>Application\Character\Player</Filter>
+    </ClInclude>
     <ClInclude Include="src\framework\GJ4App.h">
       <Filter>src\framework</Filter>
     </ClInclude>
     <ClInclude Include="src\scene\GameScene.h">
       <Filter>src\scene</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Character\Player\Player.h" />
-    <ClInclude Include="Application\Character\ColorStruct.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
   </ItemGroup>
 </Project>
