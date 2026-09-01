@@ -19,11 +19,20 @@ void GameScene::Initialize()
 			pObjectManager_->Draw(vp);
 		});
 
-	// スプライトの描画（ポストエフェクトなし）
-	pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
-		{
-			pSpriteManager_->DrawAll();
-		});
+    // スプライトの描画（ポストエフェクトなし）
+    pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
+        {
+            pSpriteManager_->DrawAll();
+        });
+
+	/// ===================================================
+    /// ゲームの初期化
+    /// ===================================================
+    
+	player_ = std::make_unique<Player>();
+    player_->Init("Player");
+
+	pObjectManager_->RegisterExternal(player_.get());
 }
 
 void GameScene::Finalize()

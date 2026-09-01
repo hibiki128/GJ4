@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseScene.h"
+#include "Application/Character/Player/Player.h"
 
 /// <summary>
 /// ゲームシーン
@@ -39,17 +40,17 @@ public:
     /// <summary>
     /// シーン設定を追加
     /// </summary>
-    void AddSceneSetting() override {};
+    void AddSceneSetting() override;
 
     /// <summary>
     /// オブジェクト設定を追加
     /// </summary>
-    void AddObjectSetting() override {};
+    void AddObjectSetting() override;
 
     /// <summary>
     /// パーティクル設定を追加
     /// </summary>
-    void AddParticleSetting() override {};
+    void AddParticleSetting() override;
 
     /// <summary>
     /// カメラの更新
@@ -60,4 +61,7 @@ public:
     /// シーン切り替え
     /// </summary>
     void ChangeScene();
+
+private:
+    std::unique_ptr<Player> player_;
 };
