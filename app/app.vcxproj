@@ -125,11 +125,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Application\Character\Player\Player.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application\Character\ColorStruct.h" />
+    <ClInclude Include="Application\Character\Player\Player.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
   </ItemGroup>

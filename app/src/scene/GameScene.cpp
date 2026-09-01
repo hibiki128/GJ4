@@ -28,6 +28,15 @@ void GameScene::Initialize()
         {
             pSpriteManager_->DrawAll();
         });
+
+	/// ===================================================
+    /// ゲームの初期化
+    /// ===================================================
+    
+	player_ = std::make_unique<Player>();
+    player_->Init("Player");
+
+	pObjectManager_->AddObject(std::move(player_));
 }
 
 void GameScene::Finalize()

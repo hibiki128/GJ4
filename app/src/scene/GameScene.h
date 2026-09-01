@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseScene.h"
+#include "Application/Character/Player/Player.h"
 
 /// <summary>
 /// ゲームシーン
@@ -50,4 +51,7 @@ public:
     /// パーティクル設定を追加
     /// </summary>
     void AddParticleSetting() override {};
+
+private:
+    std::unique_ptr<Player> player_;
 };
