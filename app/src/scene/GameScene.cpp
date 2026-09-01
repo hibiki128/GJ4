@@ -29,6 +29,10 @@ void GameScene::Initialize()
     /// ゲームの初期化
     /// ===================================================
     
+	// ゲーム入力の生成
+	gameInput_ = std::make_unique<GameInput>();
+
+	// プレイヤーの生成初期化
 	player_ = std::make_unique<Player>();
     player_->Init("Player");
 
@@ -48,6 +52,14 @@ void GameScene::Update()
 	/// ===================================================
 	/// 更新処理
 	/// ===================================================
+	
+	// ゲーム入力の更新
+	gameInput_->UpdateInputState();
+
+	player_->SetInputContext(gameInput_->GetInputContext());
+	
+	CameraUpdate();
+	
 }
 
 void GameScene::AddSceneSetting() {
