@@ -56,7 +56,7 @@ void GameScene::Update()
 	// ゲーム入力の更新
 	gameInput_->UpdateInputState();
 
-	player_->SetInputContext(gameInput_->GetInputContext());
+	player_->CommandExecute(gameInput_->GetInputContext());
 	
 	CameraUpdate();
 	

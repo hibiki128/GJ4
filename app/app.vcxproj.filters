@@ -34,6 +34,13 @@
       <Filter>src\scene</Filter>
     </ClCompile>
     <ClCompile Include="Application\Input\GameInput.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Idle\PlayerStateIdle.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Move\PlayerStateMove.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Character\ColorStruct.h">
@@ -49,6 +56,15 @@
       <Filter>src\scene</Filter>
     </ClInclude>
     <ClInclude Include="Application\Input\GameInput.h" />
+    <ClInclude Include="Application\Character\Player\Components\Move\PlayerMoveComponent.h" />
+    <ClInclude Include="Application\Character\Player\Core\PlayerContext.h" />
+    <ClInclude Include="Application\Character\Player\States\Idle\PlayerStateIdle.h" />
+    <ClInclude Include="Application\Character\Player\States\Move\PlayerStateMove.h" />
+    <ClInclude Include="Application\Character\Player\States\Base\PlayerStateBase.h" />
+    <ClInclude Include="Application\Character\Player\States\Dodge\PlayerStateDodge.h" />
+    <ClInclude Include="Application\Character\Player\States\Dash\PlayerStateDash.h" />
+    <ClInclude Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.h" />
+    <ClInclude Include="Application\Character\Player\States\Jump\PlayerStateJump.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />
