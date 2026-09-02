@@ -133,6 +133,13 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClCompile Include="Application\Character\Player\Player.cpp" />
     <ClCompile Include="Application\Input\GameInput.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Idle\PlayerStateIdle.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Move\PlayerStateMove.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
@@ -141,6 +148,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Application\Character\ColorStruct.h" />
     <ClInclude Include="Application\Character\Player\Player.h" />
     <ClInclude Include="Application\Input\GameInput.h" />
+    <ClInclude Include="Application\Character\Player\Components\Move\PlayerMoveComponent.h" />
+    <ClInclude Include="Application\Character\Player\Core\PlayerContext.h" />
+    <ClInclude Include="Application\Character\Player\States\Idle\PlayerStateIdle.h" />
+    <ClInclude Include="Application\Character\Player\States\Move\PlayerStateMove.h" />
+    <ClInclude Include="Application\Character\Player\States\Base\PlayerStateBase.h" />
+    <ClInclude Include="Application\Character\Player\States\Dodge\PlayerStateDodge.h" />
+    <ClInclude Include="Application\Character\Player\States\Dash\PlayerStateDash.h" />
+    <ClInclude Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.h" />
+    <ClInclude Include="Application\Character\Player\States\Jump\PlayerStateJump.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
   </ItemGroup>

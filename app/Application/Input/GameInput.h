@@ -1,7 +1,7 @@
 #pragma once
 #include "type/Vector2.h"
 
-struct InputContext {
+struct PlayerInput {
 	Hagine::Vector2 dir;
 	bool move;
 	bool jump;
@@ -16,9 +16,9 @@ public:
 	// 入力状態を取得
 	void UpdateInputState();
 	// コンテキストを取得
-	const InputContext& GetInputContext() const { return context_; };
+	const PlayerInput& GetInputContext() const { return context_; };
 private:
 	// コンテキストを保持
-	InputContext context_{};
+	PlayerInput context_{};
 };
 
