@@ -4,8 +4,12 @@
 
 #include "States/Base/PlayerStateBase.h"
 #include "Core/PlayerContext.h"
-#include "Application/Character/Player/Components/Move/PlayerMoveComponent.h"
-#include "Application/Character/Player/Components/Jump/PlayerJumpComponent.h"
+#include "Components/Move/PlayerMoveComponent.h"
+#include "Components/Jump/PlayerJumpComponent.h"
+#include "Components/Shoot/PlayerShootComponent.h"
+
+#include "Application/Character/Player/Weapon/PlayerWeapon.h"
+#include "Application/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 
 class Player : public Hagine::BaseObject{
 public:
@@ -28,6 +32,10 @@ private:
 	// コンポーネント群
 	PlayerMoveComponent move_;
 	PlayerJumpComponent jump_;
+	PlayerShootComponent shoot_;
+
+	PlayerBulletManager bullets_;
+	PlayerWeapon weapon_;
 
 	PlayerContext context_;
 

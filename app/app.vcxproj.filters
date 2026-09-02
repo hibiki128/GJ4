@@ -41,6 +41,10 @@
     <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp" />
     <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp" />
     <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\PlayerWeapon.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Character\ColorStruct.h">
@@ -65,6 +69,10 @@
     <ClInclude Include="Application\Character\Player\States\Dash\PlayerStateDash.h" />
     <ClInclude Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.h" />
     <ClInclude Include="Application\Character\Player\States\Jump\PlayerStateJump.h" />
+    <ClInclude Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.h" />
+    <ClInclude Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.h" />
+    <ClInclude Include="Application\Character\Player\Weapon\PlayerWeapon.h" />
+    <ClInclude Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.h" />
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="app.manifest" />
