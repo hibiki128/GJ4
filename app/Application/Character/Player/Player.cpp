@@ -17,15 +17,25 @@ void Player::Init(const std::string objectName) {
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
 	currentState_ = states_["Idle"].get();
 
+	// 弾のプールを生成してオブジェクトマネージャーに登録する
+	// （以降、弾の更新と描画はオブジェクトマネージャーが行う）
+	bullets_.Init(objectName + "Bullet");
+
+	shoot_.SetWeapon(&weapon_);
+
 	context_.transform_ = GetWorldTransform();
 	context_.moveComponent_ = &move_;
 	context_.jumpComponent_ = &jump_;
+	context_.shootComponent_ = &shoot_;
+	context_.bullets = &bullets_;
 }
 
 void Player::Update() {
 	if (currentState_) {
 		currentState_->Update(*this, context_);
 	}
+
+	shoot_.Update(context_);
 
 	BaseObject::Update();
 }
