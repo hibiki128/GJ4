@@ -1,0 +1,54 @@
+name: windows_build_test
+
+# Develop / main を対象にしたプルリクエストの作成・更新時に実行する
+on:
+  pull_request:
+    branches:
+      - Develop
+      - main
+
+# 同じPRに続けてpushされた場合、走行中の古いビルドを打ち切って最新分だけを実行する
+concurrency:
+  group: build-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # ビルド対象のソリューション。リポジトリルートからの相対パス
+  SOLUTION_FILE_PATH: app/app.slnx
+
+jobs:
+  build:
+    strategy:
+      # Debug が落ちた時点で Release 側も打ち切る
+      fail-fast: true
+      matrix:
+        # 2構成を並列ジョブとしてビルドする
+        configuration:
+          - Debug
+          - Release
+
+    # app.vcxproj が PlatformToolset v145 を指定しているため、VS2026入りのイメージを使う
+    runs-on: windows-2025-vs2026
+
+    steps:
+      # リポジトリを取得する。module/Hagine とその配下の外部ライブラリも含めて取得する
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # msbuild コマンドをPATHに通す。x64向けのツールチェーンを選択する
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
+
+      # クリーンビルドを行い、失敗時は終了コードを引き継いでジョブを失敗させる
+      - name: Build
+        shell: pwsh
+        run: |
+          Write-Host "Building solution with configuration: ${{ matrix.configuration }}"
+          msbuild $env:SOLUTION_FILE_PATH /t:Clean /p:Platform=x64,Configuration=${{ matrix.configuration }}
+          msbuild $env:SOLUTION_FILE_PATH /t:Build  /p:Platform=x64,Configuration=${{ matrix.configuration }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
