@@ -84,7 +84,7 @@ private:
     Boss *pBoss_ = nullptr;         // 検証対象（非所有）
     Color selectedColor_ = Color::RED; // 現在の色
     LockOnResult lockOn_{};         // 現在のロックオン結果
-    ChainHitResult lastHit_{};      // 直近の命中結果（UI表示用）
+    BulletHitResult lastHit_{};     // 直近の着弾結果（UI表示用）
 
     std::vector<std::unique_ptr<BossTestProjectile>> projectiles_{}; // 弾のプール
     int projectileSerial_ = 0;      // 弾の名前に使う連番

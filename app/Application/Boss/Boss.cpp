@@ -39,33 +39,31 @@ void Boss::Init(const std::string objectName) {
     // その値でパーツが作られる
     RegisterTuningParameters();
 
-    const BossLayoutParams &layout = parameters_.Layout();
+    const BossShellParams &shell = parameters_.Shell();
 
     // シーンに保存済みの配置があればそれを尊重し、無いときだけ既定値を入れる
     if (!objectData_ || !objectData_->Contains("translation")) {
-        transform_->translation_ = Vector3{0.0f, layout.radius, 0.0f};
+        transform_->translation_ = Vector3{0.0f, GetBodyRadius(), 0.0f};
     }
     if (!objectData_ || !objectData_->Contains("scale")) {
-        const float coreSize = layout.radius * layout.coreScale;
+        const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
         transform_->scale_ = Vector3{coreSize, coreSize, coreSize};
     }
     transform_->UpdateMatrix();
     SetTexture(kBossTexturePath);
     SetColor(Vector4{0.16f, 0.16f, 0.20f, 1.0f});
 
-    // --- パーツ群を生成して自分にぶら下げる ---
-    graph_.Build(this, objectName + "Part", layout, palette_, parameters_.Chain(),
-                 parameters_.GetColorSeed(), kBossPartTag, kPlayerBulletTag);
-    builtSubdivision_ = layout.subdivision;
+    // --- 殻の球を生成して自分にぶら下げる ---
+    cluster_.Build(this, objectName + "Sphere", shell, palette_, parameters_.Chain(),
+                   parameters_.GetColorSeed());
 
-    hp_ = parameters_.GetMaxHp();
     staggerTimer_ = 0.0f;
     homePosition_ = transform_->translation_;
 
     SetupStatesAndAttacks();
 
-    Logger::Info("Boss: " + bossId_ + " を生成しました（パーツ " +
-                 std::to_string(graph_.GetTotalCount()) + "個 / 使用色 " +
+    Logger::Info("Boss: " + bossId_ + " を生成しました（球 " +
+                 std::to_string(cluster_.GetInitialCount()) + "個 / 使用色 " +
                  std::to_string(palette_.GetUsedColors().size()) + "色）");
 }
 
@@ -95,7 +93,7 @@ void Boss::Update() {
 
     if (drawGraphDebug_) {
         // 線はフレーム単位で積み上げるので、描画フェーズではなく更新中に積む
-        graph_.DebugDrawGraph();
+        cluster_.DebugDraw();
     }
 }
 
@@ -104,7 +102,7 @@ void Boss::Draw(const ViewProjection &viewProjection) {
     // 呼び出し元（BaseObjectManager::Draw）のインスタンシング収集範囲内なので、
     // 同じプリミティブを使うパーツはまとめて1ドローになる
     BaseObject::Draw(viewProjection);
-    graph_.Draw(viewProjection);
+    cluster_.Draw(viewProjection);
 
     // 攻撃中だけ出る表示物（落下攻撃の着弾予告など）
     if (pCurrentAttack_) {
@@ -176,22 +174,9 @@ BossAttackContext Boss::MakeAttackContext(float deltaTime) {
 }
 
 float Boss::GetNormalizedExposure() const {
-    const int total = graph_.GetTotalCount();
-    if (total <= 0) {
-        return 0.0f;
-    }
-    const int destroyed = total - graph_.GetAliveCount();
-
-    // 色は変化しないので、最後まで壊せないパーツが必ず残る。
-    // 素の割合のままだと露出度が 1.0 に届かず、後半の激しさが出ないため、
-    // 既定では「壊せるパーツの総数」を分母にして正規化する
-    const int denominator = parameters_.Exposure().normalizeByDestroyable
-                                ? graph_.GetDestroyablePartCount()
-                                : total;
-    if (denominator <= 0) {
-        return 0.0f;
-    }
-    return std::clamp(static_cast<float>(destroyed) / static_cast<float>(denominator), 0.0f, 1.0f);
+    // 弾を付着させて塊を育てられるため、殻はすべて削り切れる。
+    // 素の割合をそのまま使えば 1.0 まで到達する
+    return cluster_.GetExposure();
 }
 
 void Boss::UpdateExposureScaling() {
@@ -268,78 +253,50 @@ bool Boss::DealDamageToTarget(float amount, const Vector3 &impactPoint) {
 }
 
 void Boss::ApplyDamage(const DamageInfo &info) {
+    // このボスはHPを削って倒すのではなく、殻の球をすべて破壊するのが撃破条件。
+    // 球を減らすのは同色消去そのものなので、ここでは怯みだけを受け取る
     if (IsDead()) {
         return;
     }
 
-    hp_ = (std::max)(0.0f, hp_ - info.amount);
     // 連続ヒットで怯みが短くならないよう、長い方を採用する
     staggerTimer_ = (std::max)(staggerTimer_, info.staggerTime);
-
-    if (IsDead()) {
-        ImGuiNotification::Post("ボス撃破", {1.0f, 0.85f, 0.3f, 1.0f});
-    }
 }
 
 bool Boss::FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) {
-    return graph_.FindLockOnTarget(request, parameters_.LockOn().requireFacing, out);
+    return cluster_.FindLockOnTarget(request, parameters_.LockOn().requireFacing, out);
 }
 
-ChainHitResult Boss::ReportHit(int partIndex, Color shotColor) {
-    ChainHitResult result{};
+BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
+    const bool wasAlive = !IsDead();
 
-    BossPart *part = graph_.GetPart(partIndex);
-    if (!part || !part->IsPartAlive()) {
-        return result;
+    const BulletHitResult result =
+        cluster_.RaycastAttach(worldStart, worldEnd, color, parameters_.Chain(), palette_);
+
+    // 消去が起きたぶんだけ怯みが入る（付着しただけなら何も起きない）
+    if (result.destroyed) {
+        DamageInfo info{};
+        info.hitPoint = result.hitPoint;
+        info.chainSize = result.clusterSize;
+        info.staggerTime = result.staggerTime;
+        ApplyDamage(info);
+
+        // 殻の球をすべて破壊し切ったら撃破
+        if (wasAlive && IsDead()) {
+            ImGuiNotification::Post("ボス撃破（殻をすべて破壊）", {1.0f, 0.85f, 0.3f, 1.0f});
+            Logger::Info("Boss: " + bossId_ + " 撃破（殻の球をすべて破壊）");
+        }
     }
-    if (part->GetPartColor() != shotColor) {
-        return result; // 色が違うパーツは弾かれる（ダメージなし）
-    }
-
-    result.accepted = true;
-
-    const std::vector<int> cluster = graph_.CollectSameColorCluster(partIndex);
-    result.chainSize = static_cast<int>(cluster.size());
-
-    const BossChainParams &chain = parameters_.Chain();
-    if (result.chainSize < chain.minMatch) {
-        return result; // 連鎖不成立。色を切り替えて連結を育てる
-    }
-
-    const Vector3 hitPoint = part->GetWorldPosition();
-    const int broken = graph_.BreakParts(cluster);
-    if (broken <= 0) {
-        return result;
-    }
-
-    // 連鎖規模が大きいほどダメージ・怯みが伸びる
-    const int overMatch = broken - chain.minMatch;
-    result.destroyed = true;
-    result.damage = chain.damagePerPart * static_cast<float>(broken) *
-                    (1.0f + chain.chainBonus * static_cast<float>(overMatch));
-    result.staggerTime = chain.staggerBase + chain.staggerPerPart * static_cast<float>(overMatch);
-
-    DamageInfo info{};
-    info.amount = result.damage;
-    info.hitPoint = hitPoint;
-    info.chainSize = broken;
-    info.staggerTime = result.staggerTime;
-    ApplyDamage(info);
 
     return result;
 }
 
-ChainHitResult Boss::ReportHitByCollider(const ColliderBase *hitCollider, Color shotColor) {
-    return ReportHit(FindPartIndex(hitCollider), shotColor);
-}
-
-int Boss::FindPartIndex(const ColliderBase *collider) const {
-    return graph_.FindPartIndex(collider);
+bool Boss::TryGetTargetPosition(const ShellCell &cell, Vector3 &out) {
+    return cluster_.TryGetCellWorldPosition(cell, out);
 }
 
 void Boss::ResetBoss() {
-    graph_.ResetAll(palette_, parameters_.Chain(), parameters_.GetColorSeed());
-    hp_ = parameters_.GetMaxHp();
+    cluster_.ResetAll(parameters_.Shell(), palette_, parameters_.Chain(), parameters_.GetColorSeed());
     staggerTimer_ = 0.0f;
 
     pCurrentAttack_ = nullptr;
@@ -350,37 +307,27 @@ void Boss::ResetBoss() {
     stateMachine_.Start(*this, BossStateId::Idle);
 }
 
-void Boss::ApplyLayoutChanges() {
-    const BossLayoutParams &layout = parameters_.Layout();
-
-    // 分割数が変わったときだけ作り直しが要る（パーツの数そのものが変わるため）
-    if (layout.subdivision != builtSubdivision_) {
-        RebuildParts();
-        return;
-    }
-
+void Boss::ApplyShellChanges() {
+    // 球の大きさだけの変更なら、位置と見た目を引き直すだけで済む
     ApplyCoreLayout();
-    graph_.ApplyLayout(layout);
+    cluster_.ApplyRadius(parameters_.Shell());
 }
 
-void Boss::RebuildParts() {
-    const BossLayoutParams &layout = parameters_.Layout();
-
+void Boss::RebuildShell() {
     ApplyCoreLayout();
-    graph_.Build(this, objectName_ + "Part", layout, palette_, parameters_.Chain(),
-                 parameters_.GetColorSeed(), kBossPartTag, kPlayerBulletTag);
-    builtSubdivision_ = layout.subdivision;
+    cluster_.Build(this, objectName_ + "Sphere", parameters_.Shell(), palette_, parameters_.Chain(),
+                   parameters_.GetColorSeed());
 
     UpdateExposureScaling();
 }
 
 void Boss::ApplyCoreLayout() {
-    const BossLayoutParams &layout = parameters_.Layout();
+    const BossShellParams &shell = parameters_.Shell();
 
-    // コアの大きさと接地高さを半径へ追従させる
-    const float coreSize = layout.radius * layout.coreScale;
+    // コアの大きさと接地高さを殻へ追従させる
+    const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
     transform_->scale_ = Vector3{coreSize, coreSize, coreSize};
-    homePosition_.y = layout.radius;
+    homePosition_.y = GetBodyRadius();
 
     // 攻撃で浮いている最中に高さを合わせると落下が破綻するので、そのときは触らない
     if (stateMachine_.GetCurrentId() != BossStateId::Attack) {
@@ -403,40 +350,41 @@ void Boss::RegisterTuningParameters() {
     GameParamHub *hub = GameParamHub::GetInstance();
     BossChainParams &chain = parameters_.Chain();
     BossLockOnParams &lockOn = parameters_.LockOn();
-    BossLayoutParams &layout = parameters_.Layout();
+    BossShellParams &shell = parameters_.Shell();
 
-    // --- 見た目（変更したらパーツを作り直す）---
-    GameParamHub::Options rebuildOptions{};
-    rebuildOptions.speed = 0.05f;
-    rebuildOptions.min = 0.1f;
-    rebuildOptions.max = 30.0f;
-    rebuildOptions.onChange = [this] { ApplyLayoutChanges(); };
+    // --- 殻の形（球の大きさは即反映。帯を変えたら作り直しが要る）---
+    GameParamHub::Options radiusOptions{};
+    radiusOptions.speed = 0.01f;
+    radiusOptions.min = 0.05f;
+    radiusOptions.max = 3.0f;
+    radiusOptions.onChange = [this] { ApplyShellChanges(); };
+    hub->Register(paramOwnerLabel_, "殻:球の半径", &shell.sphereRadius, radiusOptions);
 
-    hub->Register(paramOwnerLabel_, "見た目:全体の半径", &layout.radius, rebuildOptions);
+    GameParamHub::Options bandOptions{};
+    bandOptions.speed = 0.05f;
+    bandOptions.min = 0.1f;
+    bandOptions.max = 30.0f;
+    // 帯を動かすと球の数が変わるので、作り直す
+    bandOptions.onChange = [this] { RebuildShell(); };
+    hub->Register(paramOwnerLabel_, "殻:基本殻の半径", &shell.shellRadius, bandOptions);
 
-    rebuildOptions.min = 0.0f;
-    rebuildOptions.max = 10.0f;
-    hub->Register(paramOwnerLabel_, "見た目:パーツの大きさ(0で自動)", &layout.partScale, rebuildOptions);
+    GameParamHub::Options layerOptions{};
+    layerOptions.speed = 1.0f;
+    layerOptions.min = 0.0f;
+    layerOptions.max = 5.0f;
+    layerOptions.onChange = [this] { RebuildShell(); };
+    hub->Register(paramOwnerLabel_, "殻:分割数(0=12/1=42/2=162)", &shell.subdivision, layerOptions);
+    hub->Register(paramOwnerLabel_, "殻:外側へ付着できる層数", &shell.outerLayers, layerOptions);
+    hub->Register(paramOwnerLabel_, "殻:内側へ付着できる層数", &shell.innerLayers, layerOptions);
 
-    rebuildOptions.speed = 0.01f;
-    rebuildOptions.min = 0.05f;
-    rebuildOptions.max = 1.5f;
-    hub->Register(paramOwnerLabel_, "見た目:パーツの厚み", &layout.partThickness, rebuildOptions);
-
-    rebuildOptions.min = 0.1f;
-    rebuildOptions.max = 1.2f;
-    hub->Register(paramOwnerLabel_, "見た目:コアの大きさ", &layout.coreScale, rebuildOptions);
-
-    GameParamHub::Options subdivisionOptions{};
-    subdivisionOptions.speed = 1.0f;
-    subdivisionOptions.min = 0.0f;
-    subdivisionOptions.max = 2.0f;
-    subdivisionOptions.onChange = [this] { ApplyLayoutChanges(); };
-    hub->Register(paramOwnerLabel_, "見た目:分割数(0=12/1=42/2=162)", &layout.subdivision, subdivisionOptions);
+    GameParamHub::Options coreOptions{};
+    coreOptions.speed = 0.01f;
+    coreOptions.min = 0.1f;
+    coreOptions.max = 1.2f;
+    coreOptions.onChange = [this] { ApplyShellChanges(); };
+    hub->Register(paramOwnerLabel_, "殻:コアの大きさ", &shell.coreScale, coreOptions);
 
     hub->Register(paramOwnerLabel_, "連鎖:最低連結数", &chain.minMatch, {1.0f, 2.0f, 8.0f});
-    hub->Register(paramOwnerLabel_, "連鎖:パーツ単価ダメージ", &chain.damagePerPart, {0.5f, 0.0f, 500.0f});
-    hub->Register(paramOwnerLabel_, "連鎖:規模ボーナス", &chain.chainBonus, {0.01f, 0.0f, 3.0f});
     hub->Register(paramOwnerLabel_, "連鎖:基礎怯み時間", &chain.staggerBase, {0.01f, 0.0f, 5.0f});
     hub->Register(paramOwnerLabel_, "連鎖:1つあたり怯み加算", &chain.staggerPerPart, {0.01f, 0.0f, 2.0f});
     hub->Register(paramOwnerLabel_, "連鎖:初期塊の上限", &chain.maxInitialCluster, {1.0f, 0.0f, 60.0f});
@@ -471,7 +419,6 @@ void Boss::RegisterTuningParameters() {
 
     // --- 露出度スケーリング（難易度カーブ）---
     BossExposureParams &exposure = parameters_.Exposure();
-    hub->Register(paramOwnerLabel_, "露出度:壊せる分で正規化", &exposure.normalizeByDestroyable);
     hub->Register(paramOwnerLabel_, "露出度:攻撃間隔(露出0)", &exposure.attackIntervalAtZero, {0.05f, 0.2f, 30.0f});
     hub->Register(paramOwnerLabel_, "露出度:攻撃間隔(露出1)", &exposure.attackIntervalAtFull, {0.05f, 0.2f, 30.0f});
     hub->Register(paramOwnerLabel_, "露出度:突進速度の倍率(露出1)", &exposure.spinDashSpeedScaleAtFull, {0.01f, 0.1f, 5.0f});
@@ -489,14 +436,14 @@ void Boss::DrawImGui() {
         return;
     }
 
-    const float maxHp = (std::max)(1.0f, parameters_.GetMaxHp());
-    ImGui::Text("HP: %.0f / %.0f", hp_, maxHp);
-    ImGui::ProgressBar(hp_ / maxHp, ImVec2(-1.0f, 0.0f));
+    // 撃破条件は「中心のコアを除く色付きの球をすべて破壊すること」。
+    // 残りの球数がそのまま撃破までの進捗になる
+    const float initialCount = (std::max)(1.0f, GetMaxHp());
+    ImGui::Text("残りの球: %.0f / %.0f %s", GetHp(), initialCount, IsDead() ? "（撃破）" : "");
+    ImGui::ProgressBar(1.0f - GetHp() / initialCount, ImVec2(-1.0f, 0.0f), "破壊した割合");
 
-    ImGui::Text("露出度: %.1f%%  (残り %d / %d)", graph_.GetExposure() * 100.0f,
-                graph_.GetAliveCount(), graph_.GetTotalCount());
-    ImGui::Text("スケーリング用の露出度: %.1f%%（壊せる %d 枚を上限として正規化）",
-                GetNormalizedExposure() * 100.0f, graph_.GetDestroyablePartCount());
+    ImGui::Text("露出度: %.1f%%  (球 %d / 初期 %d ・プール上限 %d)", cluster_.GetExposure() * 100.0f,
+                cluster_.GetOccupiedCount(), cluster_.GetInitialCount(), cluster_.GetCapacity());
     ImGui::Text("現在の攻撃間隔: %.2f 秒", scheduler_.GetInterval());
     ImGui::Text("怯み残り: %.2f 秒", staggerTimer_);
 
@@ -513,37 +460,37 @@ void Boss::DrawImGui() {
     ImGui::SameLine();
     ImGui::TextDisabled("攻撃の当て先: %s", pTargetDamageSink_ ? "接続済み" : "未接続（通知のみ）");
 
-    // パーツの色は変化しないので、この数が0になると連鎖では削れなくなる
-    int poppableParts = 0;
-    const int poppableClusters = graph_.CountPoppableClusters(parameters_.Chain().minMatch, &poppableParts);
-    ImGui::Text("破壊可能な塊: %d 個（パーツ %d 枚ぶん）", poppableClusters, poppableParts);
-    if (poppableClusters == 0) {
-        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.4f, 1.0f), "連鎖で削れる塊が残っていません");
-    }
-
     ImGui::SeparatorText("色残量");
     for (Color color : palette_.GetUsedColors()) {
         const Vector4 rgba = palette_.GetRgba(color);
         ImGui::TextColored(ImVec4(rgba.x, rgba.y, rgba.z, rgba.w), "%-7s : %d",
-                           BossColorPalette::GetIdText(color), graph_.CountAlive(color));
+                           BossColorPalette::GetIdText(color), cluster_.CountAlive(color));
     }
 
-    ImGui::SeparatorText("見た目");
-    BossLayoutParams &layout = parameters_.Layout();
-    bool layoutChanged = false;
-    layoutChanged |= ImGui::DragFloat("全体の半径", &layout.radius, 0.05f, 0.1f, 30.0f);
-    layoutChanged |= ImGui::DragFloat("パーツの厚み", &layout.partThickness, 0.01f, 0.05f, 1.5f);
-    layoutChanged |= ImGui::DragFloat("パーツの大きさ(0で自動)", &layout.partScale, 0.02f, 0.0f, 10.0f);
-    layoutChanged |= ImGui::DragFloat("コアの大きさ", &layout.coreScale, 0.01f, 0.1f, 1.2f);
-    layoutChanged |= ImGui::SliderInt("分割数(0=12/1=42/2=162)", &layout.subdivision, 0, 2);
+    ImGui::SeparatorText("殻の形");
+    BossShellParams &shell = parameters_.Shell();
+    bool radiusChanged = false;
+    bool bandChanged = false;
+    radiusChanged |= ImGui::DragFloat("球の半径(0で自動)", &shell.sphereRadius, 0.01f, 0.0f, 3.0f);
+    // 実際に使われている半径を見せる。0以外を入れると自動算出（隣と接する大きさ）から
+    // 外れてハニカムが崩れるため、ここで食い違いに気づけるようにしておく
+    ImGui::SameLine();
+    ImGui::TextDisabled("実際: %.3f", cluster_.GetSphereRadius());
+    radiusChanged |= ImGui::DragFloat("コアの大きさ", &shell.coreScale, 0.01f, 0.1f, 1.2f);
+    bandChanged |= ImGui::DragFloat("基本殻の半径", &shell.shellRadius, 0.05f, 0.1f, 30.0f);
+    bandChanged |= ImGui::SliderInt("分割数(0=12/1=42/2=162)", &shell.subdivision, 0, 2);
+    bandChanged |= ImGui::SliderInt("外側へ付着できる層数", &shell.outerLayers, 0, 5);
+    bandChanged |= ImGui::SliderInt("内側へ付着できる層数", &shell.innerLayers, 0, 5);
 
-    const bool rebuildPressed = ImGui::Button("パーツを作り直す");
-    if (layoutChanged) {
-        ApplyLayoutChanges(); // 半径・厚みはトランスフォームの更新だけで済む
-    } else if (rebuildPressed) {
-        RebuildParts();
+    const bool rebuildPressed = ImGui::Button("殻を作り直す");
+    if (bandChanged || rebuildPressed) {
+        // 帯を変えると球の数が変わるので作り直す
+        RebuildShell();
+    } else if (radiusChanged) {
+        // 球の大きさだけなら位置と見た目の更新で済む
+        ApplyShellChanges();
     }
-    ImGui::TextDisabled("厚み1.0で真球、小さいほど平たい板になります");
+    ImGui::TextDisabled("基本殻はハニカム状に均等配置。弾はその外側・内側の層へ付着します");
 
     ImGui::SeparatorText("デバッグ");
     ImGui::Checkbox("隣接グラフを描画", &drawGraphDebug_);

@@ -2,7 +2,7 @@
 #include "Application/Boss/Attack/BossAttackScheduler.h"
 #include "Application/Boss/Data/BossColorPalette.h"
 #include "Application/Boss/Data/BossParameters.h"
-#include "Application/Boss/Part/BossPartGraph.h"
+#include "Application/Boss/Shell/BossSphereCluster.h"
 #include "Application/Boss/State/BossStateMachine.h"
 #include "Application/Interface/IBossTargetQuery.h"
 #include "Application/Interface/IColorProvider.h"
@@ -19,8 +19,8 @@ inline constexpr const char *kPlayerBulletTag = "PlayerBullet";
 /// <summary>
 /// 色付きパーツで覆われた球状のボス。
 ///
-/// ・見た目: 内側のコア球（このオブジェクト自身）＋表面を覆うパーツ群（BossPartGraph）
-/// ・被弾  : IBossTargetQuery 経由で命中を受け取り、連鎖マッチ判定を行う
+/// ・見た目: 内側のコア球（このオブジェクト自身）＋ハニカム状に並んだ球の殻（BossSphereCluster）
+/// ・被弾  : IBossTargetQuery 経由で弾の線分を受け取り、付着と同色消去を行う
 /// ・連携  : プレイヤーの具象クラスには依存せず、ITargetLocator / IColorProvider だけを見る
 /// </summary>
 class Boss final : public Hagine::BaseObject, public IDamageable, public IBossTargetQuery {
@@ -50,18 +50,26 @@ public:
     /// IDamageable
     /// ===================================================
 
+    /// <summary>
+    /// 攻撃を受けたときの処理。
+    /// このボスはHPを削って倒すのではなく「殻の球をすべて破壊する」のが撃破条件なので、
+    /// ここでは怯みだけを適用する（球を減らすのは同色消去そのもの）
+    /// </summary>
     void ApplyDamage(const DamageInfo &info) override;
-    float GetHp() const override { return hp_; }
-    bool IsDead() const override { return hp_ <= 0.0f; }
+
+    /// <summary>残っている殻の球の数（＝このボスにとってのHP）</summary>
+    float GetHp() const override { return static_cast<float>(cluster_.GetOccupiedCount()); }
+
+    /// <summary>撃破されたか（中心のコアを除く色付きの球がすべて無くなったか）</summary>
+    bool IsDead() const override { return cluster_.GetOccupiedCount() <= 0; }
 
     /// ===================================================
     /// IBossTargetQuery
     /// ===================================================
 
     bool FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) override;
-    ChainHitResult ReportHit(int partIndex, Color shotColor) override;
-    ChainHitResult ReportHitByCollider(const Hagine::ColliderBase *hitCollider, Color shotColor) override;
-    int FindPartIndex(const Hagine::ColliderBase *collider) const override;
+    BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color) override;
+    bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
 
     /// ===================================================
     /// 連携（シーンから配線する）
@@ -91,46 +99,46 @@ public:
     /// getter
     /// ===================================================
 
-    /// <summary>削れたパーツの割合（素の露出度 0〜1）</summary>
-    float GetExposure() const { return graph_.GetExposure(); }
+    /// <summary>削れた球の割合（露出度 0〜1）。初期の球数が基準</summary>
+    float GetExposure() const { return cluster_.GetExposure(); }
 
     /// <summary>
     /// 攻撃のスケーリングに使う露出度（0〜1）。
-    /// 既定では「連鎖で壊せるパーツの総数」を分母に正規化するため、
-    /// 壊せる分をすべて壊した時点で 1.0 になる
+    /// 弾を付着させて塊を育てられるので、削り切れば 1.0 に到達する
     /// </summary>
     float GetNormalizedExposure() const;
 
-    /// <summary>指定色の生存パーツ数（色残量ミニマップ用）</summary>
-    int CountAliveParts(Color color) const { return graph_.CountAlive(color); }
+    /// <summary>指定色の球の数（色残量ミニマップ用）</summary>
+    int CountAliveParts(Color color) const { return cluster_.CountAlive(color); }
 
     /// <summary>怯み中か</summary>
     bool IsStaggered() const { return staggerTimer_ > 0.0f; }
 
-    float GetMaxHp() const { return parameters_.GetMaxHp(); }
+    /// <summary>初期状態の球の数（＝最大HP相当）</summary>
+    float GetMaxHp() const { return static_cast<float>(cluster_.GetInitialCount()); }
     const BossParameters &GetParameters() const { return parameters_; }
     const BossColorPalette &GetPalette() const { return palette_; }
-    BossPartGraph &GetPartGraph() { return graph_; }
+    BossSphereCluster &GetCluster() { return cluster_; }
 
-    /// <summary>ロックオン中のパーツを強調表示する（-1で解除）</summary>
-    void SetLockOnHighlight(int partIndex) { graph_.SetHighlightedPart(partIndex); }
+    /// <summary>ロックオン中の球を強調表示する（valid=false で解除）</summary>
+    void SetLockOnHighlight(const ShellCell &cell, bool valid) { cluster_.SetHighlightedCell(cell, valid); }
 
     /// <summary>読み込むボスデータのID（jsons/Boss/[id].json）。Init より前に呼ぶこと</summary>
     void SetBossId(const std::string &bossId) { bossId_ = bossId; }
 
-    /// <summary>パーツ・HPを初期状態へ戻す（デバッグ・リトライ用）</summary>
+    /// <summary>殻・HPを初期状態へ戻す（デバッグ・リトライ用）</summary>
     void ResetBoss();
 
     /// <summary>
-    /// 半径・パーツの大きさ・厚みの変更を反映する（軽い。パーツは作り直さない）。
-    /// 分割数が変わっている場合だけ RebuildParts() へ回す
+    /// 球の大きさの変更を反映する（軽い。球は作り直さない）。
+    /// 帯そのものを変えた場合は RebuildShell() を使うこと
     /// </summary>
-    void ApplyLayoutChanges();
+    void ApplyShellChanges();
 
     /// <summary>
-    /// パーツを作り直す（分割数の変更用）。壊れたパーツは全て復活する
+    /// 殻を作り直す（帯や球の半径を変えたとき用）。消えた球はすべて復活する
     /// </summary>
-    void RebuildParts();
+    void RebuildShell();
 
     /// ===================================================
     /// 状態・攻撃（BossState / IBossAttack から使う操作）
@@ -189,7 +197,10 @@ public:
     Hagine::Vector3 GetBossPosition() const { return transform_->translation_; }
     void SetBossPosition(const Hagine::Vector3 &position);
     const Hagine::Vector3 &GetHomePosition() const { return homePosition_; }
-    float GetBodyRadius() const { return parameters_.Layout().radius; }
+    /// <summary>見た目の外周半径（基本殻の球の表面まで）。接地高さや接触判定に使う</summary>
+    float GetBodyRadius() const {
+        return parameters_.Shell().shellRadius + cluster_.GetSphereRadius();
+    }
 
     /// <summary>現在の状態名（デバッグUI用）</summary>
     const char *GetStateName() const { return stateMachine_.GetCurrentName(); }
@@ -228,9 +239,8 @@ private:
     std::string bossId_ = "Boss01"; // 読み込むボスデータのID
     BossParameters parameters_{};   // ボスごとのデータ（JSON）
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
-    BossPartGraph graph_{};       // パーツ群と隣接グラフ
+    BossSphereCluster cluster_{}; // 殻を構成する球の集合
 
-    float hp_ = 0.0f;            // 残りHP
     float staggerTimer_ = 0.0f;  // 怯み残り時間（秒）
 
     ITargetLocator *pTargetLocator_ = nullptr;   // 狙う相手（非所有）
@@ -242,7 +252,6 @@ private:
     IBossAttack *pCurrentAttack_ = nullptr;      // 進行中の攻撃（所有は scheduler_）
 
     Hagine::Vector3 homePosition_{};             // 初期位置（アリーナ中心・着地高さの基準）
-    int builtSubdivision_ = -1;                  // 現在のパーツを組んだときの分割数
     float spinAngle_ = 0.0f;                     // 自転の累積角（ラジアン）
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
 

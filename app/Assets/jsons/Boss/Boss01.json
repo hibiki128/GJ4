@@ -1,25 +1,24 @@
 {
-    "hp": 1000.0,
     "colorSeed": 20260902,
     "colors": [
         "RED",
         "BLUE",
         "GREEN"
     ],
-    "layout": {
+    "shell": {
         "subdivision": 1,
-        "radius": 3.0,
-        "partScale": 0.0,
-        "partThickness": 0.7,
-        "coreScale": 0.88
+        "shellRadius": 3.0,
+        "sphereRadius": 0.0,
+        "innerLayers": 0,
+        "outerLayers": 2,
+        "coreScale": 1.0,
+        "extraCapacity": 0
     },
     "chain": {
         "minMatch": 3,
-        "damagePerPart": 20.0,
-        "chainBonus": 0.25,
         "staggerBase": 0.6,
         "staggerPerPart": 0.15,
-        "maxInitialCluster": 8
+        "maxInitialCluster": 2
     },
     "lockOn": {
         "maxAngleDegrees": 20.0,
@@ -31,7 +30,6 @@
         "idleSpinSpeed": 18.0
     },
     "exposure": {
-        "normalizeByDestroyable": true,
         "attackIntervalAtZero": 6.0,
         "attackIntervalAtFull": 2.2,
         "spinDashSpeedScaleAtFull": 1.6,

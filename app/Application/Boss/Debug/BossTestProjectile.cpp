@@ -1,13 +1,16 @@
 #include "BossTestProjectile.h"
+#include "Application/Boss/Shell/BossSphere.h"
 #include "frame/Frame.h"
 #include <algorithm>
 
 using namespace Hagine;
 
-void BossTestProjectile::InitProjectile(const std::string &objectName, const Vector4 &rgba,
-                                        float radius, const std::string &tag, const std::string &collisionMask) {
+void BossTestProjectile::InitProjectile(const std::string &objectName, const Vector4 &rgba, float radius) {
     BaseObject::Init(objectName);
     CreatePrimitiveModel(PrimitiveType::Sphere);
+
+    // 色をそのまま出したいので白テクスチャにする
+    SetTexture(kBossTexturePath);
 
     // 弾はシーンデータに残さない
     SetShouldSave(false);
@@ -17,19 +20,8 @@ void BossTestProjectile::InitProjectile(const std::string &objectName, const Vec
     transform_->UpdateMatrix();
     SetColor(rgba);
 
-    collider_ = AddSphereCollider(objectName + "_Hit");
-    collider_->SetTag(tag);
-    collider_->AddCollisionMask(collisionMask);
-    collider_->SetRadius(radius);
-    collider_->SetOnCollisionEnter([this](ColliderBase *other) {
-        if (isFinished_) {
-            return; // 1発で複数パーツを巻き込まない
-        }
-        if (hitHandler_) {
-            hitHandler_(other);
-        }
-        Finish();
-    });
+    isFinished_ = true;
+    SetIsModelDraw(false);
 }
 
 void BossTestProjectile::Fire(const Vector3 &origin, const Vector3 &direction,
@@ -43,11 +35,7 @@ void BossTestProjectile::Fire(const Vector3 &origin, const Vector3 &direction,
     correctionRate_ = correctionRate;
     isFinished_ = false;
 
-    // 使い終わった弾を再利用する場合に備え、描画と当たり判定を戻す
     SetIsModelDraw(true);
-    if (collider_) {
-        collider_->SetEnabled(true);
-    }
 }
 
 void BossTestProjectile::Update() {
@@ -71,14 +59,21 @@ void BossTestProjectile::Update() {
                 }
             }
         } else {
-            // 対象が壊れた・見失った場合はまっすぐ飛ぶ
+            // 対象が消えた・見失った場合はまっすぐ飛ぶ
             targetPositionGetter_ = nullptr;
         }
     }
 
     // --- 移動 ---
+    const Vector3 previousPosition = transform_->translation_;
     transform_->translation_ += direction_ * (speed_ * deltaTime);
     transform_->UpdateMatrix();
+
+    // --- 着弾判定は「動いた線分」で行う（速い弾でもすり抜けない）---
+    if (hitTester_ && hitTester_(previousPosition, transform_->translation_)) {
+        Finish();
+        return;
+    }
 
     // --- 寿命 ---
     lifeTime_ -= deltaTime;
@@ -90,8 +85,4 @@ void BossTestProjectile::Update() {
 void BossTestProjectile::Finish() {
     isFinished_ = true;
     SetIsModelDraw(false);
-    if (collider_) {
-        // 実体の破棄は所有者（BossTestDriver）が衝突判定の外で行う
-        collider_->SetEnabled(false);
-    }
 }

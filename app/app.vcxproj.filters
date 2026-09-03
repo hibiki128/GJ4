@@ -19,8 +19,11 @@
     <ClCompile Include="Application\Boss\Data\BossParameters.cpp">
       <Filter>Application\Boss\Data</Filter>
     </ClCompile>
-    <ClCompile Include="Application\Boss\Data\BossPartLayout.cpp">
-      <Filter>Application\Boss\Data</Filter>
+    <ClCompile Include="Application\Boss\Lattice\BossIcosphere.cpp">
+      <Filter>Application\Boss\Lattice</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Boss\Lattice\BossSphereLattice.cpp">
+      <Filter>Application\Boss\Lattice</Filter>
     </ClCompile>
     <ClCompile Include="Application\Boss\Debug\BossTestDriver.cpp">
       <Filter>Application\Boss\Debug</Filter>
@@ -28,11 +31,11 @@
     <ClCompile Include="Application\Boss\Debug\BossTestProjectile.cpp">
       <Filter>Application\Boss\Debug</Filter>
     </ClCompile>
-    <ClCompile Include="Application\Boss\Part\BossPart.cpp">
-      <Filter>Application\Boss\Part</Filter>
+    <ClCompile Include="Application\Boss\Shell\BossSphere.cpp">
+      <Filter>Application\Boss\Shell</Filter>
     </ClCompile>
-    <ClCompile Include="Application\Boss\Part\BossPartGraph.cpp">
-      <Filter>Application\Boss\Part</Filter>
+    <ClCompile Include="Application\Boss\Shell\BossSphereCluster.cpp">
+      <Filter>Application\Boss\Shell</Filter>
     </ClCompile>
     <ClCompile Include="Application\Boss\State\BossStateMachine.cpp">
       <Filter>Application\Boss\State</Filter>
@@ -45,6 +48,39 @@
     </ClCompile>
     <ClCompile Include="Application\Input\GameInput.cpp">
       <Filter>Application\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp">
+      <Filter>Application\Character\Player\Components\Move</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\States\Idle\PlayerStateIdle.cpp">
+      <Filter>Application\Character\Player\States\Idle</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\States\Move\PlayerStateMove.cpp">
+      <Filter>Application\Character\Player\States\Move</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\States\Dodge\PlayerStateDodge.cpp">
+      <Filter>Application\Character\Player\States\Dodge</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp">
+      <Filter>Application\Character\Player\States\Dash</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp">
+      <Filter>Application\Character\Player\Components\Jump</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp">
+      <Filter>Application\Character\Player\States\Jump</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.cpp">
+      <Filter>Application\Character\Player\Weapon\Bullet</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.cpp">
+      <Filter>Application\Character\Player\Weapon\Bullet\Manager</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Weapon\PlayerWeapon.cpp">
+      <Filter>Application\Character\Player\Weapon</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.cpp">
+      <Filter>Application\Character\Player\Components\Shoot</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp">
@@ -88,8 +124,11 @@
     <Filter Include="Application\Boss\Debug">
       <UniqueIdentifier>{2f5d073e-da4c-4526-b1f1-ac9e9a9c7ed9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Application\Boss\Part">
-      <UniqueIdentifier>{1d56776c-22e4-4f7a-9331-17b40d7d885a}</UniqueIdentifier>
+    <Filter Include="Application\Boss\Lattice">
+      <UniqueIdentifier>{e398fbb2-4840-45ff-aa72-7abe5e2993a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Boss\Shell">
+      <UniqueIdentifier>{e17e81d9-4757-4492-b931-e4dfece4aa10}</UniqueIdentifier>
     </Filter>
     <Filter Include="Application\Boss\State">
       <UniqueIdentifier>{5b5479d9-3065-4380-bc2f-0166d82f7d08}</UniqueIdentifier>
@@ -97,32 +136,54 @@
     <Filter Include="Application\Character\Player">
       <UniqueIdentifier>{E9D8B358-61CA-D321-BD4A-3BA1136F09F1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Application\Character\Player\Components">
+      <UniqueIdentifier>{5a38b518-3d5d-45d9-b7fa-095102961fdb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Core">
+      <UniqueIdentifier>{9ad17801-1c94-4d3a-a9aa-4131513a166f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States">
+      <UniqueIdentifier>{2e149ab4-4a5f-4c9a-a2a6-ce10035b3969}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Weapon">
+      <UniqueIdentifier>{63533a4d-8a91-4e70-9aa4-bad85d98af28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Components\Jump">
+      <UniqueIdentifier>{245c56e0-1765-432e-bce3-bdb52c006578}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Components\Move">
+      <UniqueIdentifier>{b6726aa7-219d-4fec-b856-3b2c9545e675}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Components\Shoot">
+      <UniqueIdentifier>{9a07adf0-8076-45ff-9a33-c27fa7188448}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Base">
+      <UniqueIdentifier>{cbd853f9-6651-41d3-a460-18ca47ff80ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Dash">
+      <UniqueIdentifier>{e0b0738c-a768-4635-af03-dd038353aac1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Dodge">
+      <UniqueIdentifier>{caa1fcd3-7856-4a5b-906b-809157b9549b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Idle">
+      <UniqueIdentifier>{72b0363f-501c-411e-bfd1-d1366e5871d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Jump">
+      <UniqueIdentifier>{c268de27-153b-4258-ac74-83940cfd07ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\States\Move">
+      <UniqueIdentifier>{9b5521c7-f451-4d54-b532-41d1afbf043a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Weapon\Bullet">
+      <UniqueIdentifier>{1c932a27-e266-477c-b791-d52923e477bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Application\Character\Player\Weapon\Bullet\Manager">
+      <UniqueIdentifier>{460b278f-854f-411f-85d4-67280a39142e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Application\Character\Player\Player.cpp">
-      <Filter>Application\Character\Player</Filter>
-    </ClCompile>
-    <ClCompile Include="src\framework\GJ4App.cpp">
-      <Filter>src\framework</Filter>
-    </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\scene\GameScene.cpp">
-      <Filter>src\scene</Filter>
-    </ClCompile>
-    <ClCompile Include="Application\Input\GameInput.cpp" />
-    <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
-    <ClCompile Include="Application\Character\Player\States\Idle\PlayerStateIdle.cpp" />
-    <ClCompile Include="Application\Character\Player\States\Move\PlayerStateMove.cpp" />
-    <ClCompile Include="Application\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
-    <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp" />
-    <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp" />
-    <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp" />
-    <ClCompile Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.cpp" />
-    <ClCompile Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.cpp" />
-    <ClCompile Include="Application\Character\Player\Weapon\PlayerWeapon.cpp" />
-    <ClCompile Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
+    <Manifest Include="app.manifest" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Boss\Attack\BossAttackScheduler.h">
@@ -146,8 +207,11 @@
     <ClInclude Include="Application\Boss\Data\BossParameters.h">
       <Filter>Application\Boss\Data</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Boss\Data\BossPartLayout.h">
-      <Filter>Application\Boss\Data</Filter>
+    <ClInclude Include="Application\Boss\Lattice\BossIcosphere.h">
+      <Filter>Application\Boss\Lattice</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Boss\Lattice\BossSphereLattice.h">
+      <Filter>Application\Boss\Lattice</Filter>
     </ClInclude>
     <ClInclude Include="Application\Boss\Debug\BossTestDriver.h">
       <Filter>Application\Boss\Debug</Filter>
@@ -155,11 +219,11 @@
     <ClInclude Include="Application\Boss\Debug\BossTestProjectile.h">
       <Filter>Application\Boss\Debug</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Boss\Part\BossPart.h">
-      <Filter>Application\Boss\Part</Filter>
+    <ClInclude Include="Application\Boss\Shell\BossSphere.h">
+      <Filter>Application\Boss\Shell</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Boss\Part\BossPartGraph.h">
-      <Filter>Application\Boss\Part</Filter>
+    <ClInclude Include="Application\Boss\Shell\BossSphereCluster.h">
+      <Filter>Application\Boss\Shell</Filter>
     </ClInclude>
     <ClInclude Include="Application\Boss\State\BossState.h">
       <Filter>Application\Boss\State</Filter>
@@ -178,6 +242,45 @@
     </ClInclude>
     <ClInclude Include="Application\Input\GameInput.h">
       <Filter>Application\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Components\Move\PlayerMoveComponent.h">
+      <Filter>Application\Character\Player\Components\Move</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Core\PlayerContext.h">
+      <Filter>Application\Character\Player\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Idle\PlayerStateIdle.h">
+      <Filter>Application\Character\Player\States\Idle</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Move\PlayerStateMove.h">
+      <Filter>Application\Character\Player\States\Move</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Base\PlayerStateBase.h">
+      <Filter>Application\Character\Player\States\Base</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Dodge\PlayerStateDodge.h">
+      <Filter>Application\Character\Player\States\Dodge</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Dash\PlayerStateDash.h">
+      <Filter>Application\Character\Player\States\Dash</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.h">
+      <Filter>Application\Character\Player\Components\Jump</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\States\Jump\PlayerStateJump.h">
+      <Filter>Application\Character\Player\States\Jump</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.h">
+      <Filter>Application\Character\Player\Weapon\Bullet</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.h">
+      <Filter>Application\Character\Player\Weapon\Bullet\Manager</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Weapon\PlayerWeapon.h">
+      <Filter>Application\Character\Player\Weapon</Filter>
+    </ClInclude>
+    <ClInclude Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.h">
+      <Filter>Application\Character\Player\Components\Shoot</Filter>
     </ClInclude>
     <ClInclude Include="Application\Interface\FunctionalPlayerBridge.h">
       <Filter>Application\Interface</Filter>
@@ -200,9 +303,5 @@
     <ClInclude Include="src\scene\GameScene.h">
       <Filter>src\scene</Filter>
     </ClInclude>
-    <ClInclude Include="Application\Input\GameInput.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <Manifest Include="app.manifest" />
   </ItemGroup>
 </Project>

@@ -5,14 +5,20 @@
 #include <vector>
 
 /// <summary>
-/// パーツ配置に関するパラメータ
+/// 殻に関するパラメータ。
+/// 基本殻は icosphere の頂点をそのまま使うためハニカム状に均等配置され、
+/// 弾はその外側（外向きの層）へ積み上がっていく
 /// </summary>
-struct BossLayoutParams {
-    int subdivision = 1;        // icosphere の分割回数（0→12個 / 1→42個 / 2→162個）
-    float radius = 3.0f;        // パーツを並べる球の半径（これを変えると全体が比例して拡縮する）
-    float partScale = 0.0f;     // パーツ1枚の大きさ（0以下なら平均辺長から自動算出）
-    float partThickness = 0.7f; // パーツの厚み（法線方向のスケール倍率。1.0で真球、小さいほど平たい板）
-    float coreScale = 0.88f;    // 内側のコア球の大きさ（半径に対する倍率）
+struct BossShellParams {
+    int subdivision = 1;        // 基本殻の分割回数（0→12 / 1→42 / 2→162 個）
+    float shellRadius = 3.0f;   // 基本殻の半径（球の中心までの距離）
+    float sphereRadius = 0.0f;  // 球1個の半径（0以下なら隣同士が接する大きさを自動算出）
+    // 内側へ付着を許す層数。層の間隔は球の直径なので、球が大きい構成（分割0〜1）では
+    // 内側の層がコア球に埋もれて見えなくなる。既定は0（分割2以上なら1にできる）
+    int innerLayers = 0;
+    int outerLayers = 2;        // 外側へ付着を許す層数（弾が盛り上がる）
+    float coreScale = 1.0f;     // コア球の大きさ（基本殻の内側に接する大きさに対する倍率）
+    int extraCapacity = 0;      // 付着ぶんの球プール（0なら層数から自動算出）
 };
 
 /// <summary>
@@ -20,11 +26,12 @@ struct BossLayoutParams {
 /// </summary>
 struct BossChainParams {
     int minMatch = 3;             // 破壊に必要な同色連結数
-    float damagePerPart = 20.0f;  // パーツ1つあたりの基礎ダメージ
-    float chainBonus = 0.25f;     // 最低数を超えた1つごとのダメージ倍率加算
     float staggerBase = 0.6f;     // 連鎖成立時の基礎怯み時間（秒）
     float staggerPerPart = 0.15f; // 最低数を超えた1つごとの怯み加算（秒）
-    int maxInitialCluster = 8;    // 初期配色で許す同色の塊の最大数（0以下で無制限）
+    // 初期配色で許す同色の塊の最大数（0以下で無制限）。
+    // 弾を付着させて塊を育てる方式では、最初から minMatch 個そろっていると
+    // 1発当てただけで消えてしまうため、既定は「消去に必要な数 - 1」にしている
+    int maxInitialCluster = 2;
 };
 
 /// <summary>
@@ -41,10 +48,6 @@ struct BossBattleParams {
 /// 各値は「露出度0のとき」と「露出度1のとき」の対で持ち、あいだは線形補間する。
 /// </summary>
 struct BossExposureParams {
-    // 壊せない孤立パーツを除いて正規化する。
-    // 色は変化しないため一部のパーツは最後まで壊せず、素の割合では 1.0 に到達しない。
-    // true にすると「壊せるパーツをすべて壊した状態」を 1.0 として扱う
-    bool normalizeByDestroyable = true;
 
     float attackIntervalAtZero = 6.0f;    // 露出度0のときの攻撃間隔（秒）
     float attackIntervalAtFull = 2.2f;    // 露出度1のときの攻撃間隔（秒）
@@ -116,8 +119,6 @@ public:
 
     const std::string &GetBossId() const { return bossId_; }
 
-    float GetMaxHp() const { return maxHp_; }
-    void SetMaxHp(float hp) { maxHp_ = hp; }
 
     uint32_t GetColorSeed() const { return colorSeed_; }
     void SetColorSeed(uint32_t seed) { colorSeed_ = seed; }
@@ -126,8 +127,8 @@ public:
     void SetUsedColors(const std::vector<Color> &colors) { usedColors_ = colors; }
 
     // 実行時調整（GameParamHub）へポインタを渡すため非constで返す
-    BossLayoutParams &Layout() { return layout_; }
-    const BossLayoutParams &Layout() const { return layout_; }
+    BossShellParams &Shell() { return shell_; }
+    const BossShellParams &Shell() const { return shell_; }
     BossChainParams &Chain() { return chain_; }
     const BossChainParams &Chain() const { return chain_; }
     BossLockOnParams &LockOn() { return lockOn_; }
@@ -147,11 +148,10 @@ private:
     /// ===================================================
 
     std::string bossId_ = "Boss01";
-    float maxHp_ = 1000.0f;
     uint32_t colorSeed_ = 20260902; // 0 なら実行ごとにランダム
     std::vector<Color> usedColors_ = {Color::RED, Color::BLUE, Color::GREEN};
 
-    BossLayoutParams layout_{};
+    BossShellParams shell_{};
     BossChainParams chain_{};
     BossLockOnParams lockOn_{};
     BossBattleParams battle_{};

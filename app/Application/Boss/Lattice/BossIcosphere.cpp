@@ -1,4 +1,4 @@
-#include "BossPartLayout.h"
+#include "BossIcosphere.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -34,7 +34,7 @@ int GetMidPoint(int a, int b, std::vector<Vector3> &vertices, std::map<uint64_t,
 
 } // namespace
 
-BossPartLayoutResult BossPartLayout::BuildIcosphere(int subdivision) {
+BossIcosphereResult BossIcosphere::Build(int subdivision) {
     subdivision = std::clamp(subdivision, 0, 3);
 
     // --- 正二十面体の12頂点（黄金比 t を使った定番の構成）---
@@ -86,14 +86,14 @@ BossPartLayoutResult BossPartLayout::BuildIcosphere(int subdivision) {
     }
 
     // --- 結果へ詰め替え、ついでに平均辺長を測る ---
-    BossPartLayoutResult result;
-    result.parts.resize(vertexCount);
+    BossIcosphereResult result;
+    result.vertices.resize(vertexCount);
 
     double edgeLengthSum = 0.0;
     int edgeCount = 0;
 
     for (size_t i = 0; i < vertexCount; ++i) {
-        BossPartDesc &part = result.parts[i];
+        BossIcosphereVertex &part = result.vertices[i];
         part.index = static_cast<int>(i);
         part.localDirection = vertices[i];
         part.neighbors.assign(neighborSets[i].begin(), neighborSets[i].end());

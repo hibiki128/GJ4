@@ -1,44 +1,45 @@
 #pragma once
+#include "Application/Boss/Lattice/BossSphereLattice.h"
 #include "Application/Character/ColorStruct.h"
 #include "type/Vector3.h"
-
-namespace Hagine {
-class ColliderBase;
-}
 
 /// <summary>
 /// ソフトロックオンの問い合わせ内容
 /// </summary>
 struct LockOnRequest {
-    Hagine::Vector3 origin{};                     // 射撃開始位置
+    Hagine::Vector3 origin{};                       // 射撃開始位置
     Hagine::Vector3 aimDirection{0.0f, 0.0f, 1.0f}; // 照準方向（正規化されていなくてよい）
-    Color color = Color::RED;                     // 狙う色
-    float maxAngleDegrees = 20.0f;                // 照準からの許容角度
-    float maxDistance = 60.0f;                    // 有効距離
+    Color color = Color::RED;                       // 狙う色
+    float maxAngleDegrees = 20.0f;                  // 照準からの許容角度
+    float maxDistance = 60.0f;                      // 有効距離
 };
 
 /// <summary>
 /// ソフトロックオンの結果
 /// </summary>
 struct LockOnResult {
-    int partIndex = -1;              // ロックオンしたパーツ番号（-1 は対象なし）
+    bool found = false;              // 対象が見つかったか
     Hagine::Vector3 worldPosition{}; // 対象のワールド座標
     float angleDegrees = 0.0f;       // 照準とのなす角
     float distance = 0.0f;           // 射撃開始位置からの距離
+    ShellCell cell{};             // 対象の格子セル（飛翔中の追尾に使う。消えたら無効になる）
 
-    /// <summary>有効な対象を掴んでいるか</summary>
-    bool IsValid() const { return partIndex >= 0; }
+    bool IsValid() const { return found; }
 };
 
 /// <summary>
-/// 命中1回分の結果（連鎖が成立したか、どれだけ削れたか）
+/// 弾1発ぶんの着弾結果
 /// </summary>
-struct ChainHitResult {
-    bool accepted = false;    // 命中として受理されたか（生存・色一致）
-    bool destroyed = false;   // 連鎖が成立してパーツが壊れたか
-    int chainSize = 0;        // 同色で繋がっていた数
-    float damage = 0.0f;      // 与えたダメージ
-    float staggerTime = 0.0f; // 発生した怯み時間
+struct BulletHitResult {
+    bool hit = false;           // 殻の球に当たったか（false なら穴を素通りした）
+    bool attached = false;      // 殻へ付着できたか（当たっても置ける隣が無ければ false）
+    bool destroyed = false;     // 同色が規定数そろって消去が起きたか
+    int clusterSize = 0;        // 消えた（または繋がった）球の数
+    float staggerTime = 0.0f;   // 発生した怯み時間
+    Hagine::Vector3 hitPoint{}; // 着弾位置（演出用）
+
+    /// <summary>弾を消してよいか（当たったなら付着の成否によらず弾は役目を終える）</summary>
+    bool ShouldConsumeBullet() const { return hit; }
 };
 
 /// <summary>
@@ -50,7 +51,7 @@ public:
     virtual ~IBossTargetQuery() = default;
 
     /// <summary>
-    /// ソフトロックオンの対象を探す（生存・色一致・こちらを向いている面のみ対象）。
+    /// ソフトロックオンの対象を探す（色一致・こちらを向いている面のみ対象）。
     /// エンジンのワールド座標取得が非constのため、この関数も非constで宣言している
     /// </summary>
     /// <param name="request">問い合わせ内容</param>
@@ -59,25 +60,22 @@ public:
     virtual bool FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) = 0;
 
     /// <summary>
-    /// パーツ番号で命中を通知する（連鎖判定まで行う）
+    /// 弾の移動線分を渡して着弾を判定する。
+    /// 当たった球の隣へ弾を付着させ、同色が規定数そろえばまとめて消去する。
+    /// 弾は毎フレーム「前フレームの位置→現在位置」を渡すこと（速い弾のすり抜けを防ぐため）
     /// </summary>
-    /// <param name="partIndex">命中したパーツ番号</param>
-    /// <param name="shotColor">撃った弾の色</param>
-    /// <returns>ChainHitResult: 命中結果</returns>
-    virtual ChainHitResult ReportHit(int partIndex, Color shotColor) = 0;
+    /// <param name="worldStart">線分の始点（前フレームの弾の位置）</param>
+    /// <param name="worldEnd">線分の終点（現在の弾の位置）</param>
+    /// <param name="color">弾の色</param>
+    /// <returns>BulletHitResult: 当たったか・付着したか・消えたか</returns>
+    virtual BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart,
+                                          const Hagine::Vector3 &worldEnd, Color color) = 0;
 
     /// <summary>
-    /// コライダーで命中を通知する（弾の OnCollisionEnter から直接呼べる）
+    /// 格子セルにある球の現在のワールド座標を取得する（飛翔中の弾が対象を追尾するのに使う）
     /// </summary>
-    /// <param name="hitCollider">衝突相手のコライダー</param>
-    /// <param name="shotColor">撃った弾の色</param>
-    /// <returns>ChainHitResult: 命中結果</returns>
-    virtual ChainHitResult ReportHitByCollider(const Hagine::ColliderBase *hitCollider, Color shotColor) = 0;
-
-    /// <summary>
-    /// コライダーからパーツ番号を引く
-    /// </summary>
-    /// <param name="collider">対象のコライダー</param>
-    /// <returns>int: パーツ番号（見つからなければ -1）</returns>
-    virtual int FindPartIndex(const Hagine::ColliderBase *collider) const = 0;
+    /// <param name="cell">対象の格子セル</param>
+    /// <param name="out">ワールド座標</param>
+    /// <returns>bool: その球がまだ存在すれば true</returns>
+    virtual bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) = 0;
 };

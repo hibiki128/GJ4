@@ -27,7 +27,6 @@ void BossParameters::Load(const std::string &bossId) {
 
     Hagine::DataHandler data("Boss", bossId_);
 
-    maxHp_ = data.Load<float>("hp", maxHp_);
     colorSeed_ = data.Load<uint32_t>("colorSeed", colorSeed_);
 
     // --- 使用色（識別子の配列）---
@@ -50,19 +49,19 @@ void BossParameters::Load(const std::string &bossId) {
         usedColors_ = parsed;
     }
 
-    // --- パーツ配置 ---
-    const json layout = data.Load<json>("layout", json::object());
-    layout_.subdivision = JsonValue(layout, "subdivision", layout_.subdivision);
-    layout_.radius = JsonValue(layout, "radius", layout_.radius);
-    layout_.partScale = JsonValue(layout, "partScale", layout_.partScale);
-    layout_.partThickness = JsonValue(layout, "partThickness", layout_.partThickness);
-    layout_.coreScale = JsonValue(layout, "coreScale", layout_.coreScale);
+    // --- 殻（FCC格子） ---
+    const json shell = data.Load<json>("shell", json::object());
+    shell_.subdivision = JsonValue(shell, "subdivision", shell_.subdivision);
+    shell_.shellRadius = JsonValue(shell, "shellRadius", shell_.shellRadius);
+    shell_.sphereRadius = JsonValue(shell, "sphereRadius", shell_.sphereRadius);
+    shell_.innerLayers = JsonValue(shell, "innerLayers", shell_.innerLayers);
+    shell_.outerLayers = JsonValue(shell, "outerLayers", shell_.outerLayers);
+    shell_.coreScale = JsonValue(shell, "coreScale", shell_.coreScale);
+    shell_.extraCapacity = JsonValue(shell, "extraCapacity", shell_.extraCapacity);
 
     // --- 連鎖マッチ ---
     const json chain = data.Load<json>("chain", json::object());
     chain_.minMatch = JsonValue(chain, "minMatch", chain_.minMatch);
-    chain_.damagePerPart = JsonValue(chain, "damagePerPart", chain_.damagePerPart);
-    chain_.chainBonus = JsonValue(chain, "chainBonus", chain_.chainBonus);
     chain_.staggerBase = JsonValue(chain, "staggerBase", chain_.staggerBase);
     chain_.staggerPerPart = JsonValue(chain, "staggerPerPart", chain_.staggerPerPart);
     chain_.maxInitialCluster = JsonValue(chain, "maxInitialCluster", chain_.maxInitialCluster);
@@ -80,7 +79,6 @@ void BossParameters::Load(const std::string &bossId) {
 
     // --- 露出度スケーリング ---
     const json exposure = data.Load<json>("exposure", json::object());
-    exposure_.normalizeByDestroyable = JsonValue(exposure, "normalizeByDestroyable", exposure_.normalizeByDestroyable);
     exposure_.attackIntervalAtZero = JsonValue(exposure, "attackIntervalAtZero", exposure_.attackIntervalAtZero);
     exposure_.attackIntervalAtFull = JsonValue(exposure, "attackIntervalAtFull", exposure_.attackIntervalAtFull);
     exposure_.spinDashSpeedScaleAtFull = JsonValue(exposure, "spinDashSpeedScaleAtFull", exposure_.spinDashSpeedScaleAtFull);
@@ -115,7 +113,6 @@ void BossParameters::Load(const std::string &bossId) {
 void BossParameters::Save() const {
     Hagine::DataHandler data("Boss", bossId_);
 
-    data.Save("hp", maxHp_);
     data.Save("colorSeed", colorSeed_);
 
     std::vector<std::string> colorIds;
@@ -124,18 +121,18 @@ void BossParameters::Save() const {
     }
     data.Save("colors", colorIds);
 
-    json layout = json::object();
-    layout["subdivision"] = layout_.subdivision;
-    layout["radius"] = layout_.radius;
-    layout["partScale"] = layout_.partScale;
-    layout["partThickness"] = layout_.partThickness;
-    layout["coreScale"] = layout_.coreScale;
-    data.Save("layout", layout);
+    json shell = json::object();
+    shell["subdivision"] = shell_.subdivision;
+    shell["shellRadius"] = shell_.shellRadius;
+    shell["sphereRadius"] = shell_.sphereRadius;
+    shell["innerLayers"] = shell_.innerLayers;
+    shell["outerLayers"] = shell_.outerLayers;
+    shell["coreScale"] = shell_.coreScale;
+    shell["extraCapacity"] = shell_.extraCapacity;
+    data.Save("shell", shell);
 
     json chain = json::object();
     chain["minMatch"] = chain_.minMatch;
-    chain["damagePerPart"] = chain_.damagePerPart;
-    chain["chainBonus"] = chain_.chainBonus;
     chain["staggerBase"] = chain_.staggerBase;
     chain["staggerPerPart"] = chain_.staggerPerPart;
     chain["maxInitialCluster"] = chain_.maxInitialCluster;
@@ -153,7 +150,6 @@ void BossParameters::Save() const {
     data.Save("battle", battle);
 
     json exposure = json::object();
-    exposure["normalizeByDestroyable"] = exposure_.normalizeByDestroyable;
     exposure["attackIntervalAtZero"] = exposure_.attackIntervalAtZero;
     exposure["attackIntervalAtFull"] = exposure_.attackIntervalAtFull;
     exposure["spinDashSpeedScaleAtFull"] = exposure_.spinDashSpeedScaleAtFull;

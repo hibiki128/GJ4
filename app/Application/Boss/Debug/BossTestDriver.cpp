@@ -101,8 +101,8 @@ void BossTestDriver::UpdateLockOn(const Vector3 &origin, const Vector3 &aimDirec
     if (!pBoss_->FindLockOnTarget(request, lockOn_)) {
         lockOn_ = LockOnResult{};
     }
-    // ロックオン中のパーツだけを強調表示する（死角対策の透過表示もここに足せる）
-    pBoss_->SetLockOnHighlight(lockOn_.partIndex);
+    // ロックオン中の球だけを強調表示する（死角対策の透過表示もここに足せる）
+    pBoss_->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
 }
 
 void BossTestDriver::FireProjectile(const Vector3 &origin, const Vector3 &aimDirection) {
@@ -122,28 +122,29 @@ void BossTestDriver::FireProjectile(const Vector3 &origin, const Vector3 &aimDir
     // 飛翔中も対象を追い続ける（＝自動軌道補正）
     if (lockOn_.IsValid()) {
         Boss *boss = pBoss_;
-        const int partIndex = lockOn_.partIndex;
-        projectile->SetTargetPositionGetter([boss, partIndex](Vector3 &out) {
-            BossPart *part = boss->GetPartGraph().GetPart(partIndex);
-            if (!part || !part->IsPartAlive()) {
-                return false;
-            }
-            out = part->GetWorldPosition();
-            return true;
+        const ShellCell targetCell = lockOn_.cell;
+        projectile->SetTargetPositionGetter([boss, targetCell](Vector3 &out) {
+            return boss->TryGetTargetPosition(targetCell, out);
         });
     } else {
         projectile->SetTargetPositionGetter(nullptr);
     }
 
-    // 命中通知は本番のプレイヤー弾と同じ入口（IBossTargetQuery）を通す
+    // 着弾は本番のプレイヤー弾と同じ入口（IBossTargetQuery::RaycastAttach）を通す
     const Color shotColor = selectedColor_;
-    projectile->SetHitHandler([this, shotColor](const ColliderBase *other) {
-        lastHit_ = pBoss_->ReportHitByCollider(other, shotColor);
-        if (lastHit_.destroyed) {
-            ImGuiNotification::Post("連鎖 " + std::to_string(lastHit_.chainSize) + " 破壊！ ダメージ " +
-                                        std::to_string(static_cast<int>(lastHit_.damage)),
+    projectile->SetHitTester([this, shotColor](const Vector3 &from, const Vector3 &to) {
+        const BulletHitResult result = pBoss_->RaycastAttach(from, to, shotColor);
+        if (!result.hit) {
+            return false; // 穴を素通りした。弾はそのまま飛ぶ
+        }
+
+        lastHit_ = result;
+        if (result.destroyed) {
+            ImGuiNotification::Post("同色 " + std::to_string(result.clusterSize) +
+                                        " 個 消去！",
                                     {1.0f, 0.8f, 0.3f, 1.0f});
         }
+        return result.ShouldConsumeBullet();
     });
 }
 
@@ -161,8 +162,7 @@ BossTestProjectile *BossTestDriver::AcquireProjectile() {
 
     auto projectile = std::make_unique<BossTestProjectile>();
     projectile->InitProjectile("BossTestBullet" + std::to_string(projectileSerial_++),
-                               pBoss_->GetPalette().GetRgba(selectedColor_),
-                               projectileRadius_, kPlayerBulletTag, kBossPartTag);
+                               pBoss_->GetPalette().GetRgba(selectedColor_), projectileRadius_);
     BossTestProjectile *raw = projectile.get();
     projectiles_.push_back(std::move(projectile));
     return raw;
@@ -197,21 +197,25 @@ void BossTestDriver::DrawImGui() {
 
     ImGui::SeparatorText("ロックオン");
     if (lockOn_.IsValid()) {
-        ImGui::Text("対象パーツ: #%d  角度 %.1f度  距離 %.1f",
-                    lockOn_.partIndex, lockOn_.angleDegrees, lockOn_.distance);
+        ImGui::Text("対象セル: 頂点%d 層%d  角度 %.1f度  距離 %.1f",
+                    lockOn_.cell.vertex, lockOn_.cell.layer,
+                    lockOn_.angleDegrees, lockOn_.distance);
     } else {
-        ImGui::TextDisabled("対象なし（照準内に同色の面がありません）");
+        ImGui::TextDisabled("対象なし（照準内に同色の球がありません）");
     }
     ImGui::Checkbox("照準線を表示", &drawAimLine_);
 
-    ImGui::SeparatorText("直近の命中");
-    if (!lastHit_.accepted) {
-        ImGui::TextDisabled("未命中（または色不一致で弾かれた）");
+    ImGui::SeparatorText("直近の着弾");
+    if (!lastHit_.hit) {
+        ImGui::TextDisabled("未着弾（穴を素通りした）");
+    } else if (!lastHit_.attached) {
+        ImGui::Text("当たったが置ける隣が無く、弾は消えた");
     } else if (!lastHit_.destroyed) {
-        ImGui::Text("連結 %d 個 … 連鎖不成立", lastHit_.chainSize);
+        ImGui::Text("付着した（同色 %d 個 … 消去には %d 個必要）",
+                    lastHit_.clusterSize, pBoss_->GetParameters().Chain().minMatch);
     } else {
-        ImGui::Text("連鎖 %d 個 破壊！ ダメージ %.0f / 怯み %.2f秒",
-                    lastHit_.chainSize, lastHit_.damage, lastHit_.staggerTime);
+        ImGui::Text("同色 %d 個 消去！ 怯み %.2f秒",
+                    lastHit_.clusterSize, lastHit_.staggerTime);
     }
 
     ImGui::SeparatorText("弾のパラメータ");
