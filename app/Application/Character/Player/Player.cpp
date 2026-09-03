@@ -1,49 +1,71 @@
 #include "Player.h"
+#include <frame/Frame.h>
+#include "States/Idle/PlayerStateIdle.h"
+#include "States/Move/PlayerStateMove.h"
+#include "States/Dash/PlayerStateDash.h"
+#include "States/Dodge/PlayerStateDodge.h"
+#include "States/Jump/PlayerStateJump.h"
 
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
 	CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+
+	// ステートを登録
+	states_["Idle"] = std::make_unique<PlayerStateIdle>();
+	states_["Move"] = std::make_unique<PlayerStateMove>();
+	states_["Dash"] = std::make_unique<PlayerStateDash>();
+	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
+	states_["Jump"] = std::make_unique<PlayerStateJump>();
+	currentState_ = states_["Idle"].get();
+
+	// 弾のプールを生成してオブジェクトマネージャーに登録する
+	// （以降、弾の更新と描画はオブジェクトマネージャーが行う）
+	bullets_.Init(objectName + "Bullet");
+
+	shoot_.SetWeapon(&weapon_);
+
+	context_.transform_ = GetWorldTransform();
+	context_.moveComponent_ = &move_;
+	context_.jumpComponent_ = &jump_;
+	context_.shootComponent_ = &shoot_;
+	context_.bullets = &bullets_;
+	context_.rigidBody_ = &GetRigidBody();
+
+	// 接地判定はコライダーの衝突で決める（当たる相手は床だけなので、当たった＝床に乗っている）
+	// OnCollision は BaseObject の押し出しが使うので、こちらは Enter と Exit を使う
+	for (auto& collider : GetColliders()) {
+		collider->SetOnCollisionEnter([this](Hagine::ColliderBase*) { context_.isOnGround_ = true; });
+		collider->SetOnCollisionExit([this](Hagine::ColliderBase*) { context_.isOnGround_ = false; });
+	}
 }
 
 void Player::Update() {
-	if (inputContext_.move) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.x += inputContext_.dir.x * 0.1f;
-		translate.z += inputContext_.dir.y * 0.1f;
-		transform_->translation_ = translate;
+	// 読み込み直後などでフレーム間隔が極端に空いたフレームは、重力が一気に積分されて
+	// 1フレームで床をすり抜けてしまう。10FPS 相当より遅いフレームは進めずに捨てる
+	if (Hagine::Frame::DeltaTime() > 0.1f) {
+		return;
 	}
 
-	if (inputContext_.jump) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.y += 0.1f;
-		transform_->translation_ = translate;
-		isJumping_ = true;
+	if (currentState_) {
+		currentState_->Update(*this, context_);
 	}
 
-	if (!inputContext_.jump && isJumping_) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.y -= 0.1f;
-		transform_->translation_ = translate;
-		if (translate.y <= 0.0f) {
-			translate.y = 0.0f;
-			isJumping_ = false;
-		}
-	}
-
-	if (inputContext_.attack) {
-		// 攻撃処理
-	}
-
-	if (inputContext_.dash) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.x += inputContext_.dir.x * 0.5f;
-		translate.z += inputContext_.dir.y * 0.5f;
-		transform_->translation_ = translate;
-	}
+	shoot_.Update(context_);
 
 	BaseObject::Update();
 }
 
 void Player::Draw(const Hagine::ViewProjection& viewProjection) {
 	BaseObject::Draw(viewProjection);
+}
+
+void Player::ChangeState(const std::string& stateName) {
+	auto it = states_.find(stateName);
+	if (it != states_.end()) {
+		if (currentState_) {
+			currentState_->Exit(*this, context_);
+		}
+		currentState_ = it->second.get();
+		currentState_->Enter(*this, context_);
+	}
 }

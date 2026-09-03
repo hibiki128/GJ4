@@ -2,6 +2,15 @@
 #include "Object/Base/BaseObject.h"
 #include "Application/Input/GameInput.h"
 
+#include "States/Base/PlayerStateBase.h"
+#include "Core/PlayerContext.h"
+#include "Components/Move/PlayerMoveComponent.h"
+#include "Components/Jump/PlayerJumpComponent.h"
+#include "Components/Shoot/PlayerShootComponent.h"
+
+#include "Application/Character/Player/Weapon/PlayerWeapon.h"
+#include "Application/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
+
 class Player : public Hagine::BaseObject{
 public:
 	Player() = default;
@@ -11,10 +20,24 @@ public:
 
 	void Update() override;
 	void Draw(const Hagine::ViewProjection& viewProjection) override;
-	// 
-	void SetInputContext(const InputContext& context) { inputContext_ = context; }
+	// 入力の処理
+	void CommandExecute(const PlayerInput& input) { context_.input_ = input; };
+	// ステートの切り替え
+	void ChangeState(const std::string& stateName);
 private:
-	InputContext inputContext_;
+	// ステートを格納
+	std::unordered_map<std::string, std::unique_ptr<PlayerStateBase>> states_;
+	PlayerStateBase* currentState_ = nullptr;
+
+	// コンポーネント群
+	PlayerMoveComponent move_;
+	PlayerJumpComponent jump_;
+	PlayerShootComponent shoot_;
+
+	PlayerBulletManager bullets_;
+	PlayerWeapon weapon_;
+
+	PlayerContext context_;
 
 	bool isJumping_ = false;
 };

@@ -1,32 +1,25 @@
 {
     "Lighting": true,
-    "PrimitiveType": 3,
+    "PrimitiveType": 1,
     "blendMode": 1,
     "childrenNames": [],
     "colliderCount": 1,
-    "collider_0_collisionMask": [
-        "floor"
-    ],
+    "collider_0_collisionMask": [],
     "collider_0_isEnabled": true,
     "collider_0_isVisible": true,
-    "collider_0_name": "Player_OBBCollider",
-    "collider_0_rotationOffset": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-    },
-    "collider_0_scaleOffset": {
+    "collider_0_name": "plane_AABBCollider",
+    "collider_0_offset": {
         "x": 0.0,
         "y": 0.0,
         "z": 0.0
     },
     "collider_0_size": {
-        "x": 2.0,
-        "y": 2.0,
-        "z": 2.0
+        "x": 200.0,
+        "y": 0.10000000149011612,
+        "z": 200.0
     },
-    "collider_0_tag": "player",
-    "collider_0_type": 2,
+    "collider_0_tag": "Environment",
+    "collider_0_type": 1,
     "color_0": {
         "w": 1.0,
         "x": 1.0,
@@ -56,9 +49,9 @@
         "y": 1.0
     },
     "modelName": "",
-    "objectName": "Player",
+    "objectName": "plane",
     "parentName": "",
-    "rb_enabled": true,
+    "rb_enabled": false,
     "rb_friction": 0.30000001192092896,
     "rb_gravity": {
         "x": 0.0,
@@ -68,24 +61,24 @@
     "rb_linearDamping": 0.05000000074505806,
     "rb_mass": 1.0,
     "rb_restitution": 0.0,
-    "rb_useGravity": true,
-    "resolveCollision": true,
+    "rb_useGravity": false,
+    "resolveCollision": false,
     "rotation": {
-        "w": 1.0,
-        "x": 0.0,
+        "w": 0.7071065902709961,
+        "x": -0.7071070671081543,
         "y": 0.0,
         "z": 0.0
     },
     "scale": {
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0
+        "x": 100.0,
+        "y": 100.0,
+        "z": 100.0
     },
     "skeletonDraw": false,
     "textureName_0": "debug/uvChecker.png",
     "translation": {
-        "x": -4.200000286102295,
-        "y": 2.049999952316284,
-        "z": -17.399993896484375
+        "x": 0.0,
+        "y": -3.0,
+        "z": 0.0
     }
 }

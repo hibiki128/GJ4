@@ -12,6 +12,9 @@ void GameScene::Initialize()
 	/// 初期化
 	/// ===================================================
 	BaseScene::Initialize();
+	pObjectManager_->LoadAll("GameScene");
+
+	followCamera_ = std::make_unique<FollowCamera>();
 
 	// 3Dオブジェクトの描画（ポストエフェクトあり）
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
@@ -36,6 +39,12 @@ void GameScene::Initialize()
 	player_ = std::make_unique<Player>();
     player_->Init("Player");
 
+	followCamera_->Init();
+	followCamera_->SetTarget(player_->GetWorldTransform());
+
+	// 初期化した時点から追従カメラで描画されるようにする
+	followCamera_->Activate();
+
 	pObjectManager_->RegisterExternal(player_.get());
 }
 
@@ -56,8 +65,10 @@ void GameScene::Update()
 	// ゲーム入力の更新
 	gameInput_->UpdateInputState();
 
-	player_->SetInputContext(gameInput_->GetInputContext());
+	player_->CommandExecute(gameInput_->GetInputContext());
 	
+	followCamera_->Update();
+
 	CameraUpdate();
 	
 }
@@ -68,6 +79,12 @@ void GameScene::AddSceneSetting() {
 	/// ===================================================
 	DrawDebugCameraImGui();
 	camera_->ShowDebugWindow();
+
+	// 追従カメラの調整（距離や高さ）
+	if (followCamera_)
+	{
+		followCamera_->DrawImGui();
+	}
 }
 
 void GameScene::AddObjectSetting()

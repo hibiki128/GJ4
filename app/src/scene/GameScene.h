@@ -1,6 +1,7 @@
 #pragma once
 #include "BaseScene.h"
 #include "Application/Character/Player/Player.h"
+#include"Application/Camera/Follow/FollowCamera.h"
 
 /// <summary>
 /// ゲームシーン
@@ -65,4 +66,5 @@ public:
 private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<GameInput> gameInput_;
+	std::unique_ptr<FollowCamera> followCamera_;
 };
