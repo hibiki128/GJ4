@@ -156,6 +156,77 @@ Matrix4x4 BossSphereCluster::MakeShellMatrix() {
                             pParent_->GetWorldPosition());
 }
 
+void BossSphereCluster::BeginAppear(const BossAppearParams &appear, uint32_t seed) {
+    const uint32_t actualSeed = (seed != 0) ? seed : std::random_device{}();
+    std::mt19937 engine(actualSeed);
+    std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> delayRange(0.0f, (std::max)(0.0f, appear.spawnSpread));
+
+    for (auto &[cell, slot] : occupied_) {
+        // 球面上の一様な向きへ散らす（そのままだと軸の周りに偏るので、
+        // 長さが0に近い乱数は引き直す）
+        Vector3 direction{};
+        for (int retry = 0; retry < 8; ++retry) {
+            direction = Vector3{unit(engine), unit(engine), unit(engine)};
+            if (direction.LengthSq() > 0.05f) {
+                break;
+            }
+        }
+        if (direction.LengthSq() <= 0.0001f) {
+            direction = Vector3{0.0f, 1.0f, 0.0f};
+        }
+
+        slot.sphere->SetAppearStart(direction.Normalize() * appear.gatherRadius, delayRange(engine));
+    }
+
+    // 開始時点の見た目（遠くに小さく散らばった状態）へ即座に反映する
+    UpdateAppear(appear, 0.0f);
+}
+
+void BossSphereCluster::UpdateAppear(const BossAppearParams &appear, float elapsed) {
+    const float gatherEnd = appear.gatherTime;
+    const float settleEnd = gatherEnd + appear.settleTime;
+
+    // 遅れてから動き出す球があるので、遅れの分だけ移動時間を短くして
+    // 「gatherTime で全球が到着し終わる」ようにそろえる
+    const float travelTime = (std::max)(0.01f, appear.gatherTime - appear.spawnSpread);
+
+    for (auto &[cell, slot] : occupied_) {
+        BossSphere *sphere = slot.sphere;
+        const Vector3 target = lattice_.ToLocal(cell);
+
+        if (elapsed < gatherEnd) {
+            // --- 集束: 遠くから吸い寄せられる ---
+            const float travel = std::clamp((elapsed - sphere->GetAppearDelay()) / travelTime, 0.0f, 1.0f);
+            // 動き出しで加速し、定位置の手前で減速して収まる（到着時に急停止しない）
+            sphere->SetLocalPosition(ApplyEasing(EasingType::InOutCubic, sphere->GetAppearStart(), target, travel, 1.0f));
+            sphere->SetSphereRadius(sphereRadius_ *
+                                    Lerp(appear.startScale, appear.arriveScale, travel));
+            continue;
+        }
+
+        sphere->SetLocalPosition(target);
+
+        if (elapsed < settleEnd) {
+            // --- 到着後、回転が収まるまでは小さいまま待つ ---
+            sphere->SetSphereRadius(sphereRadius_ * appear.arriveScale);
+            continue;
+        }
+
+        // --- 膨張: 少し行き過ぎてから落ち着く（OutBack）---
+        const float expand = std::clamp((elapsed - settleEnd) / (std::max)(0.01f, appear.expandTime), 0.0f, 1.0f);
+        sphere->SetSphereRadius(ApplyEasing(EasingType::OutBack, sphereRadius_ * appear.arriveScale,
+                                            sphereRadius_, expand, 1.0f));
+    }
+}
+
+void BossSphereCluster::FinishAppear() {
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
+        slot.sphere->SetSphereRadius(sphereRadius_);
+    }
+}
+
 void BossSphereCluster::Draw(const ViewProjection &viewProjection) {
     for (std::unique_ptr<BossSphere> &sphere : pool_) {
         if (sphere->IsActive()) {

@@ -50,6 +50,32 @@ public:
     /// <param name="shell">殻のパラメータ</param>
     void ApplyRadius(const BossShellParams &shell);
 
+    /// ===================================================
+    /// 登場演出
+    /// ===================================================
+
+    /// <summary>
+    /// 登場演出を開始する。各球を周囲へ散らし、飛来元と動き出しの遅れを決める
+    /// </summary>
+    /// <param name="appear">演出パラメータ</param>
+    /// <param name="seed">散らばり方のシード（0なら実行ごとにランダム）</param>
+    void BeginAppear(const BossAppearParams &appear, uint32_t seed);
+
+    /// <summary>
+    /// 登場演出を進める（集束 → 到着 → 膨張）
+    /// </summary>
+    /// <param name="appear">演出パラメータ</param>
+    /// <param name="elapsed">開始からの経過時間（秒）</param>
+    void UpdateAppear(const BossAppearParams &appear, float elapsed);
+
+    /// <summary>登場演出を終了し、全球を最終状態（定位置・本来の大きさ）にする</summary>
+    void FinishAppear();
+
+    /// <summary>登場演出にかかる合計時間（秒）</summary>
+    static float GetAppearDuration(const BossAppearParams &appear) {
+        return appear.gatherTime + appear.settleTime + appear.expandTime;
+    }
+
     /// <summary>全球を描画する（親の Draw から呼ぶ）</summary>
     void Draw(const Hagine::ViewProjection &viewProjection);
 

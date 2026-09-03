@@ -25,6 +25,16 @@
         "maxDistance": 60.0,
         "requireFacing": true
     },
+    "appear": {
+        "gatherTime": 1.8,
+        "settleTime": 0.45,
+        "expandTime": 0.65,
+        "gatherRadius": 22.0,
+        "gatherSpinSpeed": 900.0,
+        "startScale": 0.1,
+        "arriveScale": 0.35,
+        "spawnSpread": 0.6
+    },
     "battle": {
         "arenaRadius": 25.0,
         "idleSpinSpeed": 18.0

@@ -147,6 +147,26 @@ public:
     /// <summary>状態の変更を要求する（切り替えは次の更新の先頭）</summary>
     void RequestState(BossStateId id) { stateMachine_.Request(id); }
 
+    /// ===================================================
+    /// 登場演出
+    /// ===================================================
+
+    /// <summary>登場演出を最初から再生する</summary>
+    void BeginAppear();
+
+    /// <summary>
+    /// 登場演出を1フレーム進める
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>bool: まだ演出中なら true</returns>
+    bool UpdateAppear(float deltaTime);
+
+    /// <summary>登場演出を終了して通常状態にする</summary>
+    void EndAppear();
+
+    /// <summary>登場演出の最中か（この間は被弾もロックオンも受け付けない）</summary>
+    bool IsAppearing() const { return stateMachine_.GetCurrentId() == BossStateId::Appear; }
+
     /// <summary>待機中の緩やかな自転を進める（死角対策）</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     void AddIdleSpin(float deltaTime);
@@ -254,6 +274,7 @@ private:
     Hagine::Vector3 homePosition_{};             // 初期位置（アリーナ中心・着地高さの基準）
     float spinAngle_ = 0.0f;                     // 自転の累積角（ラジアン）
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
+    float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
     bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
     std::string paramOwnerLabel_; // GameParamHub の登録ラベル

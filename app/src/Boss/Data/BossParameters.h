@@ -35,6 +35,24 @@ struct BossChainParams {
 };
 
 /// <summary>
+/// 登場演出のパラメータ。
+/// 「高速回転しながら周囲から球を集める」→「回転が収まる」→「球が膨らんで定位置の大きさになる」
+/// の3段階で、各段階をイージングで繋いでカクつかないようにする
+/// </summary>
+struct BossAppearParams {
+    float gatherTime = 1.8f;  // 球が集まってくるまでの時間（秒）
+    float settleTime = 0.45f; // 回転が通常速度まで落ちるまでの時間（秒）
+    float expandTime = 0.65f; // 球が膨らみ切るまでの時間（秒）
+
+    float gatherRadius = 22.0f;     // どれだけ遠くから集まってくるか
+    float gatherSpinSpeed = 900.0f; // 集束中の自転速度（度/秒）
+
+    float startScale = 0.10f;  // 飛んでくる間の球の大きさ（最終サイズに対する倍率）
+    float arriveScale = 0.35f; // 到着した瞬間の大きさ（ここから膨らむ）
+    float spawnSpread = 0.6f;  // 球ごとの到着タイミングのばらつき（秒。0で一斉に到着）
+};
+
+/// <summary>
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
@@ -139,6 +157,8 @@ public:
     const BossSpinAttackParams &Spin() const { return spin_; }
     BossSlamAttackParams &Slam() { return slam_; }
     const BossSlamAttackParams &Slam() const { return slam_; }
+    BossAppearParams &Appear() { return appear_; }
+    const BossAppearParams &Appear() const { return appear_; }
     BossExposureParams &Exposure() { return exposure_; }
     const BossExposureParams &Exposure() const { return exposure_; }
 
@@ -158,4 +178,5 @@ private:
     BossSpinAttackParams spin_{};
     BossSlamAttackParams slam_{};
     BossExposureParams exposure_{};
+    BossAppearParams appear_{};
 };

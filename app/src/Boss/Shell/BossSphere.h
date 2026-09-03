@@ -50,6 +50,20 @@ public:
     /// <param name="highlight">強調するなら true</param>
     void SetHighlight(bool highlight);
 
+    /// <summary>
+    /// 登場演出で「どこから飛んでくるか」と「動き出しの遅れ」を設定する。
+    /// 球ごとに遅れをばらすと、集束が波打って見える
+    /// </summary>
+    /// <param name="localStart">飛来元のローカル座標</param>
+    /// <param name="delaySeconds">動き出しの遅れ（秒）</param>
+    void SetAppearStart(const Hagine::Vector3 &localStart, float delaySeconds) {
+        appearStart_ = localStart;
+        appearDelay_ = delaySeconds;
+    }
+
+    const Hagine::Vector3 &GetAppearStart() const { return appearStart_; }
+    float GetAppearDelay() const { return appearDelay_; }
+
     /// ===================================================
     /// getter
     /// ===================================================
@@ -74,4 +88,7 @@ private:
     Hagine::Vector3 localPosition_{};                    // セル中心のローカル座標
     Hagine::Vector4 baseRgba_{1.0f, 1.0f, 1.0f, 1.0f};   // 通常時の表示色
     bool isHighlighted_ = false;                         // ロックオン強調中か
+
+    Hagine::Vector3 appearStart_{}; // 登場演出での飛来元（ローカル）
+    float appearDelay_ = 0.0f;      // 登場演出の動き出しの遅れ（秒）
 };

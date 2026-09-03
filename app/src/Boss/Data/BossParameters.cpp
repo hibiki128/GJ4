@@ -77,6 +77,17 @@ void BossParameters::Load(const std::string &bossId) {
     battle_.arenaRadius = JsonValue(battle, "arenaRadius", battle_.arenaRadius);
     battle_.idleSpinSpeed = JsonValue(battle, "idleSpinSpeed", battle_.idleSpinSpeed);
 
+    // --- 登場演出 ---
+    const json appear = data.Load<json>("appear", json::object());
+    appear_.gatherTime = JsonValue(appear, "gatherTime", appear_.gatherTime);
+    appear_.settleTime = JsonValue(appear, "settleTime", appear_.settleTime);
+    appear_.expandTime = JsonValue(appear, "expandTime", appear_.expandTime);
+    appear_.gatherRadius = JsonValue(appear, "gatherRadius", appear_.gatherRadius);
+    appear_.gatherSpinSpeed = JsonValue(appear, "gatherSpinSpeed", appear_.gatherSpinSpeed);
+    appear_.startScale = JsonValue(appear, "startScale", appear_.startScale);
+    appear_.arriveScale = JsonValue(appear, "arriveScale", appear_.arriveScale);
+    appear_.spawnSpread = JsonValue(appear, "spawnSpread", appear_.spawnSpread);
+
     // --- 露出度スケーリング ---
     const json exposure = data.Load<json>("exposure", json::object());
     exposure_.attackIntervalAtZero = JsonValue(exposure, "attackIntervalAtZero", exposure_.attackIntervalAtZero);
@@ -148,6 +159,17 @@ void BossParameters::Save() const {
     battle["arenaRadius"] = battle_.arenaRadius;
     battle["idleSpinSpeed"] = battle_.idleSpinSpeed;
     data.Save("battle", battle);
+
+    json appear = json::object();
+    appear["gatherTime"] = appear_.gatherTime;
+    appear["settleTime"] = appear_.settleTime;
+    appear["expandTime"] = appear_.expandTime;
+    appear["gatherRadius"] = appear_.gatherRadius;
+    appear["gatherSpinSpeed"] = appear_.gatherSpinSpeed;
+    appear["startScale"] = appear_.startScale;
+    appear["arriveScale"] = appear_.arriveScale;
+    appear["spawnSpread"] = appear_.spawnSpread;
+    data.Save("appear", appear);
 
     json exposure = json::object();
     exposure["attackIntervalAtZero"] = exposure_.attackIntervalAtZero;
