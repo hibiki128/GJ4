@@ -126,6 +126,9 @@
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp">
       <Filter>src\Boss\Lattice</Filter>
     </ClCompile>
+    <ClCompile Include="src\Boss\Shell\BossShellMetaBall.cpp">
+      <Filter>src\Boss\Shell</Filter>
+    </ClCompile>
     <ClCompile Include="src\Boss\Shell\BossSphere.cpp">
       <Filter>src\Boss\Shell</Filter>
     </ClCompile>
@@ -186,6 +189,9 @@
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\pch.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
@@ -223,6 +229,9 @@
     </ClInclude>
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h">
       <Filter>src\Boss\Lattice</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Shell\BossShellMetaBall.h">
+      <Filter>src\Boss\Shell</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Shell\BossSphere.h">
       <Filter>src\Boss\Shell</Filter>
@@ -292,6 +301,9 @@
     </ClInclude>
     <ClInclude Include="src\Input\GameInput.h">
       <Filter>src\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pch.h">
+      <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\FunctionalPlayerBridge.h">
       <Filter>src\Interface</Filter>

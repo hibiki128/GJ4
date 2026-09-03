@@ -46,6 +46,13 @@ public:
     /// <summary>インスペクタ表示（基底のUIにボス固有の情報を足す）</summary>
     void DrawImGui() override;
 
+    /// <summary>
+    /// 殻の形をGPUで作り直すコンピュートを積む。
+    /// シャドウより前に走る DrawSystem のコンピュートフェーズ（kGPUParticleCompute）から
+    /// 呼ぶこと。CPU生成に切り替えている場合は何もしない
+    /// </summary>
+    void DispatchShellCompute();
+
     /// ===================================================
     /// IDamageable
     /// ===================================================
@@ -256,5 +263,5 @@ private:
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
 
     bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
-    std::string paramOwnerLabel_; // GameParamHub の登録ラベル
+    std::string paramOwnerLabel_;       // GameParamHub の登録ラベル
 };

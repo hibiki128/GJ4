@@ -39,6 +39,10 @@ void BossSphereCluster::Build(BaseObject *parent, const std::string &namePrefix,
                                   : vertexCount * (shell.innerLayers + shell.outerLayers);
     EnsurePool(parent, namePrefix, vertexCount + extraCapacity, sphereRadius_);
 
+    // 殻の見た目（同色をまとめて融合させたメッシュ）の描画先を用意する。
+    // 1色が最大で全球を占める場合を考えて、GPU バッファはプール上限ぶん確保しておく
+    metaBall_.Init(parent, palette, metaBallParams_, vertexCount + extraCapacity);
+
     FillInitialShell(shell, palette, chain, colorSeed);
 }
 
@@ -51,6 +55,10 @@ void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPa
     }
     occupied_.clear();
     hasHighlight_ = false;
+    MarkAllColorsDirty();
+
+    // 使用色が変わっている場合に備えて、融合メッシュの色も入れ直す
+    metaBall_.ApplyPalette(palette);
 
     FillInitialShell(shell, palette, chain, colorSeed);
 }
@@ -67,6 +75,52 @@ void BossSphereCluster::ApplyRadius(const BossShellParams &shell) {
     for (auto &[cell, slot] : occupied_) {
         slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
     }
+
+    // 位置と半径が変わったので、殻のメッシュは全色作り直す
+    MarkAllColorsDirty();
+}
+
+void BossSphereCluster::SetMetaBallParams(const BossMetaBallParams &params) {
+    metaBallParams_ = params;
+    metaBall_.SetParams(params);
+}
+
+void BossSphereCluster::Update() {
+    // 球が増減した色だけ、融合メッシュのもとになる中心座標を集め直す。
+    // ボスが回っているだけなら（メッシュはローカル空間なので）ここは何もしない
+    for (int index = 0; index < kGameColorCount; ++index) {
+        if (!colorDirty_[index]) {
+            continue;
+        }
+        colorDirty_[index] = false;
+
+        const Color color = BossColorPalette::FromIndex(index);
+        std::vector<Vector3> localPositions;
+        localPositions.reserve(occupied_.size());
+        for (const auto &[cell, slot] : occupied_) {
+            if (slot.color == color) {
+                localPositions.push_back(slot.sphere->GetLocalPosition());
+            }
+        }
+        metaBall_.SetElements(color, std::move(localPositions), sphereRadius_);
+    }
+
+    metaBall_.Update();
+}
+
+void BossSphereCluster::DispatchCompute(float deltaTime) {
+    metaBall_.DispatchCompute(deltaTime);
+}
+
+void BossSphereCluster::MarkColorDirty(Color color) {
+    const int index = BossColorPalette::ToIndex(color);
+    if (index >= 0 && index < kGameColorCount) {
+        colorDirty_[index] = true;
+    }
+}
+
+void BossSphereCluster::MarkAllColorsDirty() {
+    colorDirty_.fill(true);
 }
 
 void BossSphereCluster::EnsurePool(BaseObject *parent, const std::string &namePrefix,
@@ -130,6 +184,7 @@ bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const Bo
 
     sphere->Place(cell, lattice_.ToLocal(cell), color, palette.GetRgba(color));
     occupied_[cell] = SphereSlot{color, sphere};
+    MarkColorDirty(color);
     return true;
 }
 
@@ -140,6 +195,7 @@ void BossSphereCluster::RemoveSphere(const ShellCell &cell) {
     }
     it->second.sphere->Deactivate();
     freeSpheres_.push_back(it->second.sphere);
+    MarkColorDirty(it->second.color);
     occupied_.erase(it);
 
     if (hasHighlight_ && highlightedCell_ == cell) {
@@ -157,9 +213,15 @@ Matrix4x4 BossSphereCluster::MakeShellMatrix() {
 }
 
 void BossSphereCluster::Draw(const ViewProjection &viewProjection) {
-    for (std::unique_ptr<BossSphere> &sphere : pool_) {
-        if (sphere->IsActive()) {
-            sphere->Draw(viewProjection);
+    // 殻は色ごとに1枚の融合メッシュとして描く（同じ色同士だけがくっつく）
+    metaBall_.Draw(viewProjection);
+
+    // ロックオン中の球だけは実体を重ねて出す。
+    // 融合メッシュは色を1つしか持てないので、1個だけ色を変えられないため
+    if (hasHighlight_) {
+        auto it = occupied_.find(highlightedCell_);
+        if (it != occupied_.end()) {
+            it->second.sphere->Draw(viewProjection);
         }
     }
 }
@@ -429,7 +491,7 @@ void BossSphereCluster::SetHighlightedCell(const ShellCell &cell, bool valid) {
     if (hasHighlight_) {
         auto previous = occupied_.find(highlightedCell_);
         if (previous != occupied_.end()) {
-            previous->second.sphere->SetHighlight(false);
+            previous->second.sphere->SetHighlight(false, metaBallParams_.highlightScale);
         }
         hasHighlight_ = false;
     }
@@ -439,7 +501,7 @@ void BossSphereCluster::SetHighlightedCell(const ShellCell &cell, bool valid) {
     }
     auto current = occupied_.find(cell);
     if (current != occupied_.end()) {
-        current->second.sphere->SetHighlight(true);
+        current->second.sphere->SetHighlight(true, metaBallParams_.highlightScale);
         highlightedCell_ = cell;
         hasHighlight_ = true;
     }

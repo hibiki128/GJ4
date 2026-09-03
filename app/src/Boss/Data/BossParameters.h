@@ -22,6 +22,37 @@ struct BossShellParams {
 };
 
 /// <summary>
+/// 殻の見た目（メタボール）に関するパラメータ。
+///
+/// 殻は球1個ずつを描くのではなく、同じ色の球の密度場をまとめて三角形化した
+/// 1枚のメッシュとして描かれる。隣り合う同色の球は自然に融合してくっつく。
+/// </summary>
+struct BossMetaBallParams {
+    // 影響半径 = 球の半径 × これ。しきい値0.5では「単体の見た目の半径 = 影響半径の半分」に
+    // なるので、2.0 のとき見た目が球の半径とちょうど一致する。大きいほど太って強く繋がる
+    float influenceScale = 2.0f;
+    // 格子セル1辺の長さ = 球の半径 × これ。小さいほど滑らかだが生成が重い
+    // （球42個・3色で 0.5→約1.3ms / 0.3→約3.5ms / 0.15→約22ms）
+    float voxelRatio = 0.3f;
+    float threshold = 0.5f;       // 等値面のしきい値。大きいほど痩せて繋がりにくくなる
+    float highlightScale = 1.15f; // ロックオン強調で重ねる球の大きさ倍率（融合面から少し出す）
+
+    // 生成をGPU（コンピュートシェーダー）で行うか。
+    // GPU なら毎フレーム作り直しても CPU 時間を使わないので、脈動のような動く表現ができる。
+    // false にすると CPU 生成に戻り、球が増減した色だけを作り直す（動かせないが確実に動く）
+    bool useGpu = true;
+
+    // 脈動（GPU生成のときだけ効く）。影響半径を時間で伸び縮みさせる
+    float wobbleAmplitude = 0.0f; // 振幅（影響半径に対する割合）。0 で静止
+    float wobbleSpeed = 3.0f;     // 速さ（ラジアン/秒）
+    float wobbleFrequency = 1.0f; // 位置による位相のばらけ具合。大きいほど細かくうねる
+
+    // GPU生成で1色あたりに出せる三角形の数の上限（頂点バッファの確保に使う）。
+    // 既定値は分割2・セル細かさ0.15 でも足りる程度に取ってある
+    int maxTrianglesPerColor = 30000;
+};
+
+/// <summary>
 /// 連鎖マッチに関するパラメータ
 /// </summary>
 struct BossChainParams {
@@ -129,6 +160,8 @@ public:
     // 実行時調整（GameParamHub）へポインタを渡すため非constで返す
     BossShellParams &Shell() { return shell_; }
     const BossShellParams &Shell() const { return shell_; }
+    BossMetaBallParams &MetaBall() { return metaBall_; }
+    const BossMetaBallParams &MetaBall() const { return metaBall_; }
     BossChainParams &Chain() { return chain_; }
     const BossChainParams &Chain() const { return chain_; }
     BossLockOnParams &LockOn() { return lockOn_; }
@@ -152,6 +185,7 @@ private:
     std::vector<Color> usedColors_ = {Color::RED, Color::BLUE, Color::GREEN};
 
     BossShellParams shell_{};
+    BossMetaBallParams metaBall_{};
     BossChainParams chain_{};
     BossLockOnParams lockOn_{};
     BossBattleParams battle_{};
