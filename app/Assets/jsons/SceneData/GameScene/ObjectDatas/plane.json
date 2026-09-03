@@ -3,25 +3,6 @@
     "PrimitiveType": 1,
     "blendMode": 1,
     "childrenNames": [],
-    "colliderCount": 1,
-    "collider_0_collisionMask": [
-        "player"
-    ],
-    "collider_0_isEnabled": true,
-    "collider_0_isVisible": true,
-    "collider_0_name": "plane_AABBCollider",
-    "collider_0_offset": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
-    },
-    "collider_0_size": {
-        "x": 200.0,
-        "y": 0.10000000149011612,
-        "z": 200.0
-    },
-    "collider_0_tag": "floor",
-    "collider_0_type": 1,
     "color_0": {
         "w": 1.0,
         "x": 1.0,
