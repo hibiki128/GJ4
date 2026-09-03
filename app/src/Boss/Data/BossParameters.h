@@ -53,6 +53,20 @@ struct BossAppearParams {
 };
 
 /// <summary>
+/// 弾が吸着するとき・球が消えるときの演出パラメータ
+/// </summary>
+struct BossEffectParams {
+    // --- 吸着（弾が殻へ張り付く）---
+    float attachTime = 0.18f;       // 着弾点から定位置へ吸い寄せられるまでの時間（秒）
+    float attachStartScale = 0.5f;  // 吸着し始めの大きさ（最終サイズに対する倍率）
+
+    // --- 消滅（同色がそろって消える）---
+    float vanishTime = 0.3f;    // 消え切るまでの時間（秒）
+    float vanishDrift = 0.7f;   // 消えながら外へ押し出される距離
+    float vanishSpread = 0.04f; // 塊の中で消える順番の時間差（秒。0で一斉に消える）
+};
+
+/// <summary>
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
@@ -157,6 +171,8 @@ public:
     const BossSpinAttackParams &Spin() const { return spin_; }
     BossSlamAttackParams &Slam() { return slam_; }
     const BossSlamAttackParams &Slam() const { return slam_; }
+    BossEffectParams &Effect() { return effect_; }
+    const BossEffectParams &Effect() const { return effect_; }
     BossAppearParams &Appear() { return appear_; }
     const BossAppearParams &Appear() const { return appear_; }
     BossExposureParams &Exposure() { return exposure_; }
@@ -179,4 +195,5 @@ private:
     BossSlamAttackParams slam_{};
     BossExposureParams exposure_{};
     BossAppearParams appear_{};
+    BossEffectParams effect_{};
 };

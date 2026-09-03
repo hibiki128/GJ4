@@ -88,6 +88,14 @@ void BossParameters::Load(const std::string &bossId) {
     appear_.arriveScale = JsonValue(appear, "arriveScale", appear_.arriveScale);
     appear_.spawnSpread = JsonValue(appear, "spawnSpread", appear_.spawnSpread);
 
+    // --- 吸着・消滅の演出 ---
+    const json effect = data.Load<json>("effect", json::object());
+    effect_.attachTime = JsonValue(effect, "attachTime", effect_.attachTime);
+    effect_.attachStartScale = JsonValue(effect, "attachStartScale", effect_.attachStartScale);
+    effect_.vanishTime = JsonValue(effect, "vanishTime", effect_.vanishTime);
+    effect_.vanishDrift = JsonValue(effect, "vanishDrift", effect_.vanishDrift);
+    effect_.vanishSpread = JsonValue(effect, "vanishSpread", effect_.vanishSpread);
+
     // --- 露出度スケーリング ---
     const json exposure = data.Load<json>("exposure", json::object());
     exposure_.attackIntervalAtZero = JsonValue(exposure, "attackIntervalAtZero", exposure_.attackIntervalAtZero);
@@ -170,6 +178,14 @@ void BossParameters::Save() const {
     appear["arriveScale"] = appear_.arriveScale;
     appear["spawnSpread"] = appear_.spawnSpread;
     data.Save("appear", appear);
+
+    json effect = json::object();
+    effect["attachTime"] = effect_.attachTime;
+    effect["attachStartScale"] = effect_.attachStartScale;
+    effect["vanishTime"] = effect_.vanishTime;
+    effect["vanishDrift"] = effect_.vanishDrift;
+    effect["vanishSpread"] = effect_.vanishSpread;
+    data.Save("effect", effect);
 
     json exposure = json::object();
     exposure["attackIntervalAtZero"] = exposure_.attackIntervalAtZero;

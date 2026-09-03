@@ -50,6 +50,49 @@ public:
     /// <param name="highlight">強調するなら true</param>
     void SetHighlight(bool highlight);
 
+    /// ===================================================
+    /// 吸着・消滅の演出
+    /// ===================================================
+
+
+    /// <summary>球が今どの演出中か</summary>
+    enum class Motion {
+        None,   // 演出なし（定位置で静止）
+        Attach, // 吸着（着弾点から定位置へ吸い寄せられる）
+        Vanish  // 消滅（外へ押し出されながら縮んで消える）
+    };
+
+    /// <summary>
+    /// 吸着演出を始める。見た目だけが着弾点から定位置へ動き、
+    /// 当たり判定に使う論理位置（GetLocalPosition）は最初から定位置のまま
+    /// </summary>
+    /// <param name="fromLocal">着弾点（ローカル座標）</param>
+    /// <param name="duration">吸い寄せにかける時間（秒）</param>
+    /// <param name="startScale">開始時の大きさ（最終サイズに対する倍率）</param>
+    void BeginAttach(const Hagine::Vector3 &fromLocal, float duration, float startScale);
+
+    /// <summary>
+    /// 消滅演出を始める
+    /// </summary>
+    /// <param name="duration">消え切るまでの時間（秒）</param>
+    /// <param name="drift">外へ押し出される距離</param>
+    /// <param name="delay">消え始めるまでの遅れ（秒）</param>
+    void BeginVanish(float duration, float drift, float delay);
+
+    /// <summary>
+    /// 演出を進める
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <param name="fullRadius">本来の半径</param>
+    /// <returns>bool: まだ演出中なら true</returns>
+    bool UpdateMotion(float deltaTime, float fullRadius);
+
+    /// <summary>演出を打ち切って定位置・本来の大きさへ戻す</summary>
+    /// <param name="fullRadius">本来の半径</param>
+    void ClearMotion(float fullRadius);
+
+    Motion GetMotion() const { return motion_; }
+
     /// <summary>
     /// 登場演出で「どこから飛んでくるか」と「動き出しの遅れ」を設定する。
     /// 球ごとに遅れをばらすと、集束が波打って見える
@@ -88,6 +131,13 @@ private:
     Hagine::Vector3 localPosition_{};                    // セル中心のローカル座標
     Hagine::Vector4 baseRgba_{1.0f, 1.0f, 1.0f, 1.0f};   // 通常時の表示色
     bool isHighlighted_ = false;                         // ロックオン強調中か
+
+    Motion motion_ = Motion::None;   // 進行中の演出
+    float motionTime_ = 0.0f;        // 演出の経過時間（負の間は開始待ち）
+    float motionDuration_ = 0.2f;    // 演出の長さ（秒）
+    Hagine::Vector3 motionFrom_{};   // 演出の開始位置（ローカル）
+    float motionStartScale_ = 0.5f;  // 吸着開始時の大きさ倍率
+    float motionDrift_ = 0.0f;       // 消滅時に外へ押し出される距離
 
     Hagine::Vector3 appearStart_{}; // 登場演出での飛来元（ローカル）
     float appearDelay_ = 0.0f;      // 登場演出の動き出しの遅れ（秒）

@@ -1,4 +1,6 @@
 #include "BossSphere.h"
+#include "Easing.h"
+#include <algorithm>
 
 using namespace Hagine;
 
@@ -60,6 +62,69 @@ void BossSphere::SetHighlight(bool highlight) {
     }
     isHighlighted_ = highlight;
     SetColor(highlight ? Lerp(baseRgba_, Vector4{1.0f, 1.0f, 1.0f, 1.0f}, 0.5f) : baseRgba_);
+}
+
+void BossSphere::BeginAttach(const Vector3 &fromLocal, float duration, float startScale) {
+    motion_ = Motion::Attach;
+    motionTime_ = 0.0f;
+    motionDuration_ = (std::max)(0.01f, duration);
+    motionFrom_ = fromLocal;
+    motionStartScale_ = std::clamp(startScale, 0.01f, 1.0f);
+}
+
+void BossSphere::BeginVanish(float duration, float drift, float delay) {
+    motion_ = Motion::Vanish;
+    // 遅れているあいだは負の時間で待たせる（塊が順に消えていくように見せる）
+    motionTime_ = -(std::max)(0.0f, delay);
+    motionDuration_ = (std::max)(0.01f, duration);
+    motionFrom_ = localPosition_;
+    motionDrift_ = drift;
+}
+
+bool BossSphere::UpdateMotion(float deltaTime, float fullRadius) {
+    if (motion_ == Motion::None) {
+        return false;
+    }
+
+    motionTime_ += deltaTime;
+    if (motionTime_ < 0.0f) {
+        return true; // 消え始めるまで待機中
+    }
+
+    const float progress = std::clamp(motionTime_ / motionDuration_, 0.0f, 1.0f);
+
+    if (motion_ == Motion::Attach) {
+        // 着弾点から定位置へ吸い寄せられ、少し行き過ぎてから収まる
+        transform_->translation_ = ApplyEasing(EasingType::OutCubic, motionFrom_, localPosition_, progress, 1.0f);
+        transform_->scale_ = Vector3{1.0f, 1.0f, 1.0f} *
+                             ApplyEasing(EasingType::OutBack, fullRadius * motionStartScale_, fullRadius, progress, 1.0f);
+    } else {
+        // 外へ押し出されながら、少し膨らんでから縮んで消える
+        Vector3 outward = motionFrom_;
+        outward = (outward.LengthSq() > 0.0001f) ? outward.Normalize() : kWorldUp;
+        transform_->translation_ =
+            motionFrom_ + outward * ApplyEasing(EasingType::OutCubic, 0.0f, motionDrift_, progress, 1.0f);
+
+        // 完全な0スケールは行列が潰れるので、ごく小さい値で止めてから消す
+        const float radius = (std::max)(fullRadius * 0.001f,
+                                        ApplyEasing(EasingType::InBack, fullRadius, 0.0f, progress, 1.0f));
+        transform_->scale_ = Vector3{radius, radius, radius};
+    }
+    transform_->UpdateMatrix();
+
+    if (progress >= 1.0f) {
+        motion_ = Motion::None;
+        return false;
+    }
+    return true;
+}
+
+void BossSphere::ClearMotion(float fullRadius) {
+    motion_ = Motion::None;
+    motionTime_ = 0.0f;
+    transform_->translation_ = localPosition_;
+    transform_->scale_ = Vector3{fullRadius, fullRadius, fullRadius};
+    transform_->UpdateMatrix();
 }
 
 Vector3 BossSphere::GetWorldNormal() {

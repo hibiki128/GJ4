@@ -85,6 +85,11 @@ void Boss::Update() {
         stateMachine_.Request(BossStateId::Stagger);
     }
 
+    // 実行時に演出パラメータを変えてもすぐ効くよう、毎フレーム渡す
+    cluster_.SetEffectParams(parameters_.Effect());
+    // 吸着・消滅の演出を進める（消え切った球はここでプールへ戻る）
+    cluster_.UpdateMotions(deltaTime);
+
     // 削れるほど攻撃が早く・激しくなる
     UpdateExposureScaling();
 
@@ -466,6 +471,14 @@ void Boss::RegisterTuningParameters() {
     hub->Register(paramOwnerLabel_, "落下:有効半径", &slam.impactRadius, {0.1f, 0.5f, 40.0f});
     hub->Register(paramOwnerLabel_, "落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
     hub->Register(paramOwnerLabel_, "落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
+
+    // --- 吸着・消滅の演出 ---
+    BossEffectParams &effect = parameters_.Effect();
+    hub->Register(paramOwnerLabel_, "演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
+    hub->Register(paramOwnerLabel_, "演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
+    hub->Register(paramOwnerLabel_, "演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
+    hub->Register(paramOwnerLabel_, "演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
+    hub->Register(paramOwnerLabel_, "演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
 
     // --- 登場演出 ---
     BossAppearParams &appear = parameters_.Appear();

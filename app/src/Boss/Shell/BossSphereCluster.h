@@ -50,6 +50,16 @@ public:
     /// <param name="shell">殻のパラメータ</param>
     void ApplyRadius(const BossShellParams &shell);
 
+    /// <summary>
+    /// 吸着・消滅の演出を進める（毎フレーム呼ぶ）。
+    /// 消え切った球はここでプールへ返る
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateMotions(float deltaTime);
+
+    /// <summary>消滅演出の途中にある球の数（演出の確認用）</summary>
+    int GetVanishingCount() const { return static_cast<int>(vanishing_.size()); }
+
     /// ===================================================
     /// 登場演出
     /// ===================================================
@@ -119,6 +129,9 @@ public:
     /// <summary>指定色の球の数（色残量ミニマップ用）</summary>
     int CountAlive(Color color) const;
 
+    /// <summary>吸着・消滅の演出設定を反映する（実行時調整を毎フレーム渡してよい）</summary>
+    void SetEffectParams(const BossEffectParams &effect) { effect_ = effect; }
+
     /// <summary>球1個の半径（自動算出された場合の実値）</summary>
     float GetSphereRadius() const { return sphereRadius_; }
 
@@ -147,10 +160,16 @@ private:
                           const BossChainParams &chain, uint32_t colorSeed);
 
     /// <summary>セルへ球を置く（プールから1つ借りる）</summary>
-    bool PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette);
+    /// <param name="attachFrom">吸着演出の開始位置（nullptr なら演出なしで即配置）</param>
+    bool PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette,
+                     const Hagine::Vector3 *attachFrom = nullptr);
 
-    /// <summary>セルの球を取り除く（プールへ返す）</summary>
-    void RemoveSphere(const ShellCell &cell);
+    /// <summary>セルの球を取り除く（消滅演出へ回し、消え切ったらプールへ返す）</summary>
+    /// <param name="vanishDelay">消え始めるまでの遅れ（秒）</param>
+    void RemoveSphere(const ShellCell &cell, float vanishDelay = 0.0f);
+
+    /// <summary>消滅演出中の球をすべて即座にプールへ返す</summary>
+    void FlushVanishing();
 
     /// <summary>ボスの平行移動と回転だけを持つ行列（格子空間への変換に使う。スケールは含めない）</summary>
     Hagine::Matrix4x4 MakeShellMatrix();
@@ -177,6 +196,8 @@ private:
     std::unordered_map<ShellCell, SphereSlot, ShellCellHash> occupied_{}; // 埋まっているセル
     std::vector<std::unique_ptr<BossSphere>> pool_{};                      // 球の実体（所有）
     std::vector<BossSphere *> freeSpheres_{};                              // 待機中の球
+    std::vector<BossSphere *> vanishing_{};                                // 消滅演出中の球（占有マップからは外れている）
+    BossEffectParams effect_{};                                            // 吸着・消滅の演出設定
 
     Hagine::BaseObject *pParent_ = nullptr; // 親（非所有）
     int initialCount_ = 0;                  // 初期状態の球数（露出度の基準）

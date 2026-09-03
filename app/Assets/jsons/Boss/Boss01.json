@@ -25,6 +25,13 @@
         "maxDistance": 60.0,
         "requireFacing": true
     },
+    "effect": {
+        "attachTime": 0.18,
+        "attachStartScale": 0.5,
+        "vanishTime": 0.3,
+        "vanishDrift": 0.7,
+        "vanishSpread": 0.04
+    },
     "appear": {
         "gatherTime": 1.8,
         "settleTime": 0.45,
