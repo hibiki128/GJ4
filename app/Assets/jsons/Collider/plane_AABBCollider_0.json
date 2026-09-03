@@ -1,8 +1,12 @@
 {
     "collideWithAll": false,
-    "collisionMask": [],
+    "collisionMask": [
+        "player"
+    ],
     "isEnabled": true,
     "isVisible": true,
+    "name": "plane_AABBCollider_0",
+    "objectName": "plane",
     "offset": {
         "x": 0.0,
         "y": 0.0,
@@ -10,8 +14,9 @@
     },
     "size": {
         "x": 200.0,
-        "y": 0.10000000149011612,
+        "y": 1.0,
         "z": 200.0
     },
-    "tag": "Environment"
+    "tag": "floor",
+    "type": 1
 }
