@@ -1,10 +1,10 @@
 #pragma once
 #include "BaseScene.h"
-#include "Application/Boss/Boss.h"
-#include "Application/Boss/Debug/BossTestDriver.h"
-#include "Application/Character/Player/Player.h"
-#include "Application/Interface/FunctionalPlayerBridge.h"
-#include"Application/Camera/Follow/FollowCamera.h"
+#include "src/Boss/Boss.h"
+#include "src/Boss/Debug/BossTestDriver.h"
+#include "src/Character/Player/Player.h"
+#include "src/Interface/FunctionalPlayerBridge.h"
+#include "src/Camera/Follow/FollowCamera.h"
 
 /// <summary>
 /// ゲームシーン
