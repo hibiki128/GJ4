@@ -144,6 +144,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.cpp" />
     <ClCompile Include="Application\Character\Player\Weapon\PlayerWeapon.cpp" />
     <ClCompile Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
+    <ClCompile Include="Application\Camera\Follow\FollowCamera.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
@@ -165,6 +166,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.h" />
     <ClInclude Include="Application\Character\Player\Weapon\PlayerWeapon.h" />
     <ClInclude Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.h" />
+    <ClInclude Include="Application\Camera\Follow\FollowCamera.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
   </ItemGroup>
