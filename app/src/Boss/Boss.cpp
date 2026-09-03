@@ -54,6 +54,8 @@ void Boss::Init(const std::string objectName) {
     SetColor(Vector4{0.16f, 0.16f, 0.20f, 1.0f});
 
     // --- 殻の球を生成して自分にぶら下げる ---
+    // 殻の見た目はメタボール（同色が融合した1枚のメッシュ）なので、その設定を先に渡す
+    cluster_.SetMetaBallParams(parameters_.MetaBall());
     cluster_.Build(this, objectName + "Sphere", shell, palette_, parameters_.Chain(),
                    parameters_.GetColorSeed());
 
@@ -91,10 +93,18 @@ void Boss::Update() {
     stateMachine_.Update(*this, deltaTime);
     ClampToArena();
 
+    // 殻の見た目を更新する。球が増減した色だけメッシュを作り直すので、
+    // 動いている・回っているだけのフレームでは何も起きない
+    cluster_.Update();
+
     if (drawGraphDebug_) {
         // 線はフレーム単位で積み上げるので、描画フェーズではなく更新中に積む
         cluster_.DebugDraw();
     }
+}
+
+void Boss::DispatchShellCompute() {
+    cluster_.DispatchCompute(Frame::DeltaTime());
 }
 
 void Boss::Draw(const ViewProjection &viewProjection) {
@@ -384,6 +394,52 @@ void Boss::RegisterTuningParameters() {
     coreOptions.onChange = [this] { ApplyShellChanges(); };
     hub->Register(paramOwnerLabel_, "殻:コアの大きさ", &shell.coreScale, coreOptions);
 
+    // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
+    BossMetaBallParams &metaBall = parameters_.MetaBall();
+    GameParamHub::Options metaBallOptions{};
+    metaBallOptions.speed = 0.01f;
+    metaBallOptions.min = 0.05f;
+    metaBallOptions.max = 4.0f;
+    metaBallOptions.onChange = [this] { cluster_.SetMetaBallParams(parameters_.MetaBall()); };
+    hub->Register(paramOwnerLabel_, "メタボール:影響半径の倍率", &metaBall.influenceScale, metaBallOptions);
+
+    GameParamHub::Options voxelOptions = metaBallOptions;
+    voxelOptions.min = 0.1f;
+    voxelOptions.max = 1.0f;
+    hub->Register(paramOwnerLabel_, "メタボール:セルの細かさ", &metaBall.voxelRatio, voxelOptions);
+
+    GameParamHub::Options thresholdOptions = metaBallOptions;
+    thresholdOptions.min = 0.05f;
+    thresholdOptions.max = 2.0f;
+    hub->Register(paramOwnerLabel_, "メタボール:しきい値", &metaBall.threshold, thresholdOptions);
+
+    GameParamHub::Options highlightOptions = metaBallOptions;
+    highlightOptions.min = 1.0f;
+    highlightOptions.max = 2.0f;
+    hub->Register(paramOwnerLabel_, "メタボール:強調球の倍率", &metaBall.highlightScale, highlightOptions);
+
+    // 脈動（GPU生成のときだけ効く）
+    GameParamHub::Options wobbleOptions = metaBallOptions;
+    wobbleOptions.speed = 0.005f;
+    wobbleOptions.min = 0.0f;
+    wobbleOptions.max = 0.5f;
+    hub->Register(paramOwnerLabel_, "メタボール:脈動の振幅", &metaBall.wobbleAmplitude, wobbleOptions);
+
+    GameParamHub::Options wobbleSpeedOptions = metaBallOptions;
+    wobbleSpeedOptions.speed = 0.05f;
+    wobbleSpeedOptions.min = 0.0f;
+    wobbleSpeedOptions.max = 20.0f;
+    hub->Register(paramOwnerLabel_, "メタボール:脈動の速さ", &metaBall.wobbleSpeed, wobbleSpeedOptions);
+    hub->Register(paramOwnerLabel_, "メタボール:脈動のばらけ", &metaBall.wobbleFrequency, wobbleSpeedOptions);
+
+    // 上限を変えると頂点バッファを作り直すので、GPU の完了待ちが1回入る
+    GameParamHub::Options budgetOptions{};
+    budgetOptions.speed = 500.0f;
+    budgetOptions.min = 1000.0f;
+    budgetOptions.max = 200000.0f;
+    budgetOptions.onChange = metaBallOptions.onChange;
+    hub->Register(paramOwnerLabel_, "メタボール:1色の三角形上限", &metaBall.maxTrianglesPerColor, budgetOptions);
+
     hub->Register(paramOwnerLabel_, "連鎖:最低連結数", &chain.minMatch, {1.0f, 2.0f, 8.0f});
     hub->Register(paramOwnerLabel_, "連鎖:基礎怯み時間", &chain.staggerBase, {0.01f, 0.0f, 5.0f});
     hub->Register(paramOwnerLabel_, "連鎖:1つあたり怯み加算", &chain.staggerPerPart, {0.01f, 0.0f, 2.0f});
@@ -491,6 +547,46 @@ void Boss::DrawImGui() {
         ApplyShellChanges();
     }
     ImGui::TextDisabled("基本殻はハニカム状に均等配置。弾はその外側・内側の層へ付着します");
+
+    ImGui::SeparatorText("殻の見た目（メタボール）");
+    BossMetaBallParams &metaBall = parameters_.MetaBall();
+    bool metaBallChanged = false;
+    metaBallChanged |= ImGui::DragFloat("影響半径の倍率", &metaBall.influenceScale, 0.01f, 0.05f, 4.0f);
+    metaBallChanged |= ImGui::DragFloat("セルの細かさ", &metaBall.voxelRatio, 0.01f, 0.1f, 1.0f);
+    metaBallChanged |= ImGui::DragFloat("しきい値", &metaBall.threshold, 0.01f, 0.05f, 2.0f);
+    metaBallChanged |= ImGui::DragFloat("強調球の倍率", &metaBall.highlightScale, 0.01f, 1.0f, 2.0f);
+    metaBallChanged |= ImGui::Checkbox("GPUで生成する", &metaBall.useGpu);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("GPU: 毎フレーム作り直すので脈動が使えます\n"
+                          "CPU: 球が増減した色だけ作り直します（動かせませんが確実に動きます）");
+    }
+
+    ImGui::BeginDisabled(!metaBall.useGpu);
+    metaBallChanged |= ImGui::DragFloat("脈動の振幅", &metaBall.wobbleAmplitude, 0.005f, 0.0f, 0.5f);
+    metaBallChanged |= ImGui::DragFloat("脈動の速さ", &metaBall.wobbleSpeed, 0.05f, 0.0f, 20.0f);
+    metaBallChanged |= ImGui::DragFloat("脈動のばらけ", &metaBall.wobbleFrequency, 0.05f, 0.0f, 10.0f);
+    ImGui::EndDisabled();
+
+    if (metaBallChanged) {
+        cluster_.SetMetaBallParams(metaBall);
+    }
+
+    const BossShellMetaBall &shellMetaBall = cluster_.GetMetaBall();
+    if (shellMetaBall.IsGpuMode()) {
+        const Hagine::MetaBallGpuStats &gpuStats = shellMetaBall.GetGpuStats();
+        ImGui::TextDisabled("GPU生成: 格子 %u x %u x %u（セル %u 個 / 1辺 %.3f）",
+                            gpuStats.gridX, gpuStats.gridY, gpuStats.gridZ,
+                            gpuStats.cellCount, gpuStats.cellSize);
+        ImGui::TextDisabled("1色あたり三角形 %d 個まで（あふれると欠けます）",
+                            metaBall.maxTrianglesPerColor);
+    } else {
+        ImGui::TextDisabled("CPU生成: 三角形 %d 個 ／ 直近の作り直し %.2f ms",
+                            shellMetaBall.GetTotalTriangleCount(),
+                            shellMetaBall.GetLastBuildMilliseconds());
+    }
+    ImGui::TextDisabled("セルを細かくするほど滑らかになります（CPU生成では作り直しも重くなります）");
 
     ImGui::SeparatorText("デバッグ");
     ImGui::Checkbox("隣接グラフを描画", &drawGraphDebug_);

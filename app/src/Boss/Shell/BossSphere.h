@@ -15,6 +15,11 @@ inline constexpr const char *kBossTexturePath = "debug/white1x1.png";
 ///
 /// 生成・破棄はせずプールで使い回す（BaseObject の生成はJSON探索を伴うため、
 /// 着弾のたびに作ると重い）。使っていない球は非表示にして待機させる。
+///
+/// 見た目そのものは BossShellMetaBall が色ごとの融合メッシュとして描くので、
+/// このオブジェクトのモデルは普段は描かない。位置・色・セルを持つ「殻の中身」として働き、
+/// ロックオンで強調するときだけ実体の球を融合面へ重ねて出す
+/// （融合メッシュは色を1つしか持てず、1個だけ色を変えられないため）。
 /// </summary>
 class BossSphere final : public Hagine::BaseObject {
 public:
@@ -46,9 +51,13 @@ public:
     /// <param name="localPosition">セル中心のローカル座標</param>
     void SetLocalPosition(const Hagine::Vector3 &localPosition);
 
-    /// <summary>ロックオン中の強調表示を切り替える</summary>
+    /// <summary>
+    /// ロックオン中の強調表示を切り替える。
+    /// 強調中だけ実体の球を描き、融合面から少し出るよう大きめに見せる
+    /// </summary>
     /// <param name="highlight">強調するなら true</param>
-    void SetHighlight(bool highlight);
+    /// <param name="scale">強調時の大きさ倍率（融合面へ埋もれないよう1より大きくする）</param>
+    void SetHighlight(bool highlight, float scale);
 
     /// ===================================================
     /// getter
@@ -73,5 +82,6 @@ private:
     Color color_ = Color::RED;                           // 現在の色
     Hagine::Vector3 localPosition_{};                    // セル中心のローカル座標
     Hagine::Vector4 baseRgba_{1.0f, 1.0f, 1.0f, 1.0f};   // 通常時の表示色
+    float radius_ = 1.0f;                                // 球の半径（強調時の拡大の基準）
     bool isHighlighted_ = false;                         // ロックオン強調中か
 };
