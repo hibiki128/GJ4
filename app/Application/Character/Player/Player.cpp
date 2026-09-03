@@ -1,4 +1,5 @@
 #include "Player.h"
+#include <frame/Frame.h>
 #include "States/Idle/PlayerStateIdle.h"
 #include "States/Move/PlayerStateMove.h"
 #include "States/Dash/PlayerStateDash.h"
@@ -28,9 +29,23 @@ void Player::Init(const std::string objectName) {
 	context_.jumpComponent_ = &jump_;
 	context_.shootComponent_ = &shoot_;
 	context_.bullets = &bullets_;
+	context_.rigidBody_ = &GetRigidBody();
+
+	// 接地判定はコライダーの衝突で決める（当たる相手は床だけなので、当たった＝床に乗っている）
+	// OnCollision は BaseObject の押し出しが使うので、こちらは Enter と Exit を使う
+	for (auto& collider : GetColliders()) {
+		collider->SetOnCollisionEnter([this](Hagine::ColliderBase*) { context_.isOnGround_ = true; });
+		collider->SetOnCollisionExit([this](Hagine::ColliderBase*) { context_.isOnGround_ = false; });
+	}
 }
 
 void Player::Update() {
+	// 読み込み直後などでフレーム間隔が極端に空いたフレームは、重力が一気に積分されて
+	// 1フレームで床をすり抜けてしまう。10FPS 相当より遅いフレームは進めずに捨てる
+	if (Hagine::Frame::DeltaTime() > 0.1f) {
+		return;
+	}
+
 	if (currentState_) {
 		currentState_->Update(*this, context_);
 	}

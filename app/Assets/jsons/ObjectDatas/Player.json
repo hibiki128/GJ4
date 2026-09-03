@@ -3,7 +3,30 @@
     "PrimitiveType": 3,
     "blendMode": 1,
     "childrenNames": [],
-    "colliderCount": 0,
+    "colliderCount": 1,
+    "collider_0_collisionMask": [
+        "floor"
+    ],
+    "collider_0_isEnabled": true,
+    "collider_0_isVisible": true,
+    "collider_0_name": "Player_OBBCollider",
+    "collider_0_rotationOffset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "collider_0_scaleOffset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "collider_0_size": {
+        "x": 2.0,
+        "y": 2.0,
+        "z": 2.0
+    },
+    "collider_0_tag": "player",
+    "collider_0_type": 2,
     "color_0": {
         "w": 1.0,
         "x": 1.0,
@@ -35,7 +58,7 @@
     "modelName": "",
     "objectName": "Player",
     "parentName": "",
-    "rb_enabled": false,
+    "rb_enabled": true,
     "rb_friction": 0.30000001192092896,
     "rb_gravity": {
         "x": 0.0,
@@ -46,7 +69,7 @@
     "rb_mass": 1.0,
     "rb_restitution": 0.0,
     "rb_useGravity": true,
-    "resolveCollision": false,
+    "resolveCollision": true,
     "rotation": {
         "w": 1.0,
         "x": 0.0,
@@ -61,8 +84,8 @@
     "skeletonDraw": false,
     "textureName_0": "debug/uvChecker.png",
     "translation": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 0.0
+        "x": -4.200000286102295,
+        "y": 2.049999952316284,
+        "z": -17.399993896484375
     }
 }

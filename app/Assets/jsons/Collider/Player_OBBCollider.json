@@ -1,0 +1,29 @@
+{
+    "anchorPoint": {
+        "x": 0.5,
+        "y": 0.5,
+        "z": 0.5
+    },
+    "collideWithAll": false,
+    "collisionMask": [
+        "floor"
+    ],
+    "isEnabled": true,
+    "isVisible": true,
+    "rotationOffset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "scaleOffset": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "size": {
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+    },
+    "tag": "player"
+}

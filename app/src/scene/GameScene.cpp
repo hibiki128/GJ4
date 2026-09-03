@@ -42,6 +42,9 @@ void GameScene::Initialize()
 	followCamera_->Init();
 	followCamera_->SetTarget(player_->GetWorldTransform());
 
+	// 初期化した時点から追従カメラで描画されるようにする
+	followCamera_->Activate();
+
 	pObjectManager_->RegisterExternal(player_.get());
 }
 
@@ -76,6 +79,12 @@ void GameScene::AddSceneSetting() {
 	/// ===================================================
 	DrawDebugCameraImGui();
 	camera_->ShowDebugWindow();
+
+	// 追従カメラの調整（距離や高さ）
+	if (followCamera_)
+	{
+		followCamera_->DrawImGui();
+	}
 }
 
 void GameScene::AddObjectSetting()
