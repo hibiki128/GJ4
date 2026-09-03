@@ -1,0 +1,62 @@
+{
+    "colorSeed": 20260902,
+    "colors": [
+        "RED",
+        "BLUE",
+        "GREEN"
+    ],
+    "shell": {
+        "subdivision": 1,
+        "shellRadius": 3.0,
+        "sphereRadius": 0.0,
+        "innerLayers": 0,
+        "outerLayers": 2,
+        "coreScale": 1.0,
+        "extraCapacity": 0
+    },
+    "chain": {
+        "minMatch": 3,
+        "staggerBase": 0.6,
+        "staggerPerPart": 0.15,
+        "maxInitialCluster": 2
+    },
+    "lockOn": {
+        "maxAngleDegrees": 20.0,
+        "maxDistance": 60.0,
+        "requireFacing": true
+    },
+    "battle": {
+        "arenaRadius": 25.0,
+        "idleSpinSpeed": 18.0
+    },
+    "exposure": {
+        "attackIntervalAtZero": 6.0,
+        "attackIntervalAtFull": 2.2,
+        "spinDashSpeedScaleAtFull": 1.6,
+        "spinTelegraphScaleAtFull": 0.6,
+        "slamCountAtZero": 1,
+        "slamCountAtFull": 5,
+        "slamAimScaleAtFull": 0.55
+    },
+    "attacks": {
+        "spin": {
+            "telegraphTime": 1.2,
+            "telegraphSpinSpeed": 540.0,
+            "dashSpeed": 22.0,
+            "dashTime": 0.8,
+            "recoverTime": 0.8,
+            "damage": 15.0,
+            "contactMargin": 1.0
+        },
+        "slam": {
+            "riseTime": 0.8,
+            "riseHeight": 10.0,
+            "aimTime": 0.5,
+            "fallTime": 0.35,
+            "impactTime": 0.35,
+            "impactRadius": 4.5,
+            "damage": 20.0,
+            "recoverTime": 0.8
+        }
+    }
+}

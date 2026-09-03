@@ -1,0 +1,464 @@
+#include "BossSphereCluster.h"
+#include "MyMath.h"
+#include "camera/projection/ViewProjection.h"
+#include "line/LineRenderer.h"
+#include <algorithm>
+#include <cmath>
+#include <numbers>
+#include <random>
+#include <unordered_set>
+
+using namespace Hagine;
+
+namespace {
+
+/// <summary>同じ辺を二重に描かないための、セルの順序比較</summary>
+bool IsLexicographicallyLess(const ShellCell &a, const ShellCell &b) {
+    if (a.vertex != b.vertex) {
+        return a.vertex < b.vertex;
+    }
+    return a.layer < b.layer;
+}
+
+} // namespace
+
+void BossSphereCluster::Build(BaseObject *parent, const std::string &namePrefix,
+                              const BossShellParams &shell, const BossColorPalette &palette,
+                              const BossChainParams &chain, uint32_t colorSeed) {
+    pParent_ = parent;
+
+    // 基本殻はハニカム（icosphereの頂点）。その外側・内側へ層を重ねられるようにする
+    lattice_.Configure(shell.subdivision, shell.shellRadius, shell.sphereRadius,
+                       shell.innerLayers, shell.outerLayers);
+    sphereRadius_ = lattice_.GetSphereRadius();
+
+    // 付着ぶんの余裕。未指定なら「全部の層が埋まっても足りる数」を確保する
+    const int vertexCount = lattice_.GetVertexCount();
+    const int extraCapacity = (shell.extraCapacity > 0)
+                                  ? shell.extraCapacity
+                                  : vertexCount * (shell.innerLayers + shell.outerLayers);
+    EnsurePool(parent, namePrefix, vertexCount + extraCapacity, sphereRadius_);
+
+    FillInitialShell(shell, palette, chain, colorSeed);
+}
+
+void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPalette &palette,
+                                 const BossChainParams &chain, uint32_t colorSeed) {
+    // 置かれている球をすべてプールへ戻してから敷き直す
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->Deactivate();
+        freeSpheres_.push_back(slot.sphere);
+    }
+    occupied_.clear();
+    hasHighlight_ = false;
+
+    FillInitialShell(shell, palette, chain, colorSeed);
+}
+
+void BossSphereCluster::ApplyRadius(const BossShellParams &shell) {
+    lattice_.Configure(shell.subdivision, shell.shellRadius, shell.sphereRadius,
+                       shell.innerLayers, shell.outerLayers);
+    sphereRadius_ = lattice_.GetSphereRadius();
+
+    for (std::unique_ptr<BossSphere> &sphere : pool_) {
+        sphere->SetSphereRadius(sphereRadius_);
+    }
+    // 格子定数が変わるので、置かれている球の位置も引き直す（色はそのまま）
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
+    }
+}
+
+void BossSphereCluster::EnsurePool(BaseObject *parent, const std::string &namePrefix,
+                                   int capacity, float radius) {
+    pool_.reserve(static_cast<size_t>(capacity));
+
+    while (static_cast<int>(pool_.size()) < capacity) {
+        auto sphere = std::make_unique<BossSphere>();
+        sphere->InitSphere(namePrefix + std::to_string(pool_.size()), radius);
+        if (parent) {
+            sphere->SetParent(parent);
+            // 親（コア）のスケールは球へ伝播させない。位置と向きだけ追従させる
+            sphere->GetWorldTransform()->inheritScale_ = false;
+        }
+        freeSpheres_.push_back(sphere.get());
+        pool_.push_back(std::move(sphere));
+    }
+}
+
+void BossSphereCluster::FillInitialShell(const BossShellParams &shell, const BossColorPalette &palette,
+                                         const BossChainParams &chain, uint32_t colorSeed) {
+    const std::vector<Color> &usedColors = palette.GetUsedColors();
+    if (usedColors.empty()) {
+        return;
+    }
+
+    const uint32_t seed = (colorSeed != 0) ? colorSeed : std::random_device{}();
+    std::mt19937 engine(seed);
+    std::vector<Color> candidates = usedColors;
+
+    // 初期状態は基本殻（layer 0）だけを埋める。外側・内側の層は弾の付着用に空けておく
+    for (const ShellCell &cell : lattice_.CollectBaseShellCells()) {
+        std::shuffle(candidates.begin(), candidates.end(), engine);
+
+        // 弾を1発当てただけで消える塊を最初から作らない。
+        // 上限は「消去に必要な数 - 1」が基本で、これにより盤面は必ず
+        // 「プレイヤーが1個足して初めて消える」状態から始まる
+        Color chosen = candidates.front();
+        for (Color candidate : candidates) {
+            if (chain.maxInitialCluster <= 0 ||
+                CountConnectedSameColor(cell, candidate) <= chain.maxInitialCluster) {
+                chosen = candidate;
+                break;
+            }
+        }
+
+        if (!PlaceSphere(cell, chosen, palette)) {
+            break; // プールが尽きた（容量設定が足りていない）
+        }
+    }
+
+    initialCount_ = static_cast<int>(occupied_.size());
+}
+
+bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette) {
+    if (freeSpheres_.empty()) {
+        return false;
+    }
+    BossSphere *sphere = freeSpheres_.back();
+    freeSpheres_.pop_back();
+
+    sphere->Place(cell, lattice_.ToLocal(cell), color, palette.GetRgba(color));
+    occupied_[cell] = SphereSlot{color, sphere};
+    return true;
+}
+
+void BossSphereCluster::RemoveSphere(const ShellCell &cell) {
+    auto it = occupied_.find(cell);
+    if (it == occupied_.end()) {
+        return;
+    }
+    it->second.sphere->Deactivate();
+    freeSpheres_.push_back(it->second.sphere);
+    occupied_.erase(it);
+
+    if (hasHighlight_ && highlightedCell_ == cell) {
+        hasHighlight_ = false;
+    }
+}
+
+Matrix4x4 BossSphereCluster::MakeShellMatrix() {
+    if (!pParent_) {
+        return MakeIdentity4x4();
+    }
+    // 球は親のスケールを継承しないので、格子空間も平行移動と回転だけで作る
+    return MakeAffineMatrix(Vector3{1.0f, 1.0f, 1.0f}, pParent_->GetWorldRotation(),
+                            pParent_->GetWorldPosition());
+}
+
+void BossSphereCluster::Draw(const ViewProjection &viewProjection) {
+    for (std::unique_ptr<BossSphere> &sphere : pool_) {
+        if (sphere->IsActive()) {
+            sphere->Draw(viewProjection);
+        }
+    }
+}
+
+void BossSphereCluster::DebugDraw() {
+    LineRenderer *lineRenderer = LineRenderer::GetInstance();
+
+    for (auto &[cell, slot] : occupied_) {
+        const int neighborCount = lattice_.GetNeighborCount(cell);
+        for (int index = 0; index < neighborCount; ++index) {
+            const ShellCell neighbor = lattice_.GetNeighbor(cell, index);
+            if (!IsLexicographicallyLess(cell, neighbor)) {
+                continue; // 同じ辺を2回描かない
+            }
+            auto it = occupied_.find(neighbor);
+            if (it == occupied_.end()) {
+                continue;
+            }
+            const bool sameColor = it->second.color == slot.color;
+            const Vector4 color = sameColor ? Vector4{1.0f, 1.0f, 1.0f, 1.0f}
+                                            : Vector4{0.25f, 0.25f, 0.30f, 1.0f};
+            lineRenderer->AddLine(slot.sphere->GetWorldPosition(), it->second.sphere->GetWorldPosition(), color);
+        }
+    }
+}
+
+bool BossSphereCluster::RaycastLocal(const Vector3 &localStart, const Vector3 &localEnd,
+                                     ShellCell &outCell, Vector3 &outHitPoint) const {
+    const Vector3 segment = localEnd - localStart;
+    const float length = segment.Length();
+    if (length <= 0.0001f) {
+        return false;
+    }
+    const Vector3 direction = segment / length;
+    const float radiusSq = sphereRadius_ * sphereRadius_;
+
+    float nearestT = length;
+    bool found = false;
+
+    // 球数は数百個規模なので、まずは総当たり（統計を見てから最適化する）
+    for (const auto &[cell, slot] : occupied_) {
+        const Vector3 toStart = localStart - slot.sphere->GetLocalPosition();
+        const float b = toStart.Dot(direction);
+        const float c = toStart.LengthSq() - radiusSq;
+        const float discriminant = b * b - c;
+        if (discriminant < 0.0f) {
+            continue;
+        }
+
+        const float root = std::sqrt(discriminant);
+        float t = -b - root;
+        if (t < 0.0f) {
+            t = -b + root; // 始点が球の内側にある場合
+        }
+        if (t < 0.0f || t > nearestT) {
+            continue;
+        }
+
+        nearestT = t;
+        outCell = cell;
+        found = true;
+    }
+
+    if (found) {
+        outHitPoint = localStart + direction * nearestT;
+    }
+    return found;
+}
+
+bool BossSphereCluster::FindSnapCell(const ShellCell &hitCell, const Vector3 &localHitPoint,
+                                     ShellCell &outCell) const {
+    float nearestDistanceSq = 0.0f;
+    bool found = false;
+
+    const int neighborCount = lattice_.GetNeighborCount(hitCell);
+    for (int index = 0; index < neighborCount; ++index) {
+        const ShellCell candidate = lattice_.GetNeighbor(hitCell, index);
+        if (occupied_.count(candidate) > 0 || !lattice_.IsInBand(candidate)) {
+            continue;
+        }
+
+        const float distanceSq = (lattice_.ToLocal(candidate) - localHitPoint).LengthSq();
+        if (!found || distanceSq < nearestDistanceSq) {
+            nearestDistanceSq = distanceSq;
+            outCell = candidate;
+            found = true;
+        }
+    }
+    return found;
+}
+
+BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd,
+                                                 Color color, const BossChainParams &chain,
+                                                 const BossColorPalette &palette) {
+    BulletHitResult result{};
+    if (occupied_.empty()) {
+        return result;
+    }
+
+    // ワールド→ローカルの変換は着弾判定1回につき逆行列1回だけ（球の数には比例しない）
+    const Matrix4x4 shellMatrix = MakeShellMatrix();
+    const Matrix4x4 inverseMatrix = Inverse(shellMatrix);
+    const Vector3 localStart = Transformation(worldStart, inverseMatrix);
+    const Vector3 localEnd = Transformation(worldEnd, inverseMatrix);
+
+    ShellCell hitCell{};
+    Vector3 localHitPoint{};
+    if (!RaycastLocal(localStart, localEnd, hitCell, localHitPoint)) {
+        return result; // 穴を通り抜けた（球が無いセルはレイが素通りする）
+    }
+
+    result.hit = true;
+    result.hitPoint = Transformation(localHitPoint, shellMatrix);
+
+    ShellCell snapCell{};
+    if (!FindSnapCell(hitCell, localHitPoint, snapCell)) {
+        return result; // 当たったが置ける隣が無い（弾は消えるだけ）
+    }
+    if (!PlaceSphere(snapCell, color, palette)) {
+        return result; // プールが尽きた
+    }
+    result.attached = true;
+
+    const std::vector<ShellCell> cluster = CollectSameColorCluster(snapCell);
+    result.clusterSize = static_cast<int>(cluster.size());
+    if (result.clusterSize < chain.minMatch) {
+        return result; // 付着しただけ。まだ消えない
+    }
+
+    for (const ShellCell &cell : cluster) {
+        RemoveSphere(cell);
+    }
+
+    const int overMatch = result.clusterSize - chain.minMatch;
+    result.destroyed = true;
+    // まとめて消したほど長く怯む（HPは持たず、殻を削り切ることが撃破条件）
+    result.staggerTime = chain.staggerBase + chain.staggerPerPart * static_cast<float>(overMatch);
+    return result;
+}
+
+std::vector<ShellCell> BossSphereCluster::CollectSameColorCluster(const ShellCell &start) const {
+    std::vector<ShellCell> cluster;
+
+    auto startIt = occupied_.find(start);
+    if (startIt == occupied_.end()) {
+        return cluster;
+    }
+    const Color targetColor = startIt->second.color;
+
+    std::unordered_set<ShellCell, ShellCellHash> visited;
+    visited.insert(start);
+
+    searchQueue_.clear();
+    searchQueue_.push_back(start);
+
+    for (size_t head = 0; head < searchQueue_.size(); ++head) {
+        const ShellCell current = searchQueue_[head];
+        cluster.push_back(current);
+
+        const int neighborCount = lattice_.GetNeighborCount(current);
+        for (int index = 0; index < neighborCount; ++index) {
+            const ShellCell neighbor = lattice_.GetNeighbor(current, index);
+            if (visited.count(neighbor) > 0) {
+                continue;
+            }
+            auto it = occupied_.find(neighbor);
+            if (it == occupied_.end() || it->second.color != targetColor) {
+                continue;
+            }
+            visited.insert(neighbor);
+            searchQueue_.push_back(neighbor);
+        }
+    }
+
+    return cluster;
+}
+
+int BossSphereCluster::CountConnectedSameColor(const ShellCell &start, Color color) const {
+    // start はまだ置かれていなくてよい（これから置く色を仮定して数える）
+    std::unordered_set<ShellCell, ShellCellHash> visited;
+    visited.insert(start);
+
+    searchQueue_.clear();
+    searchQueue_.push_back(start);
+
+    int count = 0;
+    for (size_t head = 0; head < searchQueue_.size(); ++head) {
+        const ShellCell current = searchQueue_[head];
+        ++count;
+
+        const int neighborCount = lattice_.GetNeighborCount(current);
+        for (int index = 0; index < neighborCount; ++index) {
+            const ShellCell neighbor = lattice_.GetNeighbor(current, index);
+            if (visited.count(neighbor) > 0) {
+                continue;
+            }
+            auto it = occupied_.find(neighbor);
+            if (it == occupied_.end() || it->second.color != color) {
+                continue;
+            }
+            visited.insert(neighbor);
+            searchQueue_.push_back(neighbor);
+        }
+    }
+    return count;
+}
+
+bool BossSphereCluster::FindLockOnTarget(const LockOnRequest &request, bool requireFacing, LockOnResult &out) {
+    out = LockOnResult{};
+
+    if (request.aimDirection.LengthSq() <= 0.0f) {
+        return false;
+    }
+    const Vector3 aimDirection = request.aimDirection.Normalize();
+    const float maxAngleCos = std::cos(request.maxAngleDegrees * std::numbers::pi_v<float> / 180.0f);
+
+    float bestCos = -2.0f;
+    for (auto &[cell, slot] : occupied_) {
+        if (slot.color != request.color) {
+            continue;
+        }
+
+        const Vector3 spherePosition = slot.sphere->GetWorldPosition();
+        const Vector3 toSphere = spherePosition - request.origin;
+        const float distance = toSphere.Length();
+        if (distance <= 0.0001f || distance > request.maxDistance) {
+            continue;
+        }
+
+        const Vector3 toSphereDirection = toSphere / distance;
+        const float angleCos = aimDirection.Dot(toSphereDirection);
+        if (angleCos < maxAngleCos) {
+            continue; // 照準の許容角度から外れている
+        }
+
+        if (requireFacing && slot.sphere->GetWorldNormal().Dot(toSphereDirection) >= 0.0f) {
+            continue; // 殻の裏側は狙わない
+        }
+
+        if (angleCos > bestCos) {
+            bestCos = angleCos;
+            out.found = true;
+            out.cell = cell;
+            out.worldPosition = spherePosition;
+            out.distance = distance;
+            out.angleDegrees = std::acos(std::clamp(angleCos, -1.0f, 1.0f)) * 180.0f / std::numbers::pi_v<float>;
+        }
+    }
+
+    return out.found;
+}
+
+bool BossSphereCluster::TryGetCellWorldPosition(const ShellCell &cell, Vector3 &out) {
+    auto it = occupied_.find(cell);
+    if (it == occupied_.end()) {
+        return false;
+    }
+    out = it->second.sphere->GetWorldPosition();
+    return true;
+}
+
+void BossSphereCluster::SetHighlightedCell(const ShellCell &cell, bool valid) {
+    if (hasHighlight_ && highlightedCell_ == cell && valid) {
+        return;
+    }
+
+    if (hasHighlight_) {
+        auto previous = occupied_.find(highlightedCell_);
+        if (previous != occupied_.end()) {
+            previous->second.sphere->SetHighlight(false);
+        }
+        hasHighlight_ = false;
+    }
+
+    if (!valid) {
+        return;
+    }
+    auto current = occupied_.find(cell);
+    if (current != occupied_.end()) {
+        current->second.sphere->SetHighlight(true);
+        highlightedCell_ = cell;
+        hasHighlight_ = true;
+    }
+}
+
+float BossSphereCluster::GetExposure() const {
+    if (initialCount_ <= 0) {
+        return 0.0f;
+    }
+    const int removed = initialCount_ - static_cast<int>(occupied_.size());
+    return std::clamp(static_cast<float>(removed) / static_cast<float>(initialCount_), 0.0f, 1.0f);
+}
+
+int BossSphereCluster::CountAlive(Color color) const {
+    int count = 0;
+    for (const auto &[cell, slot] : occupied_) {
+        if (slot.color == color) {
+            ++count;
+        }
+    }
+    return count;
+}

@@ -131,6 +131,20 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Application\Boss\Attack\BossAttackScheduler.cpp" />
+    <ClCompile Include="Application\Boss\Attack\BossAttackSlam.cpp" />
+    <ClCompile Include="Application\Boss\Attack\BossAttackSpin.cpp" />
+    <ClCompile Include="Application\Boss\Boss.cpp" />
+    <ClCompile Include="Application\Boss\Data\BossColorPalette.cpp" />
+    <ClCompile Include="Application\Boss\Data\BossParameters.cpp" />
+    <ClCompile Include="Application\Boss\Lattice\BossIcosphere.cpp" />
+    <ClCompile Include="Application\Boss\Lattice\BossSphereLattice.cpp" />
+    <ClCompile Include="Application\Boss\Debug\BossTestDriver.cpp" />
+    <ClCompile Include="Application\Boss\Debug\BossTestProjectile.cpp" />
+    <ClCompile Include="Application\Boss\Shell\BossSphere.cpp" />
+    <ClCompile Include="Application\Boss\Shell\BossSphereCluster.cpp" />
+    <ClCompile Include="Application\Boss\State\BossStateMachine.cpp" />
+    <ClCompile Include="Application\Boss\State\BossStates.cpp" />
     <ClCompile Include="Application\Character\Player\Player.cpp" />
     <ClCompile Include="Application\Input\GameInput.cpp" />
     <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
@@ -150,6 +164,22 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\scene\GameScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application\Boss\Attack\BossAttackScheduler.h" />
+    <ClInclude Include="Application\Boss\Attack\BossAttackSlam.h" />
+    <ClInclude Include="Application\Boss\Attack\BossAttackSpin.h" />
+    <ClInclude Include="Application\Boss\Attack\IBossAttack.h" />
+    <ClInclude Include="Application\Boss\Boss.h" />
+    <ClInclude Include="Application\Boss\Data\BossColorPalette.h" />
+    <ClInclude Include="Application\Boss\Data\BossParameters.h" />
+    <ClInclude Include="Application\Boss\Lattice\BossIcosphere.h" />
+    <ClInclude Include="Application\Boss\Lattice\BossSphereLattice.h" />
+    <ClInclude Include="Application\Boss\Debug\BossTestDriver.h" />
+    <ClInclude Include="Application\Boss\Debug\BossTestProjectile.h" />
+    <ClInclude Include="Application\Boss\Shell\BossSphere.h" />
+    <ClInclude Include="Application\Boss\Shell\BossSphereCluster.h" />
+    <ClInclude Include="Application\Boss\State\BossState.h" />
+    <ClInclude Include="Application\Boss\State\BossStateMachine.h" />
+    <ClInclude Include="Application\Boss\State\BossStates.h" />
     <ClInclude Include="Application\Character\ColorStruct.h" />
     <ClInclude Include="Application\Character\Player\Player.h" />
     <ClInclude Include="Application\Input\GameInput.h" />
@@ -166,6 +196,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.h" />
     <ClInclude Include="Application\Character\Player\Weapon\PlayerWeapon.h" />
     <ClInclude Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.h" />
+    <ClInclude Include="Application\Interface\FunctionalPlayerBridge.h" />
+    <ClInclude Include="Application\Interface\IBossTargetQuery.h" />
+    <ClInclude Include="Application\Interface\IColorProvider.h" />
+    <ClInclude Include="Application\Interface\IDamageable.h" />
+    <ClInclude Include="Application\Interface\ITargetLocator.h" />
     <ClInclude Include="Application\Camera\Follow\FollowCamera.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />

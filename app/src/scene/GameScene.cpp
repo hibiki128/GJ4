@@ -20,6 +20,10 @@ void GameScene::Initialize()
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
 			pObjectManager_->Draw(vp);
+			// デバッグ射撃の弾はマネージャに登録していないのでここで描く
+			if (bossTestDriver_) {
+				bossTestDriver_->Draw(vp);
+			}
 		});
 
     // スプライトの描画（ポストエフェクトなし）
@@ -46,6 +50,22 @@ void GameScene::Initialize()
 	followCamera_->Activate();
 
 	pObjectManager_->RegisterExternal(player_.get());
+
+	// ボスの生成初期化（更新は BaseObjectManager が行う）
+	boss_ = std::make_unique<Boss>();
+	boss_->Init("Boss");
+	pObjectManager_->RegisterExternal(boss_.get());
+
+	// 連鎖マッチ検証用のデバッグ射撃
+	bossTestDriver_ = std::make_unique<BossTestDriver>();
+	bossTestDriver_->Init(boss_.get());
+
+	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる。
+	// プレイヤーに色の取得APIが実装されたら、2つ目のラムダを差し替えるだけで本接続になる
+	playerBridge_ = std::make_unique<FunctionalPlayerBridge>(
+		[pPlayer = player_.get()] { return pPlayer->GetWorldPosition(); },
+		[pDriver = bossTestDriver_.get()] { return pDriver->GetSelectedColor(); });
+	boss_->SetPlayerBridge(playerBridge_.get());
 }
 
 void GameScene::Finalize()
@@ -66,11 +86,15 @@ void GameScene::Update()
 	gameInput_->UpdateInputState();
 
 	player_->CommandExecute(gameInput_->GetInputContext());
+
+	// ボス検証用のデバッグ射撃（ボス本体の更新は BaseObjectManager が行う）
+	bossTestDriver_->Update(*GetViewProjection());
+
 	
 	followCamera_->Update();
 
 	CameraUpdate();
-	
+
 }
 
 void GameScene::AddSceneSetting() {
@@ -92,6 +116,9 @@ void GameScene::AddObjectSetting()
 	/// ===================================================
 	/// オブジェクト設定（デバッグ）
 	/// ===================================================
+	if (bossTestDriver_) {
+		bossTestDriver_->DrawImGui();
+	}
 }
 void GameScene::AddParticleSetting()
 {
