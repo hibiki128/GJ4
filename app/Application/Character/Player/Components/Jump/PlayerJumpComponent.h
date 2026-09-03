@@ -11,6 +11,4 @@ public:
 	bool IsJumping() const { return isJumping_; }
 private:
 	bool isJumping_ = false;
-	float velocity_ = 0.0f;
 };
-

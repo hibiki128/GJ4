@@ -4,6 +4,7 @@
 #include "Application/Boss/Debug/BossTestDriver.h"
 #include "Application/Character/Player/Player.h"
 #include "Application/Interface/FunctionalPlayerBridge.h"
+#include"Application/Camera/Follow/FollowCamera.h"
 
 /// <summary>
 /// ゲームシーン
@@ -75,4 +76,5 @@ private:
     std::unique_ptr<FunctionalPlayerBridge> playerBridge_;
     // 連鎖マッチ検証用のデバッグ射撃（プレイヤーの射撃実装が入るまでの代役）
     std::unique_ptr<BossTestDriver> bossTestDriver_;
+	std::unique_ptr<FollowCamera> followCamera_;
 };

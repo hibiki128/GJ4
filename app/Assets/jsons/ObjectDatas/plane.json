@@ -15,7 +15,7 @@
     },
     "collider_0_size": {
         "x": 200.0,
-        "y": 1.0,
+        "y": 0.10000000149011612,
         "z": 200.0
     },
     "collider_0_tag": "Environment",
@@ -61,7 +61,7 @@
     "rb_linearDamping": 0.05000000074505806,
     "rb_mass": 1.0,
     "rb_restitution": 0.0,
-    "rb_useGravity": true,
+    "rb_useGravity": false,
     "resolveCollision": false,
     "rotation": {
         "w": 0.7071065902709961,

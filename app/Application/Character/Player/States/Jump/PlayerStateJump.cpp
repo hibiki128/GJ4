@@ -10,7 +10,7 @@ void PlayerStateJump::Enter(Player& player, PlayerContext& context) {
 
 void PlayerStateJump::Update(Player& player, PlayerContext& context) {
 	if (!context.jumpComponent_->IsJumping()) {
-		context.jumpComponent_->Jump(context, 1.0f);
+		context.jumpComponent_->Jump(context, 8.0f);
 	}
 	context.jumpComponent_->UpdateJump(context);
 	context.moveComponent_->Move(context, context.input_.dir, 0.2f);

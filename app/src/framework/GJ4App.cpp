@@ -1,4 +1,5 @@
 #include "GJ4App.h"
+#include <collider/ColliderTagManager.h>
 
 using namespace Hagine;
 
@@ -9,6 +10,10 @@ void GJ4App::Initialize() {
     Framework::RegisterShortcutKey();
 
     // -----ゲーム固有の処理-----
+
+    // ゲームで使うコライダーのタグを登録する。
+    // ここに無いタグはシーンデータやコードから設定しても無視されるので、シーンを作る前に登録しておく
+    ColliderTagManager::GetInstance()->RegisterGameTags({"player", "floor"});
 
     // 最初のシーンを予約（シーンは REGISTER_SCENE で自己登録済み）
     pSceneManager_->NextSceneReservation("GAME");
