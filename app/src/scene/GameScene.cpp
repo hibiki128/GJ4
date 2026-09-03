@@ -77,8 +77,6 @@ void GameScene::Update()
 	gameInput_->UpdateInputState();
 
 	player_->CommandExecute(gameInput_->GetInputContext());
-	
-	player_->SetInputContext(gameInput_->GetInputContext());
 
 	// ボス検証用のデバッグ射撃（ボス本体の更新は BaseObjectManager が行う）
 	bossTestDriver_->Update(*GetViewProjection());

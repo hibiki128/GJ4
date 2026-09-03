@@ -2,8 +2,11 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
+  <!-- app.vcxproj(Game) を先頭に置く。スタートアップ プロジェクトの指定は .suo(ユーザー設定) に
+       保存されるため、新規クローンや .vs 削除後は先頭のプロジェクトが既定になる。
+       ライブラリ(DirectXTex)が先頭だと F5 で「有効な Win32 アプリケーションではありません」になる -->
+  <Project Path="app.vcxproj" Id="56761843-932f-4485-9160-93542aba1913" />
   <Project Path="../module/Hagine/Externals/DirectXTex/DirectXTex_Desktop_2022_Win10.vcxproj" Id="371b9fa9-4c90-4ac6-a123-aced756d6c77" />
   <Project Path="../module/Hagine/Externals/imgui/imgui.vcxproj" Id="be1b472e-0bdb-4498-9428-4aae04bd3b14" />
   <Project Path="../module/Hagine/Hagine.vcxproj" Id="556e1b34-4edc-4f08-88c5-93ae6aa769de" />
-  <Project Path="app.vcxproj" Id="56761843-932f-4485-9160-93542aba1913" />
 </Solution>
