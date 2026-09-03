@@ -99,7 +99,30 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="app.manifest" />
+    <ClCompile Include="Application\Character\Player\Player.cpp">
+      <Filter>Application\Character\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\framework\GJ4App.cpp">
+      <Filter>src\framework</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\GameScene.cpp">
+      <Filter>src\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Application\Input\GameInput.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Idle\PlayerStateIdle.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Move\PlayerStateMove.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Dash\PlayerStateDash.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Jump\PlayerJumpComponent.cpp" />
+    <ClCompile Include="Application\Character\Player\States\Jump\PlayerStateJump.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\PlayerBullet.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\Bullet\Manager\PlayerBulletManager.cpp" />
+    <ClCompile Include="Application\Character\Player\Weapon\PlayerWeapon.cpp" />
+    <ClCompile Include="Application\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application\Boss\Attack\BossAttackScheduler.h">
@@ -177,5 +200,9 @@
     <ClInclude Include="src\scene\GameScene.h">
       <Filter>src\scene</Filter>
     </ClInclude>
+    <ClInclude Include="Application\Input\GameInput.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
   </ItemGroup>
 </Project>

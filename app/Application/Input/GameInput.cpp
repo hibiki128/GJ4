@@ -20,7 +20,7 @@ void GameInput::UpdateInputState() {
 		context_.dir.x += 1.0f;
 	}
 
-	if (input->PushKey(DIK_SPACE)) {
+	if (input->TriggerKey(DIK_SPACE)) {
 		context_.jump = true;
 	} else {
 		context_.jump = false;

@@ -1,0 +1,12 @@
+#pragma once
+#include "Application/Character/Player/States/Base/PlayerStateBase.h"
+
+class PlayerStateIdle : public PlayerStateBase {
+public:
+	PlayerStateIdle() = default;
+	~PlayerStateIdle() = default;
+	void Enter(Player& player, PlayerContext& context) override;
+	void Update(Player& player, PlayerContext& context) override;
+	void Exit(Player& player, PlayerContext& context) override;
+};
+

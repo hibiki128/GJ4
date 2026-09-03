@@ -1,49 +1,56 @@
 #include "Player.h"
+#include "States/Idle/PlayerStateIdle.h"
+#include "States/Move/PlayerStateMove.h"
+#include "States/Dash/PlayerStateDash.h"
+#include "States/Dodge/PlayerStateDodge.h"
+#include "States/Jump/PlayerStateJump.h"
 
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
 	CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+
+	// ステートを登録
+	states_["Idle"] = std::make_unique<PlayerStateIdle>();
+	states_["Move"] = std::make_unique<PlayerStateMove>();
+	states_["Dash"] = std::make_unique<PlayerStateDash>();
+	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
+	states_["Jump"] = std::make_unique<PlayerStateJump>();
+	currentState_ = states_["Idle"].get();
+
+	// 弾のプールを生成してオブジェクトマネージャーに登録する
+	// （以降、弾の更新と描画はオブジェクトマネージャーが行う）
+	bullets_.Init(objectName + "Bullet");
+
+	shoot_.SetWeapon(&weapon_);
+
+	context_.transform_ = GetWorldTransform();
+	context_.moveComponent_ = &move_;
+	context_.jumpComponent_ = &jump_;
+	context_.shootComponent_ = &shoot_;
+	context_.bullets = &bullets_;
 }
 
 void Player::Update() {
-	if (inputContext_.move) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.x += inputContext_.dir.x * 0.1f;
-		translate.z += inputContext_.dir.y * 0.1f;
-		transform_->translation_ = translate;
+	if (currentState_) {
+		currentState_->Update(*this, context_);
 	}
 
-	if (inputContext_.jump) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.y += 0.1f;
-		transform_->translation_ = translate;
-		isJumping_ = true;
-	}
-
-	if (!inputContext_.jump && isJumping_) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.y -= 0.1f;
-		transform_->translation_ = translate;
-		if (translate.y <= 0.0f) {
-			translate.y = 0.0f;
-			isJumping_ = false;
-		}
-	}
-
-	if (inputContext_.attack) {
-		// 攻撃処理
-	}
-
-	if (inputContext_.dash) {
-		Hagine::Vector3 translate = transform_->translation_;
-		translate.x += inputContext_.dir.x * 0.5f;
-		translate.z += inputContext_.dir.y * 0.5f;
-		transform_->translation_ = translate;
-	}
+	shoot_.Update(context_);
 
 	BaseObject::Update();
 }
 
 void Player::Draw(const Hagine::ViewProjection& viewProjection) {
 	BaseObject::Draw(viewProjection);
+}
+
+void Player::ChangeState(const std::string& stateName) {
+	auto it = states_.find(stateName);
+	if (it != states_.end()) {
+		if (currentState_) {
+			currentState_->Exit(*this, context_);
+		}
+		currentState_ = it->second.get();
+		currentState_->Enter(*this, context_);
+	}
 }
