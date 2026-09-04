@@ -503,8 +503,12 @@ void Boss::RegisterTuningParameters() {
 }
 
 void Boss::DrawImGui() {
+    // 「トランスフォームマネージャ」ウィンドウで選択したときに出る、オブジェクトの全項目
     BaseObject::DrawImGui();
+    DrawGameplayImGui();
+}
 
+void Boss::DrawGameplayImGui() {
 #ifdef USE_IMGUI
     if (!ImGui::CollapsingHeader("ボス", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;

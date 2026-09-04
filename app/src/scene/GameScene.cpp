@@ -66,6 +66,13 @@ void GameScene::Initialize()
 		[pPlayer = player_.get()] { return pPlayer->GetWorldPosition(); },
 		[pDriver = bossTestDriver_.get()] { return pDriver->GetSelectedColor(); });
 	boss_->SetPlayerBridge(playerBridge_.get());
+
+	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
+	bossSpider_ = std::make_unique<BossSpider>();
+	bossSpider_->SetPalette(boss_->GetPalette());
+	bossSpider_->Init("BossSpider");
+	bossSpider_->SetTargetLocator(playerBridge_.get());
+	pObjectManager_->RegisterExternal(bossSpider_.get());
 }
 
 void GameScene::Finalize()
@@ -116,6 +123,14 @@ void GameScene::AddObjectSetting()
 	/// ===================================================
 	/// オブジェクト設定（デバッグ）
 	/// ===================================================
+	// ボス関連のUIはここ（メニューの 表示 > ウィンドウ > オブジェクト設定 (インスペクタ)）へ出す。
+	// オブジェクトを選択しなくても触れるよう、固有の項目だけを直接描いている
+	if (boss_) {
+		boss_->DrawGameplayImGui();
+	}
+	if (bossSpider_) {
+		bossSpider_->DrawGameplayImGui();
+	}
 	if (bossTestDriver_) {
 		bossTestDriver_->DrawImGui();
 	}

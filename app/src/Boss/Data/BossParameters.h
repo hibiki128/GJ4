@@ -67,6 +67,44 @@ struct BossEffectParams {
 };
 
 /// <summary>
+/// 第2形態（蜘蛛）の見た目と歩行のパラメータ。
+/// 胴は球体形態の中心と同じ黒い球で、そこから色付きの球が連なった脚が生える
+/// </summary>
+struct BossSpiderParams {
+    // --- 見た目 ---
+    float bodyRadius = 2.1f;       // 胴（黒い球）の半径
+    int legCount = 8;              // 脚の本数
+    // 付け根→膝（上腿）に並べる球の数。0以下なら「球が接して連なる数」を上腿の長さから自動算出する。
+    // 膝の球は上腿と下腿で共有するので、脚1本の総数は upperSphereCount + lowerSphereCount - 1 になる
+    int upperSphereCount = 0;
+    // 膝→足先（下腿）に並べる球の数。0以下なら自動算出
+    int lowerSphereCount = 0;
+    float legSphereRadius = 0.42f; // 脚の球の半径
+    // 脚を胴のまわりへ配置するときの、片側（右半分・左半分）の広がり角（度）。
+    // 180 なら円周に等間隔。小さくするほど真横へ寄って密集し、蜘蛛らしい並びになる
+    float legSpread = 180.0f;
+    // 脚の扇全体を前後へずらす角度（度）。正で前寄り、負で後ろ寄り
+    float legSpreadOffset = 0.0f;
+    // 脚の全長（付け根→膝→足先の折れ線の長さ。膝で二等辺三角形に折るので常にこの長さになる）。
+    // 足を最も伸ばした姿勢でも届くよう、footRadius + stepTrigger + stepLead より長く取ること
+    float legLength = 8.5f;
+    float kneeLift = 0.8f;         // 膝の追加の持ち上げ量（大きいほど「への字」が立つ）
+    float footRadius = 5.0f;       // 足を置く円の半径（胴の中心から）
+    float bodyHeight = 3.4f;       // 足の高さから胴までの高さ
+
+    // --- 歩行 ---
+    float moveSpeed = 3.5f;     // 歩く速さ
+    float turnSpeed = 110.0f;   // 向き直りの速さ（度/秒）
+    float stepTime = 0.26f;     // 1歩にかける時間（短いほど素早く不気味）
+    float stepHeight = 1.5f;    // 足を持ち上げる高さ
+    float stepTrigger = 1.5f;   // 足が定位置からこれだけ離れたら踏み替える
+    float stepLead = 1.2f;      // 進行方向へ踏み越す量
+    float bodyBob = 0.16f;      // 歩調に合わせた胴の上下
+    float bodySway = 0.12f;     // 歩調に合わせた胴の左右
+    float stopDistance = 6.0f;  // 相手にこれだけ近づいたら止まる
+};
+
+/// <summary>
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
@@ -118,6 +156,22 @@ struct BossSlamAttackParams {
     float damage = 20.0f;      // 着弾ダメージ
     float recoverTime = 0.8f;  // 最後の着弾後の硬直
 };
+
+/// <summary>
+/// 蜘蛛形態のパラメータを jsons/Boss/&lt;bossId&gt;.json の "spider" から読み込む。
+/// ファイルや項目が無ければ既定値のまま
+/// </summary>
+/// <param name="bossId">ボス識別子（例: "Boss01"）</param>
+/// <param name="out">読み込み先</param>
+void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out);
+
+/// <summary>
+/// 蜘蛛形態のパラメータを書き戻す。
+/// 同じファイルの他の項目（殻・連鎖・攻撃など）はそのまま残る
+/// </summary>
+/// <param name="bossId">ボス識別子</param>
+/// <param name="params">保存する値</param>
+void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params);
 
 /// <summary>
 /// ソフトロックオンに関するパラメータ

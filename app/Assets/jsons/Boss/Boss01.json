@@ -1,79 +1,101 @@
 {
+    "appear": {
+        "arriveScale": 0.35,
+        "expandTime": 0.65,
+        "gatherRadius": 22.0,
+        "gatherSpinSpeed": 900.0,
+        "gatherTime": 1.8,
+        "settleTime": 0.45,
+        "spawnSpread": 0.6,
+        "startScale": 0.1
+    },
+    "attacks": {
+        "slam": {
+            "aimTime": 0.5,
+            "damage": 20.0,
+            "fallTime": 0.35,
+            "impactRadius": 4.5,
+            "impactTime": 0.35,
+            "recoverTime": 0.8,
+            "riseHeight": 10.0,
+            "riseTime": 0.8
+        },
+        "spin": {
+            "contactMargin": 1.0,
+            "damage": 15.0,
+            "dashSpeed": 22.0,
+            "dashTime": 0.8,
+            "recoverTime": 0.8,
+            "telegraphSpinSpeed": 540.0,
+            "telegraphTime": 1.2
+        }
+    },
+    "battle": {
+        "arenaRadius": 25.0,
+        "idleSpinSpeed": 18.0
+    },
+    "chain": {
+        "maxInitialCluster": 2,
+        "minMatch": 3,
+        "staggerBase": 0.6,
+        "staggerPerPart": 0.15
+    },
     "colorSeed": 20260902,
     "colors": [
         "RED",
         "BLUE",
         "GREEN"
     ],
-    "shell": {
-        "subdivision": 1,
-        "shellRadius": 3.0,
-        "sphereRadius": 0.0,
-        "innerLayers": 0,
-        "outerLayers": 2,
-        "coreScale": 1.0,
-        "extraCapacity": 0
+    "effect": {
+        "attachStartScale": 0.5,
+        "attachTime": 0.18,
+        "vanishDrift": 0.7,
+        "vanishSpread": 0.04,
+        "vanishTime": 0.3
     },
-    "chain": {
-        "minMatch": 3,
-        "staggerBase": 0.6,
-        "staggerPerPart": 0.15,
-        "maxInitialCluster": 2
+    "exposure": {
+        "attackIntervalAtFull": 2.2,
+        "attackIntervalAtZero": 6.0,
+        "slamAimScaleAtFull": 0.55,
+        "slamCountAtFull": 5,
+        "slamCountAtZero": 1,
+        "spinDashSpeedScaleAtFull": 1.6,
+        "spinTelegraphScaleAtFull": 0.6
     },
     "lockOn": {
         "maxAngleDegrees": 20.0,
         "maxDistance": 60.0,
         "requireFacing": true
     },
-    "effect": {
-        "attachTime": 0.18,
-        "attachStartScale": 0.5,
-        "vanishTime": 0.3,
-        "vanishDrift": 0.7,
-        "vanishSpread": 0.04
+    "shell": {
+        "coreScale": 1.0,
+        "extraCapacity": 0,
+        "innerLayers": 0,
+        "outerLayers": 2,
+        "shellRadius": 3.0,
+        "sphereRadius": 0.0,
+        "subdivision": 1
     },
-    "appear": {
-        "gatherTime": 1.8,
-        "settleTime": 0.45,
-        "expandTime": 0.65,
-        "gatherRadius": 22.0,
-        "gatherSpinSpeed": 900.0,
-        "startScale": 0.1,
-        "arriveScale": 0.35,
-        "spawnSpread": 0.6
-    },
-    "battle": {
-        "arenaRadius": 25.0,
-        "idleSpinSpeed": 18.0
-    },
-    "exposure": {
-        "attackIntervalAtZero": 6.0,
-        "attackIntervalAtFull": 2.2,
-        "spinDashSpeedScaleAtFull": 1.6,
-        "spinTelegraphScaleAtFull": 0.6,
-        "slamCountAtZero": 1,
-        "slamCountAtFull": 5,
-        "slamAimScaleAtFull": 0.55
-    },
-    "attacks": {
-        "spin": {
-            "telegraphTime": 1.2,
-            "telegraphSpinSpeed": 540.0,
-            "dashSpeed": 22.0,
-            "dashTime": 0.8,
-            "recoverTime": 0.8,
-            "damage": 15.0,
-            "contactMargin": 1.0
-        },
-        "slam": {
-            "riseTime": 0.8,
-            "riseHeight": 10.0,
-            "aimTime": 0.5,
-            "fallTime": 0.35,
-            "impactTime": 0.35,
-            "impactRadius": 4.5,
-            "damage": 20.0,
-            "recoverTime": 0.8
-        }
+    "spider": {
+        "bodyBob": 0.1599999964237213,
+        "bodyHeight": 3.4000000953674316,
+        "bodyRadius": 1.5,
+        "bodySway": 0.11999999731779099,
+        "footRadius": 6.849999904632568,
+        "kneeLift": 0.800000011920929,
+        "legCount": 6,
+        "legLength": 8.5,
+        "legSphereRadius": 0.800000011920929,
+        "legSpread": 140.0,
+        "legSpreadOffset": -0.0,
+        "lowerSphereCount": 5,
+        "moveSpeed": 8.5,
+        "stepHeight": 1.5,
+        "stepLead": 1.2000000476837158,
+        "stepTime": 0.25999999046325684,
+        "stepTrigger": 1.5,
+        "stopDistance": 6.0,
+        "turnSpeed": 110.0,
+        "upperSphereCount": 4
     }
 }

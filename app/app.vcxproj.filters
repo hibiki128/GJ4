@@ -1,101 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="src">
-      <UniqueIdentifier>{C202D925-8342-8CAB-FBAC-54DFA101AD31}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss">
-      <UniqueIdentifier>{86779D65-23AE-B0E0-7A0E-4F14A3B0D30A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\Attack">
-      <UniqueIdentifier>{6D371BCD-B899-0167-9AAD-35702996B735}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\Data">
-      <UniqueIdentifier>{873FDF63-78E4-1579-8072-E49C9C2EEE23}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\Debug">
-      <UniqueIdentifier>{1B2E20DD-275A-0752-A58B-81CF4A00FEA8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\Lattice">
-      <UniqueIdentifier>{DCBAE898-4951-9975-5DD9-3387CA387111}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\Shell">
-      <UniqueIdentifier>{30974559-DF94-C51D-80B0-6FDADD9B6A05}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Boss\State">
-      <UniqueIdentifier>{D3E3B528-662E-6D4B-F9EF-E8FF55024FB5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Camera">
-      <UniqueIdentifier>{F1AF5EEA-23C7-DE13-1133-83017D09A09D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Camera\Follow">
-      <UniqueIdentifier>{301B1F12-AA17-BB5D-7AC7-D78BD0B8BC61}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character">
-      <UniqueIdentifier>{986533EB-0764-B475-E36F-25DAC94DD792}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player">
-      <UniqueIdentifier>{E3B27ACB-6BD6-079E-9FCD-1A3A2F94A98C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Components">
-      <UniqueIdentifier>{0D95733D-5B7B-5C40-0AD1-00501AF4C0A5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Components\Jump">
-      <UniqueIdentifier>{C2E51035-A97F-49AA-1959-6A0FB14126A7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Components\Move">
-      <UniqueIdentifier>{051B7C3C-2262-AB48-F900-BE48C982F958}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Components\Shoot">
-      <UniqueIdentifier>{F2BA291B-3678-0030-0635-50DEC898D537}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Core">
-      <UniqueIdentifier>{99C177B3-82E4-AF36-97BB-03C4008B819B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States">
-      <UniqueIdentifier>{47A0E254-9E5B-2E37-D496-FCE26F9FEA6D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Base">
-      <UniqueIdentifier>{3E57CFBA-F2D0-880A-4752-38CB936EC77E}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Dash">
-      <UniqueIdentifier>{9D3AEEE3-6E5F-40A0-86AD-93FA634B6B4C}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Dodge">
-      <UniqueIdentifier>{D58685A8-F1E7-D9C6-EDA1-C54A3D666370}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Idle">
-      <UniqueIdentifier>{5627FF47-C959-9E46-AFFE-B8E56BB99BAB}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Jump">
-      <UniqueIdentifier>{DF0917ED-6579-9B82-0EBB-89845F94CAC0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\States\Move">
-      <UniqueIdentifier>{EB8239D7-B2E3-CC4B-0439-1174081D4505}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Weapon">
-      <UniqueIdentifier>{701D9B30-EEA3-4C81-B1C3-99BFF1932BF2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Weapon\Bullet">
-      <UniqueIdentifier>{F20F3EA4-F99A-1B50-25E5-E04841825CD5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Character\Player\Weapon\Bullet\Manager">
-      <UniqueIdentifier>{3E2D0A08-2013-76A2-C325-E5C1E4F3B424}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\framework">
-      <UniqueIdentifier>{CF54C32F-4A7F-DA77-7AED-54D4A08E1C58}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Input">
-      <UniqueIdentifier>{72777B0C-A4E8-ADAB-B541-DCFC9915AD6D}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\Interface">
-      <UniqueIdentifier>{6B2A7542-E748-9898-E3E5-E012D855B63A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="src\scene">
-      <UniqueIdentifier>{72706981-6907-EF9F-9DF9-4B763CF81236}</UniqueIdentifier>
-    </Filter>
-  </ItemGroup>
-  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\framework\GJ4App.cpp">
+      <Filter>src\framework</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\GameScene.cpp">
+      <Filter>src\scene</Filter>
+    </ClCompile>
     <ClCompile Include="src\Boss\Attack\BossAttackScheduler.cpp">
       <Filter>src\Boss\Attack</Filter>
     </ClCompile>
@@ -131,6 +43,12 @@
     </ClCompile>
     <ClCompile Include="src\Boss\Shell\BossSphereCluster.cpp">
       <Filter>src\Boss\Shell</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Boss\Spider\BossSpider.cpp">
+      <Filter>src\Boss\Spider</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Boss\Spider\BossSpiderLeg.cpp">
+      <Filter>src\Boss\Spider</Filter>
     </ClCompile>
     <ClCompile Include="src\Boss\State\BossStateMachine.cpp">
       <Filter>src\Boss\State</Filter>
@@ -177,20 +95,118 @@
     <ClCompile Include="src\Character\Player\Weapon\PlayerWeapon.cpp">
       <Filter>src\Character\Player\Weapon</Filter>
     </ClCompile>
-    <ClCompile Include="src\framework\GJ4App.cpp">
-      <Filter>src\framework</Filter>
-    </ClCompile>
     <ClCompile Include="src\Input\GameInput.cpp">
       <Filter>src\Input</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\scene\GameScene.cpp">
-      <Filter>src\scene</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{C202D925-8342-8CAB-FBAC-54DFA101AD31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss">
+      <UniqueIdentifier>{86779D65-23AE-B0E0-7A0E-4F14A3B0D30A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Camera">
+      <UniqueIdentifier>{F1AF5EEA-23C7-DE13-1133-83017D09A09D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character">
+      <UniqueIdentifier>{986533EB-0764-B475-E36F-25DAC94DD792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\framework">
+      <UniqueIdentifier>{CF54C32F-4A7F-DA77-7AED-54D4A08E1C58}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Input">
+      <UniqueIdentifier>{72777B0C-A4E8-ADAB-B541-DCFC9915AD6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Interface">
+      <UniqueIdentifier>{6B2A7542-E748-9898-E3E5-E012D855B63A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\scene">
+      <UniqueIdentifier>{72706981-6907-EF9F-9DF9-4B763CF81236}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Attack">
+      <UniqueIdentifier>{6D371BCD-B899-0167-9AAD-35702996B735}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Data">
+      <UniqueIdentifier>{873FDF63-78E4-1579-8072-E49C9C2EEE23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Debug">
+      <UniqueIdentifier>{1B2E20DD-275A-0752-A58B-81CF4A00FEA8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Lattice">
+      <UniqueIdentifier>{DCBAE898-4951-9975-5DD9-3387CA387111}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Shell">
+      <UniqueIdentifier>{30974559-DF94-C51D-80B0-6FDADD9B6A05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Spider">
+      <UniqueIdentifier>{628b1a11-c1d9-4ae6-93e4-d34df50243e7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\State">
+      <UniqueIdentifier>{D3E3B528-662E-6D4B-F9EF-E8FF55024FB5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Camera\Follow">
+      <UniqueIdentifier>{301B1F12-AA17-BB5D-7AC7-D78BD0B8BC61}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player">
+      <UniqueIdentifier>{E3B27ACB-6BD6-079E-9FCD-1A3A2F94A98C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Components">
+      <UniqueIdentifier>{0D95733D-5B7B-5C40-0AD1-00501AF4C0A5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Core">
+      <UniqueIdentifier>{99C177B3-82E4-AF36-97BB-03C4008B819B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States">
+      <UniqueIdentifier>{47A0E254-9E5B-2E37-D496-FCE26F9FEA6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Weapon">
+      <UniqueIdentifier>{701D9B30-EEA3-4C81-B1C3-99BFF1932BF2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Components\Jump">
+      <UniqueIdentifier>{C2E51035-A97F-49AA-1959-6A0FB14126A7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Components\Move">
+      <UniqueIdentifier>{051B7C3C-2262-AB48-F900-BE48C982F958}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Components\Shoot">
+      <UniqueIdentifier>{F2BA291B-3678-0030-0635-50DEC898D537}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Base">
+      <UniqueIdentifier>{3E57CFBA-F2D0-880A-4752-38CB936EC77E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Dash">
+      <UniqueIdentifier>{9D3AEEE3-6E5F-40A0-86AD-93FA634B6B4C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Dodge">
+      <UniqueIdentifier>{D58685A8-F1E7-D9C6-EDA1-C54A3D666370}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Idle">
+      <UniqueIdentifier>{5627FF47-C959-9E46-AFFE-B8E56BB99BAB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Jump">
+      <UniqueIdentifier>{DF0917ED-6579-9B82-0EBB-89845F94CAC0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\States\Move">
+      <UniqueIdentifier>{EB8239D7-B2E3-CC4B-0439-1174081D4505}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Weapon\Bullet">
+      <UniqueIdentifier>{F20F3EA4-F99A-1B50-25E5-E04841825CD5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Weapon\Bullet\Manager">
+      <UniqueIdentifier>{3E2D0A08-2013-76A2-C325-E5C1E4F3B424}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\framework\GJ4App.h">
+      <Filter>src\framework</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\GameScene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
     <ClInclude Include="src\Boss\Attack\BossAttackScheduler.h">
       <Filter>src\Boss\Attack</Filter>
     </ClInclude>
@@ -229,6 +245,12 @@
     </ClInclude>
     <ClInclude Include="src\Boss\Shell\BossSphereCluster.h">
       <Filter>src\Boss\Shell</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Spider\BossSpider.h">
+      <Filter>src\Boss\Spider</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Spider\BossSpiderLeg.h">
+      <Filter>src\Boss\Spider</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\State\BossState.h">
       <Filter>src\Boss\State</Filter>
@@ -287,9 +309,6 @@
     <ClInclude Include="src\Character\Player\Weapon\PlayerWeapon.h">
       <Filter>src\Character\Player\Weapon</Filter>
     </ClInclude>
-    <ClInclude Include="src\framework\GJ4App.h">
-      <Filter>src\framework</Filter>
-    </ClInclude>
     <ClInclude Include="src\Input\GameInput.h">
       <Filter>src\Input</Filter>
     </ClInclude>
@@ -308,11 +327,5 @@
     <ClInclude Include="src\Interface\ITargetLocator.h">
       <Filter>src\Interface</Filter>
     </ClInclude>
-    <ClInclude Include="src\scene\GameScene.h">
-      <Filter>src\scene</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Manifest Include="app.manifest" />
   </ItemGroup>
 </Project>

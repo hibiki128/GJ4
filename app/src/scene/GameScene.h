@@ -2,6 +2,7 @@
 #include "BaseScene.h"
 #include "src/Boss/Boss.h"
 #include "src/Boss/Debug/BossTestDriver.h"
+#include "src/Boss/Spider/BossSpider.h"
 #include "src/Character/Player/Player.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
@@ -76,5 +77,7 @@ private:
     std::unique_ptr<FunctionalPlayerBridge> playerBridge_;
     // 連鎖マッチ検証用のデバッグ射撃（プレイヤーの射撃実装が入るまでの代役）
     std::unique_ptr<BossTestDriver> bossTestDriver_;
+    // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
+    std::unique_ptr<BossSpider> bossSpider_;
 	std::unique_ptr<FollowCamera> followCamera_;
 };

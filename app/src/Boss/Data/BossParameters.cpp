@@ -221,3 +221,61 @@ void BossParameters::Save() const {
     attacks["slam"] = slam;
     data.Save("attacks", attacks);
 }
+
+void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
+    Hagine::DataHandler data("Boss", bossId);
+    const json spider = data.Load<json>("spider", json::object());
+
+    out.bodyRadius = JsonValue(spider, "bodyRadius", out.bodyRadius);
+    out.legCount = JsonValue(spider, "legCount", out.legCount);
+    out.upperSphereCount = JsonValue(spider, "upperSphereCount", out.upperSphereCount);
+    out.lowerSphereCount = JsonValue(spider, "lowerSphereCount", out.lowerSphereCount);
+    out.legSphereRadius = JsonValue(spider, "legSphereRadius", out.legSphereRadius);
+    out.legSpread = JsonValue(spider, "legSpread", out.legSpread);
+    out.legSpreadOffset = JsonValue(spider, "legSpreadOffset", out.legSpreadOffset);
+    out.legLength = JsonValue(spider, "legLength", out.legLength);
+    out.kneeLift = JsonValue(spider, "kneeLift", out.kneeLift);
+    out.footRadius = JsonValue(spider, "footRadius", out.footRadius);
+    out.bodyHeight = JsonValue(spider, "bodyHeight", out.bodyHeight);
+
+    out.moveSpeed = JsonValue(spider, "moveSpeed", out.moveSpeed);
+    out.turnSpeed = JsonValue(spider, "turnSpeed", out.turnSpeed);
+    out.stepTime = JsonValue(spider, "stepTime", out.stepTime);
+    out.stepHeight = JsonValue(spider, "stepHeight", out.stepHeight);
+    out.stepTrigger = JsonValue(spider, "stepTrigger", out.stepTrigger);
+    out.stepLead = JsonValue(spider, "stepLead", out.stepLead);
+    out.bodyBob = JsonValue(spider, "bodyBob", out.bodyBob);
+    out.bodySway = JsonValue(spider, "bodySway", out.bodySway);
+    out.stopDistance = JsonValue(spider, "stopDistance", out.stopDistance);
+}
+
+void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params) {
+    // DataHandler は生成時にファイルを読み込んでから該当キーだけを差し替えるので、
+    // ここで "spider" 以外の項目（殻・連鎖・攻撃など）が消えることはない
+    Hagine::DataHandler data("Boss", bossId);
+
+    json spider = json::object();
+    spider["bodyRadius"] = params.bodyRadius;
+    spider["legCount"] = params.legCount;
+    spider["upperSphereCount"] = params.upperSphereCount;
+    spider["lowerSphereCount"] = params.lowerSphereCount;
+    spider["legSphereRadius"] = params.legSphereRadius;
+    spider["legSpread"] = params.legSpread;
+    spider["legSpreadOffset"] = params.legSpreadOffset;
+    spider["legLength"] = params.legLength;
+    spider["kneeLift"] = params.kneeLift;
+    spider["footRadius"] = params.footRadius;
+    spider["bodyHeight"] = params.bodyHeight;
+
+    spider["moveSpeed"] = params.moveSpeed;
+    spider["turnSpeed"] = params.turnSpeed;
+    spider["stepTime"] = params.stepTime;
+    spider["stepHeight"] = params.stepHeight;
+    spider["stepTrigger"] = params.stepTrigger;
+    spider["stepLead"] = params.stepLead;
+    spider["bodyBob"] = params.bodyBob;
+    spider["bodySway"] = params.bodySway;
+    spider["stopDistance"] = params.stopDistance;
+
+    data.Save("spider", spider);
+}

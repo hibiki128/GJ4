@@ -146,6 +146,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp" />
     <ClCompile Include="src\Boss\Shell\BossSphere.cpp" />
     <ClCompile Include="src\Boss\Shell\BossSphereCluster.cpp" />
+    <ClCompile Include="src\Boss\Spider\BossSpider.cpp" />
+    <ClCompile Include="src\Boss\Spider\BossSpiderLeg.cpp" />
     <ClCompile Include="src\Boss\State\BossStateMachine.cpp" />
     <ClCompile Include="src\Boss\State\BossStates.cpp" />
     <ClCompile Include="src\Camera\Follow\FollowCamera.cpp" />
@@ -179,6 +181,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h" />
     <ClInclude Include="src\Boss\Shell\BossSphere.h" />
     <ClInclude Include="src\Boss\Shell\BossSphereCluster.h" />
+    <ClInclude Include="src\Boss\Spider\BossSpider.h" />
+    <ClInclude Include="src\Boss\Spider\BossSpiderLeg.h" />
     <ClInclude Include="src\Boss\State\BossState.h" />
     <ClInclude Include="src\Boss\State\BossStateMachine.h" />
     <ClInclude Include="src\Boss\State\BossStates.h" />
