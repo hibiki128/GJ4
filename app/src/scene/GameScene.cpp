@@ -26,6 +26,16 @@ void GameScene::Initialize()
 			}
 		});
 
+	// ボスの殻（メタボール）をGPUで作り直す。
+	// シャドウ・G-Buffer より前のコンピュートフェーズで走らせ、描画側は完了を待ってから使う
+	pDrawSystem_->Register("GameScene_MetaBallCompute", DrawSystem::kGPUParticleCompute,
+		[this](const ViewProjection&)
+		{
+			if (boss_) {
+				boss_->DispatchShellCompute();
+			}
+		});
+
     // スプライトの描画（ポストエフェクトなし）
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {

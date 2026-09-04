@@ -69,6 +69,9 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -98,6 +101,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -131,6 +137,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <!-- pch.h をプリコンパイルする翻訳単位。ここだけ /Yc(作成)、他は /Yu(使用) -->
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
@@ -144,6 +154,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Debug\BossTestProjectile.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossIcosphere.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp" />
+    <ClCompile Include="src\Boss\Shell\BossShellMetaBall.cpp" />
     <ClCompile Include="src\Boss\Shell\BossSphere.cpp" />
     <ClCompile Include="src\Boss\Shell\BossSphereCluster.cpp" />
     <ClCompile Include="src\Boss\Spider\BossSpider.cpp" />
@@ -166,6 +177,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Input\GameInput.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
     <ClInclude Include="src\Boss\Attack\BossAttackScheduler.h" />
@@ -180,6 +192,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Debug\BossTestProjectile.h" />
     <ClInclude Include="src\Boss\Lattice\BossIcosphere.h" />
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h" />
+    <ClInclude Include="src\Boss\Shell\BossShellMetaBall.h" />
     <ClInclude Include="src\Boss\Shell\BossSphere.h" />
     <ClInclude Include="src\Boss\Shell\BossSphereCluster.h" />
     <ClInclude Include="src\Boss\Spider\BossSpider.h" />

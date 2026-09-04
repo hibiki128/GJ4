@@ -61,6 +61,23 @@
         "slamCountAtZero": 1,
         "spinDashSpeedScaleAtFull": 1.6,
         "spinTelegraphScaleAtFull": 0.6
+    }
+    "metaBall": {
+        "influenceScale": 2.0,
+        "voxelRatio": 0.3,
+        "threshold": 0.5,
+        "highlightScale": 1.15,
+        "useGpu": true,
+        "wobbleAmplitude": 0.0,
+        "wobbleSpeed": 3.0,
+        "wobbleFrequency": 1.0,
+        "maxTrianglesPerColor": 30000
+    },
+    "chain": {
+        "minMatch": 3,
+        "staggerBase": 0.6,
+        "staggerPerPart": 0.15,
+        "maxInitialCluster": 2
     },
     "lockOn": {
         "maxAngleDegrees": 20.0,

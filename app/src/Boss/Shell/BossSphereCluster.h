@@ -2,8 +2,10 @@
 #include "src/Boss/Data/BossColorPalette.h"
 #include "src/Boss/Data/BossParameters.h"
 #include "src/Boss/Lattice/BossSphereLattice.h"
+#include "src/Boss/Shell/BossShellMetaBall.h"
 #include "src/Boss/Shell/BossSphere.h"
 #include "src/Interface/IBossTargetQuery.h"
+#include <array>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,6 +20,7 @@ class ViewProjection;
 ///
 /// ・置ける場所は FCC 格子（BossSphereLattice）が定義し、埋まっているセルだけを疎に保持する
 /// ・座標はすべてボスのローカル空間なので、ボスが回っても再計算は発生しない
+/// ・見た目は球1個ずつではなく、同色をまとめて融合させたメタボール（BossShellMetaBall）で描く
 /// ・着弾はレイと占有球の交差で判定する（穴が開くため、1個の大きな球では代用できない。
 ///   また弾は1フレームで球の直径以上進むため、重なり判定だとすり抜ける）
 /// ・当たった球の隣接12セルのうち空いている最寄りへ弾を付着させ、
@@ -87,6 +90,26 @@ public:
     }
 
     /// <summary>全球を描画する（親の Draw から呼ぶ）</summary>
+    /// メタボールのパラメータを設定する（Build より前に呼ぶこと）。
+    /// 変えると次の Update で殻のメッシュが作り直される
+    /// </summary>
+    /// <param name="params">メタボールのパラメータ</param>
+    void SetMetaBallParams(const BossMetaBallParams &params);
+
+    /// <summary>
+    /// 殻の見た目を更新する（親の Update から呼ぶ）。
+    /// 球が増減した色だけメッシュを作り直すので、動いているだけなら何もしない
+    /// </summary>
+    void Update();
+
+    /// <summary>
+    /// GPU生成のときに、殻のメッシュを作り直すコンピュートを積む。
+    /// シャドウより前に走る DrawSystem のコンピュートフェーズから呼ぶこと
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）。脈動の時間を進めるのに使う</param>
+    void DispatchCompute(float deltaTime);
+
+    /// <summary>殻を描画する（親の Draw から呼ぶ）</summary>
     void Draw(const Hagine::ViewProjection &viewProjection);
 
     /// <summary>同色で隣接している球を線で結んで可視化する</summary>
@@ -141,6 +164,9 @@ public:
 
     const BossSphereLattice &GetLattice() const { return lattice_; }
 
+    /// <summary>殻の見た目（メタボール）。生成結果の統計を見るのに使う</summary>
+    const BossShellMetaBall &GetMetaBall() const { return metaBall_; }
+
 private:
     /// <summary>格子セル1つに置かれた球の情報</summary>
     struct SphereSlot {
@@ -171,6 +197,13 @@ private:
     /// <summary>消滅演出中の球をすべて即座にプールへ返す</summary>
     void FlushVanishing();
 
+    /// <summary>その色の融合メッシュを作り直させる</summary>
+    /// <param name="color">色</param>
+    void MarkColorDirty(Color color);
+
+    /// <summary>全色の融合メッシュを作り直させる</summary>
+    void MarkAllColorsDirty();
+
     /// <summary>ボスの平行移動と回転だけを持つ行列（格子空間への変換に使う。スケールは含めない）</summary>
     Hagine::Matrix4x4 MakeShellMatrix();
 
@@ -198,6 +231,10 @@ private:
     std::vector<BossSphere *> freeSpheres_{};                              // 待機中の球
     std::vector<BossSphere *> vanishing_{};                                // 消滅演出中の球（占有マップからは外れている）
     BossEffectParams effect_{};                                            // 吸着・消滅の演出設定
+
+    BossShellMetaBall metaBall_{};                    // 同色を融合させた殻の見た目
+    BossMetaBallParams metaBallParams_{};             // メタボールのパラメータ
+    std::array<bool, kGameColorCount> colorDirty_{};  // 球が増減して作り直しが要る色
 
     Hagine::BaseObject *pParent_ = nullptr; // 親（非所有）
     int initialCount_ = 0;                  // 初期状態の球数（露出度の基準）

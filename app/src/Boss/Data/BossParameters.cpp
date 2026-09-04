@@ -59,6 +59,18 @@ void BossParameters::Load(const std::string &bossId) {
     shell_.coreScale = JsonValue(shell, "coreScale", shell_.coreScale);
     shell_.extraCapacity = JsonValue(shell, "extraCapacity", shell_.extraCapacity);
 
+    // --- 殻の見た目（メタボール） ---
+    const json metaBall = data.Load<json>("metaBall", json::object());
+    metaBall_.influenceScale = JsonValue(metaBall, "influenceScale", metaBall_.influenceScale);
+    metaBall_.voxelRatio = JsonValue(metaBall, "voxelRatio", metaBall_.voxelRatio);
+    metaBall_.threshold = JsonValue(metaBall, "threshold", metaBall_.threshold);
+    metaBall_.highlightScale = JsonValue(metaBall, "highlightScale", metaBall_.highlightScale);
+    metaBall_.useGpu = JsonValue(metaBall, "useGpu", metaBall_.useGpu);
+    metaBall_.wobbleAmplitude = JsonValue(metaBall, "wobbleAmplitude", metaBall_.wobbleAmplitude);
+    metaBall_.wobbleSpeed = JsonValue(metaBall, "wobbleSpeed", metaBall_.wobbleSpeed);
+    metaBall_.wobbleFrequency = JsonValue(metaBall, "wobbleFrequency", metaBall_.wobbleFrequency);
+    metaBall_.maxTrianglesPerColor = JsonValue(metaBall, "maxTrianglesPerColor", metaBall_.maxTrianglesPerColor);
+
     // --- 連鎖マッチ ---
     const json chain = data.Load<json>("chain", json::object());
     chain_.minMatch = JsonValue(chain, "minMatch", chain_.minMatch);
@@ -149,6 +161,18 @@ void BossParameters::Save() const {
     shell["coreScale"] = shell_.coreScale;
     shell["extraCapacity"] = shell_.extraCapacity;
     data.Save("shell", shell);
+
+    json metaBall = json::object();
+    metaBall["influenceScale"] = metaBall_.influenceScale;
+    metaBall["voxelRatio"] = metaBall_.voxelRatio;
+    metaBall["threshold"] = metaBall_.threshold;
+    metaBall["highlightScale"] = metaBall_.highlightScale;
+    metaBall["useGpu"] = metaBall_.useGpu;
+    metaBall["wobbleAmplitude"] = metaBall_.wobbleAmplitude;
+    metaBall["wobbleSpeed"] = metaBall_.wobbleSpeed;
+    metaBall["wobbleFrequency"] = metaBall_.wobbleFrequency;
+    metaBall["maxTrianglesPerColor"] = metaBall_.maxTrianglesPerColor;
+    data.Save("metaBall", metaBall);
 
     json chain = json::object();
     chain["minMatch"] = chain_.minMatch;

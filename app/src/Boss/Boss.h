@@ -51,6 +51,12 @@ public:
     /// オブジェクトを選択しなくても触れるよう、シーンの「オブジェクト設定」窓からも呼ぶ
     /// </summary>
     void DrawGameplayImGui();
+  
+    /// 殻の形をGPUで作り直すコンピュートを積む。
+    /// シャドウより前に走る DrawSystem のコンピュートフェーズ（kGPUParticleCompute）から
+    /// 呼ぶこと。CPU生成に切り替えている場合は何もしない
+    /// </summary>
+    void DispatchShellCompute();
 
     /// ===================================================
     /// IDamageable
@@ -313,5 +319,5 @@ private:
     float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
     bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
-    std::string paramOwnerLabel_; // GameParamHub の登録ラベル
+    std::string paramOwnerLabel_;       // GameParamHub の登録ラベル
 };

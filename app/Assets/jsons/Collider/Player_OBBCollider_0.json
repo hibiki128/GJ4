@@ -10,6 +10,8 @@
     ],
     "isEnabled": true,
     "isVisible": true,
+    "name": "Player_OBBCollider_0",
+    "objectName": "Player",
     "rotationOffset": {
         "x": 0.0,
         "y": 0.0,
@@ -25,5 +27,6 @@
         "y": 1.0,
         "z": 1.0
     },
-    "tag": "player"
+    "tag": "player",
+    "type": 2
 }
