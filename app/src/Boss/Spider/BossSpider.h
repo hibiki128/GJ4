@@ -44,17 +44,25 @@ public:
     void DrawGameplayImGui();
 
     /// <summary>
-    /// 指定位置に出現させる（球体形態を倒したあとに呼ぶ）
+    /// 球体形態のコアを引き継いで変形を始める。
+    /// 引き継いだ位置・大きさからそのまま始まるので、見た目は1つのコアが
+    /// 「浮き上がる → 脚が生える → 着地する」と変わっていくように見える
     /// </summary>
-    /// <param name="position">出現位置（地面の高さで渡す）</param>
-    /// <param name="yaw">向き（ラジアン）</param>
-    void Appear(const Hagine::Vector3 &position, float yaw);
+    /// <param name="corePosition">球体形態のコアの位置</param>
+    /// <param name="coreRadius">球体形態のコアの半径（0以下なら胴の半径から始める）</param>
+    void Awaken(const Hagine::Vector3 &corePosition, float coreRadius);
 
     /// <summary>引っ込める（非表示にして動きも止める）</summary>
     void Hide();
 
-    /// <summary>出現しているか</summary>
-    bool IsActive() const { return isActive_; }
+    /// <summary>変形が始まっているか（出現していれば true）</summary>
+    bool IsActive() const { return phase_ != Phase::Hidden; }
+
+    /// <summary>変形を終えて戦闘できる状態か</summary>
+    bool IsBattleReady() const { return phase_ == Phase::Active; }
+
+    /// <summary>いまの段階の名前（デバッグUI用）</summary>
+    const char *GetPhaseName() const;
 
     /// <summary>歩いて向かう相手を設定する（未設定ならその場で足踏みする）</summary>
     void SetTargetLocator(ITargetLocator *locator) { pTargetLocator_ = locator; }
@@ -101,11 +109,46 @@ private:
     void UpdateLegs(const Hagine::Vector3 &moveDirection, float deltaTime);
 
     /// <summary>足の平均位置と歩調から胴を上下・左右に揺らす</summary>
-    void UpdateBodyPosture(float deltaTime, bool isMoving);
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <param name="isMoving">歩いているか（止まっているときは揺らさない）</param>
+    /// <returns>Vector3: 揺れを含んだ、実際に描く胴の位置</returns>
+    Hagine::Vector3 UpdateBodyPosture(float deltaTime, bool isMoving);
+
+    /// <summary>胴の最終的な位置から脚の球を並べ直す</summary>
+    /// <param name="bodyPosition">揺れを含んだ胴の位置</param>
+    /// <param name="growth">脚が何割生えているか（1で生えきり）</param>
+    /// <param name="bend">姿勢の混ぜ具合（1で膝を曲げた通常姿勢）</param>
+    void PlaceLegs(const Hagine::Vector3 &bodyPosition, float growth = 1.0f, float bend = 1.0f);
+
+    /// <summary>変形（浮上→脚が生える→着地）を1フレーム進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateTransform(float deltaTime);
+
+    /// <summary>変形を最後まで飛ばして戦闘できる状態にする（デバッグ用）</summary>
+    void SkipTransform();
+
+    /// <summary>いま足が置かれている高さの平均（胴をどこに乗せるかの基準）</summary>
+    float CalcFootAverageHeight() const;
+
+    /// <summary>変形を始めてから、脚が生え始めるまでの時間（秒）</summary>
+    float CalcGrowStartTime() const;
+
+    /// <summary>変形を始めてから、関節が折れ始めるまでの時間（秒）</summary>
+    float CalcBendStartTime() const;
+
+    /// <summary>変形にかかる合計時間（秒）。3つの動きが重なるぶん、単純な和より短い</summary>
+    float CalcTransformDuration() const;
 
     /// ===================================================
     /// private variables
     /// ===================================================
+
+    /// <summary>球体形態から蜘蛛になるまでの段階</summary>
+    enum class Phase {
+        Hidden,    // 未出現
+        Transform, // 変形中（浮き上がり・脚が生える・関節が折れる が重なって進む）
+        Active,    // 変形完了（歩き回る）
+    };
 
     BossSpiderParams parameters_{}; // 見た目と歩行のパラメータ
     BossColorPalette palette_{};    // 脚の色
@@ -121,7 +164,11 @@ private:
     Hagine::Vector3 bodyPosition_{}; // 胴の位置（足の平均から高さを決める前の基準）
     float bodyYaw_ = 0.0f;           // 胴の向き（ラジアン）
     float walkPhase_ = 0.0f;         // 歩調（胴の揺れに使う）
-    bool isActive_ = false;          // 出現しているか
+    Phase phase_ = Phase::Hidden;    // 変形の段階
+    float transformTime_ = 0.0f;     // 変形を始めてからの経過時間（秒）
+    float startRadius_ = 0.0f;       // 引き継いだコアの半径
+    float startHeight_ = 0.0f;       // 引き継いだコアの高さ
+    float standHeight_ = 0.0f;       // 足を着いて立ったときの胴の高さ
     std::string legNamePrefix_;      // 脚の球の名前の接頭辞
     std::string bossId_ = "Boss01";  // パラメータの読み書き先（球体形態と同じファイル）
 };

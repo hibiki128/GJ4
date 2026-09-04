@@ -58,6 +58,11 @@ public:
     void AddParticleSetting() override;
 
     /// <summary>
+    /// 第1形態（球体）を倒し切ったら、そのコアを第2形態（蜘蛛）へ引き渡す
+    /// </summary>
+    void UpdateFormChange();
+
+    /// <summary>
     /// カメラの更新
     /// </summary>
     void CameraUpdate();

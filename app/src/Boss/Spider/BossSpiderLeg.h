@@ -1,5 +1,6 @@
 #pragma once
 #include "src/Boss/Data/BossColorPalette.h"
+#include "src/Boss/Data/BossEasing.h"
 #include "src/Boss/Data/BossParameters.h"
 #include "src/Boss/Shell/BossSphere.h"
 #include <memory>
@@ -59,8 +60,21 @@ public:
     /// <param name="params">蜘蛛のパラメータ</param>
     /// <param name="canStartStep">今このフレームに踏み出してよいか（隣の脚と同時に浮かせないための制御）</param>
     /// <param name="deltaTime">経過時間（秒）</param>
+    /// <remarks>足先を進めるだけで、球は並べない（並べるのは PlacePose）</remarks>
     void Update(const Hagine::Vector3 &bodyPosition, float bodyYaw, const Hagine::Vector3 &moveDirection,
                 const BossSpiderParams &params, bool canStartStep, float deltaTime);
+
+    /// <summary>
+    /// 胴の最終的な位置・向きから、付け根→膝→足先の球を並べ直す。
+    /// Update とは分けてあり、胴の高さと揺れを決めたあとに呼ぶ
+    /// </summary>
+    /// <param name="bodyPosition">胴の位置（揺れを含んだ、実際に描く位置）</param>
+    /// <param name="bodyYaw">胴の向き（ラジアン）</param>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    /// <param name="growth">脚が何割生えているか（0で1個も出ていない・1で生えきり）</param>
+    /// <param name="bend">姿勢の混ぜ具合（0で真っ直ぐ生えた出現姿勢・1で膝を曲げた通常姿勢）</param>
+    void PlacePose(const Hagine::Vector3 &bodyPosition, float bodyYaw, const BossSpiderParams &params,
+                   float growth = 1.0f, float bend = 1.0f);
 
     /// <summary>脚を描画する</summary>
     void Draw(const Hagine::ViewProjection &viewProjection);
@@ -135,8 +149,25 @@ private:
     Hagine::Vector3 CalcHipPosition(const Hagine::Vector3 &bodyPosition, float bodyYaw,
                                     const BossSpiderParams &params) const;
 
-    /// <summary>付け根・膝・足先を通るように球を並べ直す</summary>
-    void PlaceSpheres(const Hagine::Vector3 &hip, const BossSpiderParams &params);
+    /// <summary>
+    /// 付け根と足先から膝の位置を求める（2本の骨の三角形を解く）。
+    /// 球の間隔（sphereSpacing_）もここで決まる
+    /// </summary>
+    /// <param name="hip">脚の付け根</param>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    /// <returns>Vector3: 膝の位置</returns>
+    Hagine::Vector3 SolveKnee(const Hagine::Vector3 &hip, const BossSpiderParams &params);
+
+    /// <summary>
+    /// 付け根→膝→足先の折れ線上で、index 番目の球が来る位置。
+    /// 小数を渡せば球と球のあいだも取れる（生えかけの球を押し出すのに使う）
+    /// </summary>
+    /// <param name="index">球の番号（小数可）</param>
+    /// <param name="hip">脚の付け根</param>
+    /// <param name="knee">膝の位置</param>
+    /// <param name="foot">足先の位置</param>
+    Hagine::Vector3 PointAlongLeg(float index, const Hagine::Vector3 &hip, const Hagine::Vector3 &knee,
+                                  const Hagine::Vector3 &foot) const;
 
     /// <summary>球を必要数まで用意する（増やすだけ。減らすときは隠す）</summary>
     void EnsureSpheres(const std::string &namePrefix, int count, float radius);

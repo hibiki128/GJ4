@@ -1,4 +1,5 @@
 #include "BossSpider.h"
+#include "Easing.h"
 #include "MyMath.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include "frame/Frame.h"
@@ -10,6 +11,16 @@
 #endif // USE_IMGUI
 
 using namespace Hagine;
+
+namespace {
+
+/// <summary>浮き上がりが何割進んだところで脚が生え始めるか</summary>
+constexpr float kGrowStartRatio = 0.55f;
+
+/// <summary>脚が何割生えたところで関節が折れ始めるか</summary>
+constexpr float kBendStartRatio = 0.70f;
+
+} // namespace
 
 #ifdef USE_IMGUI
 namespace {
@@ -85,44 +96,146 @@ void BossSpider::SaveParameters() const {
     SaveSpiderParams(bossId_, parameters_);
 }
 
-void BossSpider::Appear(const Vector3 &position, float yaw) {
-    bodyPosition_ = Vector3{position.x, parameters_.bodyHeight, position.z};
-    bodyYaw_ = yaw;
+void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
+    // 球体形態のコアの位置・大きさをそのまま引き継ぐ。
+    // 引き渡した側が同じフレームでコアを消すので、見た目は同じ球が変形し続けたように見える
+    bodyPosition_ = corePosition;
+    startHeight_ = corePosition.y;
+    startRadius_ = (coreRadius > 0.0f) ? coreRadius : parameters_.bodyRadius;
     walkPhase_ = 0.0f;
+
+    // 相手がいるならそちらを向いて起き上がる
+    if (pTargetLocator_ && pTargetLocator_->IsTargetValid()) {
+        const Vector3 toTarget = pTargetLocator_->GetTargetPosition() - bodyPosition_;
+        if (toTarget.x * toTarget.x + toTarget.z * toTarget.z > 0.0001f) {
+            bodyYaw_ = std::atan2(toTarget.z, toTarget.x);
+        }
+    }
 
     transform_->translation_ = bodyPosition_;
     transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
+    transform_->scale_ = Vector3{startRadius_, startRadius_, startRadius_};
     transform_->UpdateMatrix();
 
-    // 足を定位置へ置き直してから見せる（使っている脚だけ）
+    // 足の着地点は先に決めておく。脚が生えきったあと、ここへ向けて関節が曲がる
     for (int index = 0; index < activeLegCount_; ++index) {
         legs_[static_cast<size_t>(index)]->SetHidden(false);
         legs_[static_cast<size_t>(index)]->ResetFoot(bodyPosition_, bodyYaw_, parameters_);
     }
 
-    isActive_ = true;
+    // 立ったときの高さは、置いた足の高さから決める（足の球が地面に乗る）
+    standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
+
+    phase_ = Phase::Transform;
+    transformTime_ = 0.0f;
     SetIsAlive(true);
     SetIsModelDraw(true);
+    // まだ1本も生えていない状態から始める
+    PlaceLegs(bodyPosition_, 0.0f, 0.0f);
 }
 
 void BossSpider::Hide() {
-    isActive_ = false;
+    phase_ = Phase::Hidden;
+    transformTime_ = 0.0f;
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->SetHidden(true);
+    }
     SetIsAlive(false);
     SetIsModelDraw(false);
+}
+
+const char *BossSpider::GetPhaseName() const {
+    switch (phase_) {
+    case Phase::Transform:
+        return "変形中";
+    case Phase::Active:
+        return "戦闘中";
+    default:
+        return "未出現";
+    }
+}
+
+void BossSpider::SkipTransform() {
+    phase_ = Phase::Active;
+    transformTime_ = 0.0f;
+    bodyPosition_.y = standHeight_;
+    transform_->translation_ = bodyPosition_;
+    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+    transform_->UpdateMatrix();
+    PlaceLegs(bodyPosition_);
+}
+
+float BossSpider::CalcGrowStartTime() const {
+    // 浮き上がりきる前に脚が生え始める
+    return parameters_.riseTime * kGrowStartRatio;
+}
+
+float BossSpider::CalcBendStartTime() const {
+    // 生えきる前に関節が折れ始める
+    return CalcGrowStartTime() + parameters_.growTime * kBendStartRatio;
+}
+
+float BossSpider::CalcTransformDuration() const {
+    return CalcBendStartTime() + parameters_.landTime;
+}
+
+void BossSpider::UpdateTransform(float deltaTime) {
+    transformTime_ += deltaTime;
+
+    // 3つの動きを別々の窓で少しずつ重ねて進める。
+    // 「浮き上がる → 止まる → 生える → 止まる → 折れる」と切り分けると、
+    // ひとつ終わるたびに動きが止まって、次が前の動きの巻き戻しに見えてしまう
+    const float riseProgress =
+        std::clamp(transformTime_ / (std::max)(0.01f, parameters_.riseTime), 0.0f, 1.0f);
+    const float growProgress = std::clamp((transformTime_ - CalcGrowStartTime()) /
+                                              (std::max)(0.01f, parameters_.growTime),
+                                          0.0f, 1.0f);
+    const float bendProgress = std::clamp((transformTime_ - CalcBendStartTime()) /
+                                              (std::max)(0.01f, parameters_.landTime),
+                                          0.0f, 1.0f);
+
+    // 胴は立つ高さまで一度上がるだけで、あとは下りない（下ろすと巻き戻しに見える）。
+    // 足を地面へ着けるのは脚の関節だけが受け持つ
+    const float rise = SmoothInOut(riseProgress);
+    bodyPosition_.y = Lerp(startHeight_, standHeight_, rise);
+    const float radius = Lerp(startRadius_, parameters_.bodyRadius, rise);
+
+    transform_->translation_ = bodyPosition_;
+    transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
+    transform_->scale_ = Vector3{radius, radius, radius};
+    transform_->UpdateMatrix();
+
+    const float bend = SmoothInOut(bendProgress);
+    PlaceLegs(bodyPosition_, growProgress, bend);
+
+    if (transformTime_ >= CalcTransformDuration()) {
+        phase_ = Phase::Active;
+        transformTime_ = 0.0f;
+    }
 }
 
 void BossSpider::Update() {
     BaseObject::Update();
 
-    if (!isActive_) {
+    if (phase_ == Phase::Hidden) {
         return;
     }
 
     const float deltaTime = Frame::DeltaTime();
 
+    // 変形が終わるまでは歩かない
+    if (phase_ != Phase::Active) {
+        UpdateTransform(deltaTime);
+        return;
+    }
+
     const Vector3 moveDirection = UpdateBodyMove(deltaTime);
     UpdateLegs(moveDirection, deltaTime);
-    UpdateBodyPosture(deltaTime, moveDirection.LengthSq() > 0.0001f);
+
+    // 胴の高さと揺れを決めてから脚を並べる。逆にすると脚の付け根が1フレーム前の胴を
+    // 参照することになり、揺れるたびに胴と脚がずれて見える
+    const Vector3 renderPosition = UpdateBodyPosture(deltaTime, moveDirection.LengthSq() > 0.0001f);
+    PlaceLegs(renderPosition);
 }
 
 Vector3 BossSpider::CalcDesiredDirection() const {
@@ -187,16 +300,22 @@ void BossSpider::UpdateLegs(const Vector3 &moveDirection, float deltaTime) {
     }
 }
 
-void BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving) {
+float BossSpider::CalcFootAverageHeight() const {
+    if (activeLegCount_ <= 0) {
+        return parameters_.legSphereRadius;
+    }
+    float sum = 0.0f;
+    for (int index = 0; index < activeLegCount_; ++index) {
+        sum += legs_[static_cast<size_t>(index)]->GetFootPosition().y;
+    }
+    return sum / static_cast<float>(activeLegCount_);
+}
+
+Vector3 BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving) {
     (void)deltaTime;
 
     // 足の平均の高さに胴を乗せる（脚が持ち上がると胴もわずかに上がる）
-    float footHeightSum = 0.0f;
-    for (int index = 0; index < activeLegCount_; ++index) {
-        footHeightSum += legs_[static_cast<size_t>(index)]->GetFootPosition().y;
-    }
-    const float averageFootHeight =
-        (activeLegCount_ <= 0) ? 0.0f : footHeightSum / static_cast<float>(activeLegCount_);
+    const float averageFootHeight = CalcFootAverageHeight();
 
     // 歩調に合わせた上下と左右の揺れ。止まっているときは揺らさない
     const float bob = isMoving ? std::sin(walkPhase_ * 3.0f) * parameters_.bodyBob : 0.0f;
@@ -207,16 +326,33 @@ void BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving) {
 
     bodyPosition_.y = averageFootHeight + parameters_.bodyHeight;
 
-    transform_->translation_ = bodyPosition_ + right * sway + Vector3{0.0f, bob, 0.0f};
+    const Vector3 renderPosition = bodyPosition_ + right * sway + Vector3{0.0f, bob, 0.0f};
+
+    transform_->translation_ = renderPosition;
     // 揺れに合わせて胴をわずかに傾ける（歩くたびに body が軋むように見える）
     transform_->quaternionRotation_ =
         Quaternion::FromAxisAngle(kWorldUp, bodyYaw_) *
         Quaternion::FromAxisAngle(Vector3{0.0f, 0.0f, 1.0f}, sway * 0.35f);
     transform_->UpdateMatrix();
+
+    return renderPosition;
+}
+
+void BossSpider::PlaceLegs(const Vector3 &bodyPosition, float growth, float bend) {
+    // 一斉に生えると作り物っぽいので、隣り合う脚で生え始めをずらす
+    const float stagger = std::clamp(parameters_.growStagger, 0.0f, 0.9f);
+    const float span = (std::max)(0.01f, 1.0f - stagger);
+
+    for (int index = 0; index < activeLegCount_; ++index) {
+        const float delay = stagger * static_cast<float>(index % 2);
+        const float legGrowth =
+            (growth >= 1.0f) ? 1.0f : std::clamp((growth - delay) / span, 0.0f, 1.0f);
+        legs_[static_cast<size_t>(index)]->PlacePose(bodyPosition, bodyYaw_, parameters_, legGrowth, bend);
+    }
 }
 
 void BossSpider::Draw(const ViewProjection &viewProjection) {
-    if (!isActive_) {
+    if (phase_ == Phase::Hidden) {
         return;
     }
 
@@ -238,13 +374,19 @@ void BossSpider::DrawGameplayImGui() {
         return;
     }
 
-    ImGui::Text("状態: %s", isActive_ ? "出現中" : "未出現");
-    if (ImGui::Button(isActive_ ? "引っ込める" : "出現させる")) {
-        if (isActive_) {
-            Hide();
-        } else {
-            Appear(Vector3{0.0f, 0.0f, 0.0f}, 0.0f);
-        }
+    ImGui::Text("状態: %s", GetPhaseName());
+    if (ImGui::Button("変形を再生")) {
+        // 球体形態のコアと同じ大きさ・同じ接地高さから始めて、変形だけを確かめる
+        Awaken(Vector3{0.0f, parameters_.bodyRadius, 0.0f}, parameters_.bodyRadius);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("変形を飛ばす")) {
+        Awaken(Vector3{0.0f, parameters_.bodyRadius, 0.0f}, parameters_.bodyRadius);
+        SkipTransform();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("引っ込める")) {
+        Hide();
     }
 
     int steppingCount = 0;
@@ -319,6 +461,17 @@ void BossSpider::DrawGameplayImGui() {
     }
     ImGui::DragFloat("足を置く半径", &parameters_.footRadius, 0.05f, 0.5f, 30.0f);
     ImGui::DragFloat("胴の高さ", &parameters_.bodyHeight, 0.05f, 0.1f, 20.0f);
+
+    ImGui::SeparatorText("変形（球体形態のコアから生える）");
+    ImGui::TextDisabled("合計 %.2f 秒（3つの動きが重なるので単純な和より短い）", CalcTransformDuration());
+    ImGui::DragFloat("浮き上がる時間", &parameters_.riseTime, 0.05f, 0.05f, 10.0f);
+    HelpMarker("コアが「立つ高さ」まで上がるまでの時間です。上がりきったら下がりません。"
+               "脚が生えているあいだに下ろすと、浮き上がりの巻き戻しに見えてしまうためです");
+    ImGui::DragFloat("脚が生えきる時間", &parameters_.growTime, 0.05f, 0.05f, 15.0f);
+    ImGui::SliderFloat("脚ごとの生え始めのずれ", &parameters_.growStagger, 0.0f, 0.8f);
+    HelpMarker("0だと8本が一斉に生えます。大きくすると隣り合う脚が交互に生えます");
+    ImGui::DragFloat("着地までの時間", &parameters_.landTime, 0.05f, 0.05f, 10.0f);
+    HelpMarker("真横へ伸びた脚の関節が折れて、足が地面へ下りるまでの時間です");
 
     ImGui::SeparatorText("歩行");
     ImGui::DragFloat("歩く速さ", &parameters_.moveSpeed, 0.05f, 0.0f, 30.0f);

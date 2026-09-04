@@ -238,6 +238,11 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.footRadius = JsonValue(spider, "footRadius", out.footRadius);
     out.bodyHeight = JsonValue(spider, "bodyHeight", out.bodyHeight);
 
+    out.riseTime = JsonValue(spider, "riseTime", out.riseTime);
+    out.growTime = JsonValue(spider, "growTime", out.growTime);
+    out.growStagger = JsonValue(spider, "growStagger", out.growStagger);
+    out.landTime = JsonValue(spider, "landTime", out.landTime);
+
     out.moveSpeed = JsonValue(spider, "moveSpeed", out.moveSpeed);
     out.turnSpeed = JsonValue(spider, "turnSpeed", out.turnSpeed);
     out.stepTime = JsonValue(spider, "stepTime", out.stepTime);
@@ -266,6 +271,11 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["kneeLift"] = params.kneeLift;
     spider["footRadius"] = params.footRadius;
     spider["bodyHeight"] = params.bodyHeight;
+
+    spider["riseTime"] = params.riseTime;
+    spider["growTime"] = params.growTime;
+    spider["growStagger"] = params.growStagger;
+    spider["landTime"] = params.landTime;
 
     spider["moveSpeed"] = params.moveSpeed;
     spider["turnSpeed"] = params.turnSpeed;

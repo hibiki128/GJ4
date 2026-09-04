@@ -2,6 +2,7 @@
 #include "Easing.h"
 #include "MyMath.h"
 #include "camera/projection/ViewProjection.h"
+#include "object/base/BaseObject.h"
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -27,6 +28,19 @@ int AutoSphereCountPerBone(const BossSpiderParams &params) {
     const float span = std::ceil(boneLength / diameter * 0.98f);
     return (std::max)(2, static_cast<int>(span) + 1);
 }
+
+/// <summary>
+/// 向きだけを混ぜる（長さは変えない）。
+/// from から to へ、途中で長さがつぶれないように正規化しながら寄せていく
+/// </summary>
+Vector3 BlendDirection(const Vector3 &from, const Vector3 &to, float t) {
+    const Vector3 target = (to.LengthSq() > 0.0001f) ? to.Normalize() : from;
+    const Vector3 mixed = Lerp(from, target, t);
+    return (mixed.LengthSq() > 0.0001f) ? mixed.Normalize() : target;
+}
+
+/// <summary>踏み替えのどこで足がいちばん高くなるか（0〜1）。前寄りだと素早く持ち上がる</summary>
+constexpr float kStepApexRatio = 0.35f;
 
 } // namespace
 
@@ -131,7 +145,8 @@ void BossSpiderLeg::SetHidden(bool hidden) {
 Vector3 BossSpiderLeg::CalcHomePosition(const Vector3 &bodyPosition, float bodyYaw,
                                         const BossSpiderParams &params) const {
     const Vector3 direction = MakeHorizontalDirection(bodyYaw + azimuth_);
-    return Vector3{bodyPosition.x + direction.x * params.footRadius, 0.0f,
+    // 高さは球の半径ぶん上げる。0にすると足の球が地面に半分めり込む
+    return Vector3{bodyPosition.x + direction.x * params.footRadius, params.legSphereRadius,
                    bodyPosition.z + direction.z * params.footRadius};
 }
 
@@ -150,7 +165,7 @@ void BossSpiderLeg::ResetFoot(const Vector3 &bodyPosition, float bodyYaw, const 
     stepTimer_ = 0.0f;
     isStepping_ = false;
 
-    PlaceSpheres(CalcHipPosition(bodyPosition, bodyYaw, params), params);
+    PlacePose(bodyPosition, bodyYaw, params);
 }
 
 void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vector3 &moveDirection,
@@ -162,9 +177,18 @@ void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vec
         const float duration = (std::max)(0.01f, params.stepTime);
         const float progress = std::clamp(stepTimer_ / duration, 0.0f, 1.0f);
 
-        // 水平は緩やかに、上下は山なりに。足を素早く上げてから置く動きにする
-        Vector3 position = ApplyEasing(EasingType::InOutSine, stepFrom_, stepTo_, progress, 1.0f);
-        position.y += std::sin(progress * std::numbers::pi_v<float>) * params.stepHeight;
+        // 水平は緩やかに寄せる（両端で速度が0になるので、踏み出しも着地も滑らか）
+        Vector3 position = Lerp(stepFrom_, stepTo_, SmoothInOut(progress));
+
+        // 上下は山なり。sin をそのまま使うと着地の瞬間まで落下速度が残ったままで、
+        // 接地した途端に速度が0へ飛ぶのでカクついて見える。
+        // 頂点で2本のイージングに分けて、上げは素早く・下ろしは速度0で着地させる
+        if (progress < kStepApexRatio) {
+            position.y += ApplyEasing(EasingType::InOutQuad, 0.0f, params.stepHeight, progress, kStepApexRatio);
+        } else {
+            position.y += ApplyEasing(EasingType::InOutCubic, params.stepHeight, 0.0f,
+                                      progress - kStepApexRatio, 1.0f - kStepApexRatio);
+        }
         footPosition_ = position;
 
         if (progress >= 1.0f) {
@@ -179,25 +203,63 @@ void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vec
             stepFrom_ = footPosition_;
             // 進行方向へ少し踏み越すと、歩みが前へ進む
             stepTo_ = home + moveDirection * params.stepLead;
-            stepTo_.y = 0.0f;
+            stepTo_.y = params.legSphereRadius;
             stepTimer_ = 0.0f;
             isStepping_ = true;
         }
     }
 
-    PlaceSpheres(CalcHipPosition(bodyPosition, bodyYaw, params), params);
 }
 
-void BossSpiderLeg::PlaceSpheres(const Vector3 &hip, const BossSpiderParams &params) {
-    if (spheres_.empty() || isHidden_) {
+void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const BossSpiderParams &params,
+                              float growth, float bend) {
+    if (spheres_.empty() || isHidden_ || upperSphereCount_ < 2 || lowerSphereCount_ < 2) {
         return;
     }
 
-    if (upperSphereCount_ < 2 || lowerSphereCount_ < 2) {
-        return;
-    }
+    const Vector3 hip = CalcHipPosition(bodyPosition, bodyYaw, params);
+    const Vector3 restKnee = SolveKnee(hip, params);
 
-    // --- 膝をどこに置くかを決める ---
+    // 出現姿勢は付け根から真横へ真っ直ぐ、通常姿勢は膝を折って足を地面へ。
+    // このふたつは「節の向き」だけを混ぜる。球の位置を直接混ぜると、途中で節が
+    // 縮んで球が寄り集まり、そこから伸び直すぶんが巻き戻し（逆再生）に見える。
+    // 向きだけを混ぜれば節の長さは変わらないので、関節がただ折れていくように見える
+    const float blend = std::clamp(bend, 0.0f, 1.0f);
+    const float upperLength = (restKnee - hip).Length();
+    const float lowerLength = (footPosition_ - restKnee).Length();
+
+    const Vector3 emergeDirection = MakeHorizontalDirection(bodyYaw + azimuth_);
+    const Vector3 upperDirection = BlendDirection(emergeDirection, restKnee - hip, blend);
+    const Vector3 lowerDirection = BlendDirection(emergeDirection, footPosition_ - restKnee, blend);
+
+    const Vector3 knee = hip + upperDirection * upperLength;
+    const Vector3 foot = knee + lowerDirection * lowerLength;
+
+    // 何個目まで生えたか。端数がその球の「生えかけ具合」になる
+    const float emerged = std::clamp(growth, 0.0f, 1.0f) * static_cast<float>(activeSphereCount_);
+
+    for (int joint = 0; joint < activeSphereCount_; ++joint) {
+        BossSphere *sphere = spheres_[static_cast<size_t>(joint)].get();
+
+        const float appear = std::clamp(emerged - static_cast<float>(joint), 0.0f, 1.0f);
+        const bool isVisible = appear > 0.0f;
+        sphere->SetIsAlive(isVisible);
+        sphere->SetIsModelDraw(isVisible);
+        if (!isVisible) {
+            continue;
+        }
+
+        // 生えかけの球は、ひとつ内側の球の位置から自分の位置へ押し出されてくる。
+        // こうすると先端が伸びていくように見えて、いきなり列が現れない
+        const float slot = Lerp(static_cast<float>((std::max)(0, joint - 1)), static_cast<float>(joint), appear);
+        sphere->SetLocalPosition(PointAlongLeg(slot, hip, knee, foot));
+        // 出てくる瞬間だけ小さく、押し出されるにつれて本来の大きさになる
+        sphere->SetSphereRadius(params.legSphereRadius *
+                                ApplyEasing(EasingType::OutQuad, 0.0f, 1.0f, appear, 1.0f));
+    }
+}
+
+Vector3 BossSpiderLeg::SolveKnee(const Vector3 &hip, const BossSpiderParams &params) {
     // 上腿と下腿の長さを「球と球のあいだの数」の比で分ける。こうすると節が違う
     // 本数でも球の間隔がそろうので、片側だけ重なって反対側に隙間が空くことがない
     const int upperSpan = upperSphereCount_ - 1;
@@ -233,20 +295,18 @@ void BossSpiderLeg::PlaceSpheres(const Vector3 &hip, const BossSpiderParams &par
     // along は付け根から膝までの「足へ向かう向き」の距離、height はそこから折れ上がる距離
     const float along = (distance * distance + upperBone * upperBone - lowerBone * lowerBone) / (2.0f * distance);
     const float height = std::sqrt((std::max)(0.0f, upperBone * upperBone - along * along));
-    const Vector3 knee = hip + direction * along + kneeUp * height;
+    return hip + direction * along + kneeUp * height;
+}
 
-    // --- 付け根→膝→足先の折れ線上に球を並べる ---
+Vector3 BossSpiderLeg::PointAlongLeg(float index, const Vector3 &hip, const Vector3 &knee,
+                                     const Vector3 &foot) const {
     // 膝の球は両方の節の端なので、上腿の最後の1個をそのまま使い回す
-
-    for (int joint = 0; joint < upperSphereCount_; ++joint) {
-        const float ratio = static_cast<float>(joint) / static_cast<float>(upperSphereCount_ - 1);
-        spheres_[static_cast<size_t>(joint)]->SetLocalPosition(Lerp(hip, knee, ratio));
+    const float upperSpan = static_cast<float>(upperSphereCount_ - 1);
+    if (index <= upperSpan) {
+        return Lerp(hip, knee, index / upperSpan);
     }
-    for (int joint = 1; joint < lowerSphereCount_; ++joint) {
-        const float ratio = static_cast<float>(joint) / static_cast<float>(lowerSphereCount_ - 1);
-        const int index = upperSphereCount_ - 1 + joint;
-        spheres_[static_cast<size_t>(index)]->SetLocalPosition(Lerp(knee, footPosition_, ratio));
-    }
+    const float lowerSpan = static_cast<float>(lowerSphereCount_ - 1);
+    return Lerp(knee, foot, (index - upperSpan) / lowerSpan);
 }
 
 void BossSpiderLeg::Draw(const ViewProjection &viewProjection) {

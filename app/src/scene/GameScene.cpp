@@ -97,11 +97,30 @@ void GameScene::Update()
 	// ボス検証用のデバッグ射撃（ボス本体の更新は BaseObjectManager が行う）
 	bossTestDriver_->Update(*GetViewProjection());
 
+	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
+	UpdateFormChange();
+
 	
 	followCamera_->Update();
 
 	CameraUpdate();
 
+}
+
+void GameScene::UpdateFormChange()
+{
+	/// ===================================================
+	/// 第1形態（球体）→ 第2形態（蜘蛛）への引き継ぎ
+	/// ===================================================
+
+	// 色付きの球をすべて壊し、消滅演出も終わったらコアを渡す。
+	// 渡した側は同じフレームでコアを消すので、見た目は1つのコアが変形し続ける
+	if (boss_->IsCoreHandedOver() || !boss_->IsShellCleared()) {
+		return;
+	}
+
+	bossSpider_->Awaken(boss_->GetCorePosition(), boss_->GetCoreRadius());
+	boss_->HandOverCore();
 }
 
 void GameScene::AddSceneSetting() {

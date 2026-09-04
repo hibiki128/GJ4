@@ -223,6 +223,35 @@ public:
     Hagine::Vector3 GetBossPosition() const { return transform_->translation_; }
     void SetBossPosition(const Hagine::Vector3 &position);
     const Hagine::Vector3 &GetHomePosition() const { return homePosition_; }
+    /// <summary>
+    /// コア（黒い球）の半径。第2形態へ引き継いで、同じ大きさから変形を始めるのに使う
+    /// </summary>
+    float GetCoreRadius() const {
+        const BossShellParams &shell = parameters_.Shell();
+        return (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
+    }
+
+    /// <summary>コアの位置（第2形態へ引き継ぐ）</summary>
+    Hagine::Vector3 GetCorePosition() const { return transform_->translation_; }
+
+    /// <summary>
+    /// 殻の球が消え切ったか。撃破した瞬間はまだ消滅演出が残っているので、
+    /// 第2形態へ移るのはこれが true になってから
+    /// </summary>
+    bool IsShellCleared() const { return IsDead() && cluster_.GetVanishingCount() <= 0; }
+
+    /// <summary>コアを第2形態へ渡したか</summary>
+    bool IsCoreHandedOver() const { return coreHandedOver_; }
+
+    /// <summary>
+    /// コアを第2形態へ引き渡す。同じ位置・同じ大きさの黒い球が第2形態側に出るので、
+    /// 見た目は1つのコアがそのまま変形したように見える
+    /// </summary>
+    void HandOverCore() {
+        coreHandedOver_ = true;
+        SetIsModelDraw(false);
+    }
+
     /// <summary>見た目の外周半径（基本殻の球の表面まで）。接地高さや接触判定に使う</summary>
     float GetBodyRadius() const {
         return parameters_.Shell().shellRadius + cluster_.GetSphereRadius();
@@ -264,6 +293,7 @@ private:
 
     std::string bossId_ = "Boss01"; // 読み込むボスデータのID
     BossParameters parameters_{};   // ボスごとのデータ（JSON）
+    bool coreHandedOver_ = false;   // コアを第2形態へ渡したか
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 
