@@ -224,7 +224,7 @@ void BossSphereCluster::RemoveSphere(const ShellCell &cell, float vanishDelay) {
 
     // 占有マップからは外すが、消えるまでは描画し続ける。
     // （当たり判定は occupied_ しか見ないので、演出中の球には当たらない）
-    sphere->SetHighlight(false);
+    sphere->SetHighlight(false,metaBallParams_.highlightScale);
     sphere->BeginVanish(effect_.vanishTime, effect_.vanishDrift, vanishDelay);
     vanishing_.push_back(sphere);
 }
