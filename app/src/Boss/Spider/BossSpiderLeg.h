@@ -76,63 +76,6 @@ public:
     void PlacePose(const Hagine::Vector3 &bodyPosition, float bodyYaw, const BossSpiderParams &params,
                    float growth = 1.0f, float bend = 1.0f);
 
-
-    /// ===================================================
-    /// 弾がくっつく・消える（蜘蛛形態）
-    /// ===================================================
-
-    /// <summary>
-    /// 撃たれた弾を脚の先へ足して、脚を1つぶん延長する。
-    /// 基本の脚（関節の球を含む）には手を付けず、その先へ継ぎ足すだけ
-    /// </summary>
-    /// <param name="color">弾の色</param>
-    /// <param name="hitPoint">着弾位置（ここから吸い寄せられる）</param>
-    /// <param name="palette">色パレット</param>
-    /// <param name="params">蜘蛛のパラメータ</param>
-    /// <param name="effect">吸着・消滅の演出設定</param>
-    /// <returns>bool: くっついたら true（上限に達していたら false）</returns>
-    bool Attach(Color color, const Hagine::Vector3 &hitPoint, const BossColorPalette &palette,
-                const BossSpiderParams &params, const BossEffectParams &effect);
-
-    /// <summary>
-    /// 先端に同じ色が minMatch 個そろっていたら、そのぶんをまとめて消す
-    /// </summary>
-    /// <param name="minMatch">消えるのに必要な数</param>
-    /// <param name="effect">消滅の演出設定</param>
-    /// <returns>int: 消した数（そろっていなければ0）</returns>
-    int TryEliminate(int minMatch, const BossEffectParams &effect);
-
-    /// <summary>くっつき・消滅の演出を進める（並べ直したあとに呼ぶこと）</summary>
-    /// <param name="deltaTime">経過時間（秒）</param>
-    /// <param name="params">蜘蛛のパラメータ</param>
-    void UpdateMotions(float deltaTime, const BossSpiderParams &params);
-
-    /// <summary>
-    /// 弾の移動線分と脚の球の交差を調べる
-    /// </summary>
-    /// <param name="start">線分の始点</param>
-    /// <param name="end">線分の終点</param>
-    /// <param name="params">蜘蛛のパラメータ</param>
-    /// <param name="outDistance">始点から着弾までの距離</param>
-    /// <param name="outPoint">着弾位置</param>
-    /// <returns>bool: 当たれば true</returns>
-    bool Raycast(const Hagine::Vector3 &start, const Hagine::Vector3 &end, const BossSpiderParams &params,
-                 float &outDistance, Hagine::Vector3 &outPoint) const;
-
-    /// <summary>脚のいちばん先の球のワールド座標（ロックオンと弾の追尾に使う）</summary>
-    /// <param name="out">ワールド座標</param>
-    /// <returns>bool: 脚が出ていれば true</returns>
-    bool TryGetTipPosition(Hagine::Vector3 &out) const;
-
-    /// <summary>くっついている球の数</summary>
-    int GetAttachedCount() const { return static_cast<int>(attached_.size()); }
-
-    /// <summary>先端にそろっている同色の数</summary>
-    int GetTipRunLength() const;
-
-    /// <summary>基本の脚（絶対に消えない部分）の球の数</summary>
-    int GetBaseSphereCount() const { return activeSphereCount_; }
-
     /// <summary>脚を描画する</summary>
     void Draw(const Hagine::ViewProjection &viewProjection);
 
@@ -198,15 +141,6 @@ private:
     /// private method
     /// ===================================================
 
-    /// <summary>くっついた球1つぶん</summary>
-    struct AttachedSlot {
-        BossSphere *sphere = nullptr; // 実体（attachedPool_ が所有）
-        Color color = Color::RED;     // 撃たれた色
-    };
-
-    /// <summary>基本の脚での球の間隔（くっついた球もこの間隔で先へ足す）</summary>
-    float CalcSpacing(const BossSpiderParams &params) const;
-
     /// <summary>胴に対する足の定位置（ワールド）を求める</summary>
     Hagine::Vector3 CalcHomePosition(const Hagine::Vector3 &bodyPosition, float bodyYaw,
                                      const BossSpiderParams &params) const;
@@ -248,14 +182,6 @@ private:
     int lowerSphereCount_ = 0;                           // うち膝→足先の数（膝を含む）
     float sphereSpacing_ = 0.0f;                         // いまの球の間隔（上腿・下腿で共通）
     bool isHidden_ = false;                              // 本数を減らして余った脚か
-
-
-    // --- 弾がくっついたぶん（基本の脚の先へ継ぎ足される） ---
-    std::vector<std::unique_ptr<BossSphere>> attachedPool_{}; // 継ぎ足し用の球（所有・増やすだけ）
-    std::vector<AttachedSlot> attached_{};                    // 付け根に近い順（末尾が先端）
-    std::vector<BossSphere *> freeAttached_{};                // 空いている継ぎ足し球
-    std::vector<BossSphere *> vanishing_{};                   // 消滅演出中の球
-    std::string namePrefix_{};                                // 継ぎ足し球の名前の接頭辞
 
     int legIndex_ = 0;      // 脚の番号
     float azimuth_ = 0.0f;  // 胴を上から見たときの、脚の向き（ラジアン）
