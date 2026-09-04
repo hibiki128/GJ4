@@ -127,6 +127,16 @@ public:
     /// <summary>球の中心のローカル座標</summary>
     const Hagine::Vector3 &GetLocalPosition() const { return localPosition_; }
 
+    /// <summary>
+    /// 見た目の位置（ローカル）。吸着・消滅・登場の演出で動いている最中はここが動く。
+    /// 当たり判定に使う GetLocalPosition は定位置のまま動かないので、
+    /// 殻の見た目（融合メッシュ）を組むときはこちらを使うこと
+    /// </summary>
+    const Hagine::Vector3 &GetRenderPosition() const { return transform_->translation_; }
+
+    /// <summary>見た目の半径。演出で膨らんだり縮んだりしている最中はここが変わる</summary>
+    float GetRenderRadius() const { return transform_->scale_.x; }
+
     /// <summary>球の外向き法線（ワールド）。ロックオンの表裏判定に使う</summary>
     Hagine::Vector3 GetWorldNormal();
 
