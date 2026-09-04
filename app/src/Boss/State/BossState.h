@@ -6,6 +6,7 @@ class Boss;
 /// ボスの状態種別
 /// </summary>
 enum class BossStateId {
+    Appear,  // 登場演出（周囲から球を集めて膨らむ）
     Idle,    // 待機（緩やかに自転しながら次の攻撃を待つ）
     Attack,  // 攻撃中
     Stagger, // 怯み（連鎖破壊で発生。攻撃は中断される）

@@ -2,8 +2,21 @@
 #include "src/Boss/State/BossState.h"
 
 /// <summary>
+/// 登場演出。高速回転しながら周囲から球を集め、回転が収まったあとに球が膨らむ。
+/// 演出中は被弾もロックオンも受け付けない。
+/// </summary>
+class BossStateAppear final : public IBossState {
+public:
+    BossStateId GetId() const override { return BossStateId::Appear; }
+    const char *GetName() const override { return "登場"; }
+    void Enter(Boss &boss) override;
+    void Update(Boss &boss, float deltaTime) override;
+    void Exit(Boss &boss) override;
+};
+
+/// <summary>
 /// 待機。緩やかに自転しながら次の攻撃までの間隔を待つ。
-/// 自転は死角対策も兼ねていて、裏側のパーツが少しずつ正面へ回ってくる。
+/// 自転は死角対策も兼ねていて、裏側の球が少しずつ正面へ回ってくる。
 /// </summary>
 class BossStateIdle final : public IBossState {
 public:

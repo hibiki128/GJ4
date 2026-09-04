@@ -54,6 +54,42 @@ public:
     void ApplyRadius(const BossShellParams &shell);
 
     /// <summary>
+    /// 吸着・消滅の演出を進める（毎フレーム呼ぶ）。
+    /// 消え切った球はここでプールへ返る
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateMotions(float deltaTime);
+
+    /// <summary>消滅演出の途中にある球の数（演出の確認用）</summary>
+    int GetVanishingCount() const { return static_cast<int>(vanishing_.size()); }
+
+    /// ===================================================
+    /// 登場演出
+    /// ===================================================
+
+    /// <summary>
+    /// 登場演出を開始する。各球を周囲へ散らし、飛来元と動き出しの遅れを決める
+    /// </summary>
+    /// <param name="appear">演出パラメータ</param>
+    /// <param name="seed">散らばり方のシード（0なら実行ごとにランダム）</param>
+    void BeginAppear(const BossAppearParams &appear, uint32_t seed);
+
+    /// <summary>
+    /// 登場演出を進める（集束 → 到着 → 膨張）
+    /// </summary>
+    /// <param name="appear">演出パラメータ</param>
+    /// <param name="elapsed">開始からの経過時間（秒）</param>
+    void UpdateAppear(const BossAppearParams &appear, float elapsed);
+
+    /// <summary>登場演出を終了し、全球を最終状態（定位置・本来の大きさ）にする</summary>
+    void FinishAppear();
+
+    /// <summary>登場演出にかかる合計時間（秒）</summary>
+    static float GetAppearDuration(const BossAppearParams &appear) {
+        return appear.gatherTime + appear.settleTime + appear.expandTime;
+    }
+
+    /// <summary>全球を描画する（親の Draw から呼ぶ）</summary>
     /// メタボールのパラメータを設定する（Build より前に呼ぶこと）。
     /// 変えると次の Update で殻のメッシュが作り直される
     /// </summary>
@@ -116,6 +152,9 @@ public:
     /// <summary>指定色の球の数（色残量ミニマップ用）</summary>
     int CountAlive(Color color) const;
 
+    /// <summary>吸着・消滅の演出設定を反映する（実行時調整を毎フレーム渡してよい）</summary>
+    void SetEffectParams(const BossEffectParams &effect) { effect_ = effect; }
+
     /// <summary>球1個の半径（自動算出された場合の実値）</summary>
     float GetSphereRadius() const { return sphereRadius_; }
 
@@ -147,10 +186,16 @@ private:
                           const BossChainParams &chain, uint32_t colorSeed);
 
     /// <summary>セルへ球を置く（プールから1つ借りる）</summary>
-    bool PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette);
+    /// <param name="attachFrom">吸着演出の開始位置（nullptr なら演出なしで即配置）</param>
+    bool PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette,
+                     const Hagine::Vector3 *attachFrom = nullptr);
 
-    /// <summary>セルの球を取り除く（プールへ返す）</summary>
-    void RemoveSphere(const ShellCell &cell);
+    /// <summary>セルの球を取り除く（消滅演出へ回し、消え切ったらプールへ返す）</summary>
+    /// <param name="vanishDelay">消え始めるまでの遅れ（秒）</param>
+    void RemoveSphere(const ShellCell &cell, float vanishDelay = 0.0f);
+
+    /// <summary>消滅演出中の球をすべて即座にプールへ返す</summary>
+    void FlushVanishing();
 
     /// <summary>その色の融合メッシュを作り直させる</summary>
     /// <param name="color">色</param>
@@ -184,6 +229,8 @@ private:
     std::unordered_map<ShellCell, SphereSlot, ShellCellHash> occupied_{}; // 埋まっているセル
     std::vector<std::unique_ptr<BossSphere>> pool_{};                      // 球の実体（所有）
     std::vector<BossSphere *> freeSpheres_{};                              // 待機中の球
+    std::vector<BossSphere *> vanishing_{};                                // 消滅演出中の球（占有マップからは外れている）
+    BossEffectParams effect_{};                                            // 吸着・消滅の演出設定
 
     BossShellMetaBall metaBall_{};                    // 同色を融合させた殻の見た目
     BossMetaBallParams metaBallParams_{};             // メタボールのパラメータ

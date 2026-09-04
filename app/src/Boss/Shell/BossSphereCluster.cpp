@@ -48,6 +48,9 @@ void BossSphereCluster::Build(BaseObject *parent, const std::string &namePrefix,
 
 void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPalette &palette,
                                  const BossChainParams &chain, uint32_t colorSeed) {
+    // 消滅演出の途中の球も片付けてから敷き直す
+    FlushVanishing();
+
     // 置かれている球をすべてプールへ戻してから敷き直す
     for (auto &[cell, slot] : occupied_) {
         slot.sphere->Deactivate();
@@ -64,6 +67,9 @@ void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPa
 }
 
 void BossSphereCluster::ApplyRadius(const BossShellParams &shell) {
+    // 演出途中の球が中途半端な大きさで残らないよう、先に片付ける
+    FlushVanishing();
+
     lattice_.Configure(shell.subdivision, shell.shellRadius, shell.sphereRadius,
                        shell.innerLayers, shell.outerLayers);
     sphereRadius_ = lattice_.GetSphereRadius();
@@ -175,24 +181,38 @@ void BossSphereCluster::FillInitialShell(const BossShellParams &shell, const Bos
     initialCount_ = static_cast<int>(occupied_.size());
 }
 
-bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette) {
+bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette,
+                                    const Vector3 *attachFrom) {
     if (freeSpheres_.empty()) {
-        return false;
+        // 消滅演出の途中の球しか残っていない場合は、演出を打ち切って融通する
+        FlushVanishing();
+        if (freeSpheres_.empty()) {
+            return false;
+        }
     }
     BossSphere *sphere = freeSpheres_.back();
     freeSpheres_.pop_back();
 
     sphere->Place(cell, lattice_.ToLocal(cell), color, palette.GetRgba(color));
     occupied_[cell] = SphereSlot{color, sphere};
+
+    if (attachFrom) {
+        // 着弾点から定位置へ吸い寄せられる見せ方にする
+        sphere->BeginAttach(*attachFrom, effect_.attachTime, effect_.attachStartScale);
+    } else {
+        sphere->ClearMotion(sphereRadius_);
+    }
+
     MarkColorDirty(color);
     return true;
 }
 
-void BossSphereCluster::RemoveSphere(const ShellCell &cell) {
+void BossSphereCluster::RemoveSphere(const ShellCell &cell, float vanishDelay) {
     auto it = occupied_.find(cell);
     if (it == occupied_.end()) {
         return;
     }
+    BossSphere *sphere = it->second.sphere;
     it->second.sphere->Deactivate();
     freeSpheres_.push_back(it->second.sphere);
     MarkColorDirty(it->second.color);
@@ -200,6 +220,41 @@ void BossSphereCluster::RemoveSphere(const ShellCell &cell) {
 
     if (hasHighlight_ && highlightedCell_ == cell) {
         hasHighlight_ = false;
+    }
+
+    // 占有マップからは外すが、消えるまでは描画し続ける。
+    // （当たり判定は occupied_ しか見ないので、演出中の球には当たらない）
+    sphere->SetHighlight(false);
+    sphere->BeginVanish(effect_.vanishTime, effect_.vanishDrift, vanishDelay);
+    vanishing_.push_back(sphere);
+}
+
+void BossSphereCluster::FlushVanishing() {
+    for (BossSphere *sphere : vanishing_) {
+        sphere->ClearMotion(sphereRadius_);
+        sphere->Deactivate();
+        freeSpheres_.push_back(sphere);
+    }
+    vanishing_.clear();
+}
+
+void BossSphereCluster::UpdateMotions(float deltaTime) {
+    // 吸着中の球（占有マップの中にいる）
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->UpdateMotion(deltaTime, sphereRadius_);
+    }
+
+    // 消滅中の球。消え切ったものはプールへ返す
+    for (size_t index = 0; index < vanishing_.size();) {
+        BossSphere *sphere = vanishing_[index];
+        if (sphere->UpdateMotion(deltaTime, sphereRadius_)) {
+            ++index;
+            continue;
+        }
+        sphere->Deactivate();
+        freeSpheres_.push_back(sphere);
+        vanishing_[index] = vanishing_.back();
+        vanishing_.pop_back();
     }
 }
 
@@ -210,6 +265,77 @@ Matrix4x4 BossSphereCluster::MakeShellMatrix() {
     // 球は親のスケールを継承しないので、格子空間も平行移動と回転だけで作る
     return MakeAffineMatrix(Vector3{1.0f, 1.0f, 1.0f}, pParent_->GetWorldRotation(),
                             pParent_->GetWorldPosition());
+}
+
+void BossSphereCluster::BeginAppear(const BossAppearParams &appear, uint32_t seed) {
+    const uint32_t actualSeed = (seed != 0) ? seed : std::random_device{}();
+    std::mt19937 engine(actualSeed);
+    std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> delayRange(0.0f, (std::max)(0.0f, appear.spawnSpread));
+
+    for (auto &[cell, slot] : occupied_) {
+        // 球面上の一様な向きへ散らす（そのままだと軸の周りに偏るので、
+        // 長さが0に近い乱数は引き直す）
+        Vector3 direction{};
+        for (int retry = 0; retry < 8; ++retry) {
+            direction = Vector3{unit(engine), unit(engine), unit(engine)};
+            if (direction.LengthSq() > 0.05f) {
+                break;
+            }
+        }
+        if (direction.LengthSq() <= 0.0001f) {
+            direction = Vector3{0.0f, 1.0f, 0.0f};
+        }
+
+        slot.sphere->SetAppearStart(direction.Normalize() * appear.gatherRadius, delayRange(engine));
+    }
+
+    // 開始時点の見た目（遠くに小さく散らばった状態）へ即座に反映する
+    UpdateAppear(appear, 0.0f);
+}
+
+void BossSphereCluster::UpdateAppear(const BossAppearParams &appear, float elapsed) {
+    const float gatherEnd = appear.gatherTime;
+    const float settleEnd = gatherEnd + appear.settleTime;
+
+    // 遅れてから動き出す球があるので、遅れの分だけ移動時間を短くして
+    // 「gatherTime で全球が到着し終わる」ようにそろえる
+    const float travelTime = (std::max)(0.01f, appear.gatherTime - appear.spawnSpread);
+
+    for (auto &[cell, slot] : occupied_) {
+        BossSphere *sphere = slot.sphere;
+        const Vector3 target = lattice_.ToLocal(cell);
+
+        if (elapsed < gatherEnd) {
+            // --- 集束: 遠くから吸い寄せられる ---
+            const float travel = std::clamp((elapsed - sphere->GetAppearDelay()) / travelTime, 0.0f, 1.0f);
+            // 動き出しで加速し、定位置の手前で減速して収まる（到着時に急停止しない）
+            sphere->SetLocalPosition(ApplyEasing(EasingType::InOutCubic, sphere->GetAppearStart(), target, travel, 1.0f));
+            sphere->SetSphereRadius(sphereRadius_ *
+                                    Lerp(appear.startScale, appear.arriveScale, travel));
+            continue;
+        }
+
+        sphere->SetLocalPosition(target);
+
+        if (elapsed < settleEnd) {
+            // --- 到着後、回転が収まるまでは小さいまま待つ ---
+            sphere->SetSphereRadius(sphereRadius_ * appear.arriveScale);
+            continue;
+        }
+
+        // --- 膨張: 少し行き過ぎてから落ち着く（OutBack）---
+        const float expand = std::clamp((elapsed - settleEnd) / (std::max)(0.01f, appear.expandTime), 0.0f, 1.0f);
+        sphere->SetSphereRadius(ApplyEasing(EasingType::OutBack, sphereRadius_ * appear.arriveScale,
+                                            sphereRadius_, expand, 1.0f));
+    }
+}
+
+void BossSphereCluster::FinishAppear() {
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
+        slot.sphere->SetSphereRadius(sphereRadius_);
+    }
 }
 
 void BossSphereCluster::Draw(const ViewProjection &viewProjection) {
@@ -340,7 +466,8 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
     if (!FindSnapCell(hitCell, localHitPoint, snapCell)) {
         return result; // 当たったが置ける隣が無い（弾は消えるだけ）
     }
-    if (!PlaceSphere(snapCell, color, palette)) {
+    // 着弾点から定位置へ吸い寄せられる演出付きで置く
+    if (!PlaceSphere(snapCell, color, palette, &localHitPoint)) {
         return result; // プールが尽きた
     }
     result.attached = true;
@@ -351,8 +478,10 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
         return result; // 付着しただけ。まだ消えない
     }
 
-    for (const ShellCell &cell : cluster) {
-        RemoveSphere(cell);
+    // 幅優先で集めた順＝着弾点から近い順なので、少しずつ遅らせると
+    // 当てたところから外へ波が広がるように消える
+    for (size_t index = 0; index < cluster.size(); ++index) {
+        RemoveSphere(cluster[index], static_cast<float>(index) * effect_.vanishSpread);
     }
 
     const int overMatch = result.clusterSize - chain.minMatch;
