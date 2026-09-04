@@ -2,6 +2,7 @@
 #include "src/Boss/Data/BossColorPalette.h"
 #include "src/Boss/Data/BossParameters.h"
 #include "src/Boss/Spider/BossSpiderLeg.h"
+#include "src/Interface/IBossTargetQuery.h"
 #include "src/Interface/ITargetLocator.h"
 #include "object/base/BaseObject.h"
 #include <memory>
@@ -18,7 +19,7 @@
 ///   ・胴は足の平均位置に乗り、歩調に合わせて上下・左右に揺れる
 /// これで「一定の周期で動いていないのに、なぜか噛み合っている」蜘蛛らしい歩き方になる。
 /// </summary>
-class BossSpider final : public Hagine::BaseObject {
+class BossSpider final : public Hagine::BaseObject, public IBossTargetQuery {
 public:
     /// ===================================================
     /// public method
@@ -82,6 +83,43 @@ public:
 
     /// <summary>いまの値をJSONへ書き出す（同じファイルの他の項目は消えない）</summary>
     void SaveParameters() const;
+
+
+    /// ===================================================
+    /// IBossTargetQuery（撃つ側からの窓口）
+    /// ===================================================
+
+    /// <summary>
+    /// 弾の移動線分を渡して着弾を判定する。
+    /// 当たった脚の先へ球を継ぎ足して脚を伸ばし、
+    /// 先端に同色が規定数そろえばまとめて消す（基本の脚と関節は消えない）
+    /// </summary>
+    /// <param name="worldStart">線分の始点（前フレームの弾の位置）</param>
+    /// <param name="worldEnd">線分の終点（現在の弾の位置）</param>
+    /// <param name="color">弾の色</param>
+    /// <returns>BulletHitResult: 当たったか・付着したか・消えたか</returns>
+    BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart,
+                                  const Hagine::Vector3 &worldEnd, Color color) override;
+
+    /// <summary>ソフトロックオンの対象（脚の球）を探す</summary>
+    /// <param name="request">問い合わせ内容</param>
+    /// <param name="out">見つかった対象</param>
+    bool FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) override;
+
+    /// <summary>脚の球の現在のワールド座標を取得する（飛翔中の弾の追尾に使う）</summary>
+    /// <param name="cell">対象（x=脚の番号 / y=付け根から数えた並び順）</param>
+    /// <param name="out">ワールド座標</param>
+    bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
+
+    /// <summary>
+    /// 連鎖と演出の設定を渡す（球体形態と同じ値をそろえるため、シーンから配線する）
+    /// </summary>
+    /// <param name="chain">連鎖マッチの設定</param>
+    /// <param name="effect">吸着・消滅の演出設定</param>
+    void SetBattleParams(const BossChainParams &chain, const BossEffectParams &effect) {
+        chain_ = chain;
+        effect_ = effect;
+    }
 
     BossSpiderParams &GetParameters() { return parameters_; }
 
@@ -158,6 +196,9 @@ private:
 
     std::vector<std::unique_ptr<BossSpiderLeg>> legs_{}; // 脚（所有・使い回す）
     int activeLegCount_ = 0;                             // 実際に使っている脚の本数
+
+    BossChainParams chain_{};   // 連鎖マッチの設定（球体形態と共通）
+    BossEffectParams effect_{};  // 吸着・消滅の演出設定
 
     ITargetLocator *pTargetLocator_ = nullptr; // 歩いて向かう相手（非所有）
 

@@ -92,7 +92,7 @@ void BossSphereCluster::SetMetaBallParams(const BossMetaBallParams &params) {
 }
 
 void BossSphereCluster::Update() {
-    // 球が増減した色だけ、融合メッシュのもとになる中心座標を集め直す。
+    // 球が増減した色・演出で動いた色だけ、融合メッシュのもとになる中心座標を集め直す。
     // ボスが回っているだけなら（メッシュはローカル空間なので）ここは何もしない
     for (int index = 0; index < kGameColorCount; ++index) {
         if (!colorDirty_[index]) {
@@ -102,13 +102,30 @@ void BossSphereCluster::Update() {
 
         const Color color = BossColorPalette::FromIndex(index);
         std::vector<Vector3> localPositions;
-        localPositions.reserve(occupied_.size());
+        localPositions.reserve(occupied_.size() + vanishing_.size());
+
+        // 演出中は「見た目の位置」を使う。当たり判定用の論理位置は定位置のままなので、
+        // そちらを渡すと登場も吸着も消滅もメッシュ側では止まって見える
+        float renderRadius = 0.0f;
         for (const auto &[cell, slot] : occupied_) {
             if (slot.color == color) {
-                localPositions.push_back(slot.sphere->GetLocalPosition());
+                localPositions.push_back(slot.sphere->GetRenderPosition());
+                renderRadius = (std::max)(renderRadius, slot.sphere->GetRenderRadius());
             }
         }
-        metaBall_.SetElements(color, std::move(localPositions), sphereRadius_);
+        // 消滅演出の途中の球も、消え切るまでは殻の一部として出す
+        for (const BossSphere *sphere : vanishing_) {
+            if (sphere->GetSphereColor() == color) {
+                localPositions.push_back(sphere->GetRenderPosition());
+            }
+        }
+
+        // 融合メッシュは1色につき半径をひとつしか持てないので、いちばん大きい球に合わせる。
+        // 登場演出の「小さいまま集まって膨らむ」はこれで出るが、
+        // 一部だけ縮む消滅や、吸着の行き過ぎで殻全体が脈打たないよう定寸で頭打ちにする
+        const float elementRadius =
+            (renderRadius > 0.0f) ? (std::min)(renderRadius, sphereRadius_) : sphereRadius_;
+        metaBall_.SetElements(color, std::move(localPositions), elementRadius);
     }
 
     metaBall_.Update();
@@ -213,8 +230,9 @@ void BossSphereCluster::RemoveSphere(const ShellCell &cell, float vanishDelay) {
         return;
     }
     BossSphere *sphere = it->second.sphere;
-    it->second.sphere->Deactivate();
-    freeSpheres_.push_back(it->second.sphere);
+    // ここではプールへ返さない。消え切ったところで UpdateMotions が返す。
+    // 先に freeSpheres_ へ入れると、消滅演出の途中の球が次の着弾で再利用され、
+    // 同じ球が2つのセルに使われて殻が壊れる
     MarkColorDirty(it->second.color);
     occupied_.erase(it);
 
@@ -239,15 +257,22 @@ void BossSphereCluster::FlushVanishing() {
 }
 
 void BossSphereCluster::UpdateMotions(float deltaTime) {
+    // 演出で球が動いたら殻のメッシュを作り直す。これをしないと、
+    // 見た目を融合メッシュが描いている以上、動かしても画面では止まったままになる
+    bool anyMoved = false;
+
     // 吸着中の球（占有マップの中にいる）
     for (auto &[cell, slot] : occupied_) {
-        slot.sphere->UpdateMotion(deltaTime, sphereRadius_);
+        if (slot.sphere->UpdateMotion(deltaTime, sphereRadius_)) {
+            anyMoved = true;
+        }
     }
 
     // 消滅中の球。消え切ったものはプールへ返す
     for (size_t index = 0; index < vanishing_.size();) {
         BossSphere *sphere = vanishing_[index];
         if (sphere->UpdateMotion(deltaTime, sphereRadius_)) {
+            anyMoved = true;
             ++index;
             continue;
         }
@@ -255,6 +280,11 @@ void BossSphereCluster::UpdateMotions(float deltaTime) {
         freeSpheres_.push_back(sphere);
         vanishing_[index] = vanishing_.back();
         vanishing_.pop_back();
+        anyMoved = true; // 消え切ったぶんをメッシュから外す
+    }
+
+    if (anyMoved) {
+        MarkAllColorsDirty();
     }
 }
 
@@ -329,6 +359,10 @@ void BossSphereCluster::UpdateAppear(const BossAppearParams &appear, float elaps
         sphere->SetSphereRadius(ApplyEasing(EasingType::OutBack, sphereRadius_ * appear.arriveScale,
                                             sphereRadius_, expand, 1.0f));
     }
+
+    // 毎フレーム球が動くので、そのつど殻のメッシュを作り直す。
+    // これが無いと、見た目を描いている融合メッシュが最初の位置のまま固まる
+    MarkAllColorsDirty();
 }
 
 void BossSphereCluster::FinishAppear() {
@@ -336,6 +370,9 @@ void BossSphereCluster::FinishAppear() {
         slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
         slot.sphere->SetSphereRadius(sphereRadius_);
     }
+
+    // 位置も大きさも変えたので、殻のメッシュを作り直す
+    MarkAllColorsDirty();
 }
 
 void BossSphereCluster::Draw(const ViewProjection &viewProjection) {

@@ -88,6 +88,14 @@ void BossTestDriver::UpdateColorSelection() {
     }
 }
 
+IBossTargetQuery *BossTestDriver::ActiveTarget() {
+    // 変形が終わっていれば蜘蛛を、そうでなければ球体形態を撃つ
+    if (pSpider_ && pSpider_->IsBattleReady()) {
+        return pSpider_;
+    }
+    return pBoss_;
+}
+
 void BossTestDriver::UpdateLockOn(const Vector3 &origin, const Vector3 &aimDirection) {
     const BossLockOnParams &lockOnParams = pBoss_->GetParameters().LockOn();
 
@@ -98,11 +106,14 @@ void BossTestDriver::UpdateLockOn(const Vector3 &origin, const Vector3 &aimDirec
     request.maxAngleDegrees = lockOnParams.maxAngleDegrees;
     request.maxDistance = lockOnParams.maxDistance;
 
-    if (!pBoss_->FindLockOnTarget(request, lockOn_)) {
+    IBossTargetQuery *target = ActiveTarget();
+    if (!target->FindLockOnTarget(request, lockOn_)) {
         lockOn_ = LockOnResult{};
     }
-    // ロックオン中の球だけを強調表示する（死角対策の透過表示もここに足せる）
-    pBoss_->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
+    // 強調表示は殻の球にしか無いので、球体形態のときだけ
+    if (target == static_cast<IBossTargetQuery *>(pBoss_)) {
+        pBoss_->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
+    }
 }
 
 void BossTestDriver::FireProjectile(const Vector3 &origin, const Vector3 &aimDirection) {
@@ -121,10 +132,10 @@ void BossTestDriver::FireProjectile(const Vector3 &origin, const Vector3 &aimDir
 
     // 飛翔中も対象を追い続ける（＝自動軌道補正）
     if (lockOn_.IsValid()) {
-        Boss *boss = pBoss_;
+        IBossTargetQuery *target = ActiveTarget();
         const ShellCell targetCell = lockOn_.cell;
-        projectile->SetTargetPositionGetter([boss, targetCell](Vector3 &out) {
-            return boss->TryGetTargetPosition(targetCell, out);
+        projectile->SetTargetPositionGetter([target, targetCell](Vector3 &out) {
+            return target->TryGetTargetPosition(targetCell, out);
         });
     } else {
         projectile->SetTargetPositionGetter(nullptr);
@@ -133,7 +144,7 @@ void BossTestDriver::FireProjectile(const Vector3 &origin, const Vector3 &aimDir
     // 着弾は本番のプレイヤー弾と同じ入口（IBossTargetQuery::RaycastAttach）を通す
     const Color shotColor = selectedColor_;
     projectile->SetHitTester([this, shotColor](const Vector3 &from, const Vector3 &to) {
-        const BulletHitResult result = pBoss_->RaycastAttach(from, to, shotColor);
+        const BulletHitResult result = ActiveTarget()->RaycastAttach(from, to, shotColor);
         if (!result.hit) {
             return false; // 穴を素通りした。弾はそのまま飛ぶ
         }

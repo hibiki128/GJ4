@@ -236,6 +236,12 @@ void BossSpider::Update() {
     // 参照することになり、揺れるたびに胴と脚がずれて見える
     const Vector3 renderPosition = UpdateBodyPosture(deltaTime, moveDirection.LengthSq() > 0.0001f);
     PlaceLegs(renderPosition);
+
+    // 並べ直したあとに演出を進める。逆にすると、くっついた球の吸い寄せも
+    // 消滅の押し出しも、並べ直しで毎フレーム打ち消されてしまう
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->UpdateMotions(deltaTime, parameters_);
+    }
 }
 
 Vector3 BossSpider::CalcDesiredDirection() const {
@@ -349,6 +355,101 @@ void BossSpider::PlaceLegs(const Vector3 &bodyPosition, float growth, float bend
             (growth >= 1.0f) ? 1.0f : std::clamp((growth - delay) / span, 0.0f, 1.0f);
         legs_[static_cast<size_t>(index)]->PlacePose(bodyPosition, bodyYaw_, parameters_, legGrowth, bend);
     }
+}
+
+
+BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
+    BulletHitResult result{};
+    // 変形が終わるまでは当たり判定を持たない（脚が生えている最中に撃たれても困る）
+    if (phase_ != Phase::Active) {
+        return result;
+    }
+
+    // いちばん手前で当たった脚を選ぶ
+    int hitLeg = -1;
+    float nearest = 0.0f;
+    Vector3 hitPoint{};
+    for (int index = 0; index < activeLegCount_; ++index) {
+        float distance = 0.0f;
+        Vector3 point{};
+        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point)) {
+            continue;
+        }
+        if (hitLeg < 0 || distance < nearest) {
+            hitLeg = index;
+            nearest = distance;
+            hitPoint = point;
+        }
+    }
+    if (hitLeg < 0) {
+        return result;
+    }
+
+    result.hit = true;
+    result.hitPoint = hitPoint;
+
+    BossSpiderLeg *leg = legs_[static_cast<size_t>(hitLeg)].get();
+    result.attached = leg->Attach(color, hitPoint, palette_, parameters_, effect_);
+    if (!result.attached) {
+        return result; // これ以上伸ばせない（弾は当たったので消える）
+    }
+
+    // 先端に同じ色がそろっていたら、そのぶんだけ脚が縮む
+    const int destroyed = leg->TryEliminate(chain_.minMatch, effect_);
+    if (destroyed > 0) {
+        result.destroyed = true;
+        result.clusterSize = destroyed;
+        result.staggerTime = chain_.staggerBase +
+                             chain_.staggerPerPart * static_cast<float>(destroyed - chain_.minMatch);
+    }
+    return result;
+}
+
+bool BossSpider::FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) {
+    out = LockOnResult{};
+    if (phase_ != Phase::Active) {
+        return false;
+    }
+
+    const Vector3 aim = (request.aimDirection.LengthSq() > 0.0001f)
+                            ? request.aimDirection.Normalize()
+                            : Vector3{0.0f, 0.0f, 1.0f};
+    const float cosLimit = std::cos(std::clamp(request.maxAngleDegrees, 0.0f, 180.0f) *
+                                    (std::numbers::pi_v<float> / 180.0f));
+
+    // 照準にいちばん近い脚の先端を狙う（脚は先へ伸ばすので、狙う先も先端になる）
+    float bestCos = cosLimit;
+    for (int index = 0; index < activeLegCount_; ++index) {
+        Vector3 tip{};
+        if (!legs_[static_cast<size_t>(index)]->TryGetTipPosition(tip)) {
+            continue;
+        }
+        Vector3 toTip = tip - request.origin;
+        const float distance = toTip.Length();
+        if (distance <= 0.0001f || distance > request.maxDistance) {
+            continue;
+        }
+        const float cosAngle = (toTip / distance).Dot(aim);
+        if (cosAngle < bestCos) {
+            continue;
+        }
+        bestCos = cosAngle;
+        out.found = true;
+        out.worldPosition = tip;
+        out.distance = distance;
+        out.angleDegrees = std::acos(std::clamp(cosAngle, -1.0f, 1.0f)) *
+                           (180.0f / std::numbers::pi_v<float>);
+        // 先端の並び順はくっつくたびに変わるので、脚の番号だけ覚えておく
+        out.cell = ShellCell{index, -1};
+    }
+    return out.found;
+}
+
+bool BossSpider::TryGetTargetPosition(const ShellCell &cell, Vector3 &out) {
+    if (phase_ != Phase::Active || cell.vertex < 0 || cell.vertex >= activeLegCount_) {
+        return false;
+    }
+    return legs_[static_cast<size_t>(cell.vertex)]->TryGetTipPosition(out);
 }
 
 void BossSpider::Draw(const ViewProjection &viewProjection) {
