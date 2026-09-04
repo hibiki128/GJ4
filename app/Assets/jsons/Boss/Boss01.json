@@ -1,33 +1,33 @@
 {
     "appear": {
-        "arriveScale": 0.35,
-        "expandTime": 0.65,
+        "arriveScale": 0.3499999940395355,
+        "expandTime": 0.6499999761581421,
         "gatherRadius": 22.0,
         "gatherSpinSpeed": 900.0,
-        "gatherTime": 1.8,
-        "settleTime": 0.45,
-        "spawnSpread": 0.6,
-        "startScale": 0.1
+        "gatherTime": 3.8499999046325684,
+        "settleTime": 0.44999998807907104,
+        "spawnSpread": 0.6000000238418579,
+        "startScale": 0.10000000149011612
     },
     "attacks": {
         "slam": {
             "aimTime": 0.5,
             "damage": 20.0,
-            "fallTime": 0.35,
+            "fallTime": 0.3499999940395355,
             "impactRadius": 4.5,
-            "impactTime": 0.35,
-            "recoverTime": 0.8,
+            "impactTime": 0.3499999940395355,
+            "recoverTime": 0.800000011920929,
             "riseHeight": 10.0,
-            "riseTime": 0.8
+            "riseTime": 0.800000011920929
         },
         "spin": {
             "contactMargin": 1.0,
             "damage": 15.0,
             "dashSpeed": 22.0,
-            "dashTime": 0.8,
-            "recoverTime": 0.8,
+            "dashTime": 0.800000011920929,
+            "recoverTime": 0.800000011920929,
             "telegraphSpinSpeed": 540.0,
-            "telegraphTime": 1.2
+            "telegraphTime": 1.2000000476837158
         }
     },
     "battle": {
@@ -37,8 +37,8 @@
     "chain": {
         "maxInitialCluster": 2,
         "minMatch": 3,
-        "staggerBase": 0.6,
-        "staggerPerPart": 0.15
+        "staggerBase": 0.6000000238418579,
+        "staggerPerPart": 0.15000000596046448
     },
     "colorSeed": 20260902,
     "colors": [
@@ -48,65 +48,63 @@
     ],
     "effect": {
         "attachStartScale": 0.5,
-        "attachTime": 0.18,
-        "vanishDrift": 0.7,
-        "vanishSpread": 0.04,
-        "vanishTime": 0.3
+        "attachTime": 0.18000000715255737,
+        "vanishDrift": 0.699999988079071,
+        "vanishSpread": 0.03999999910593033,
+        "vanishTime": 0.30000001192092896
     },
     "exposure": {
-        "attackIntervalAtFull": 2.2,
+        "attackIntervalAtFull": 2.200000047683716,
         "attackIntervalAtZero": 6.0,
-        "slamAimScaleAtFull": 0.55,
+        "slamAimScaleAtFull": 0.550000011920929,
         "slamCountAtFull": 5,
         "slamCountAtZero": 1,
-        "spinDashSpeedScaleAtFull": 1.6,
-        "spinTelegraphScaleAtFull": 0.6
-    }
-    "metaBall": {
-        "influenceScale": 2.0,
-        "voxelRatio": 0.3,
-        "threshold": 0.5,
-        "highlightScale": 1.15,
-        "useGpu": true,
-        "wobbleAmplitude": 0.0,
-        "wobbleSpeed": 3.0,
-        "wobbleFrequency": 1.0,
-        "maxTrianglesPerColor": 30000
-    },
-    "chain": {
-        "minMatch": 3,
-        "staggerBase": 0.6,
-        "staggerPerPart": 0.15,
-        "maxInitialCluster": 2
+        "spinDashSpeedScaleAtFull": 1.600000023841858,
+        "spinTelegraphScaleAtFull": 0.6000000238418579
     },
     "lockOn": {
         "maxAngleDegrees": 20.0,
         "maxDistance": 60.0,
         "requireFacing": true
     },
+    "metaBall": {
+        "highlightScale": 1.5,
+        "influenceScale": 1.0,
+        "maxTrianglesPerColor": 30000,
+        "threshold": 0.3499999940395355,
+        "useGpu": true,
+        "voxelRatio": 0.3799999952316284,
+        "wobbleAmplitude": 0.05999999865889549,
+        "wobbleFrequency": 1.0,
+        "wobbleSpeed": 3.549999952316284
+    },
     "shell": {
-        "coreScale": 1.0,
+        "coreScale": 1.2000000476837158,
         "extraCapacity": 0,
         "innerLayers": 0,
         "outerLayers": 2,
-        "shellRadius": 3.0,
-        "sphereRadius": 0.0,
+        "shellRadius": 1.75,
+        "sphereRadius": 0.8600000143051147,
         "subdivision": 1
     },
     "spider": {
         "bodyBob": 0.1599999964237213,
-        "bodyHeight": 3.4000000953674316,
-        "bodyRadius": 1.5,
+        "bodyHeight": 4.099999904632568,
+        "bodyRadius": 1.25,
         "bodySway": 0.11999999731779099,
-        "footRadius": 6.849999904632568,
+        "footRadius": 5.0,
+        "growStagger": 0.30000001192092896,
+        "growTime": 1.600000023841858,
         "kneeLift": 0.800000011920929,
+        "landTime": 1.100000023841858,
         "legCount": 6,
         "legLength": 8.5,
-        "legSphereRadius": 0.800000011920929,
+        "legSphereRadius": 0.6899999976158142,
         "legSpread": 140.0,
-        "legSpreadOffset": -0.0,
-        "lowerSphereCount": 5,
-        "moveSpeed": 8.5,
+        "legSpreadOffset": 0.0,
+        "lowerSphereCount": 6,
+        "moveSpeed": 3.5,
+        "riseTime": 1.399999976158142,
         "stepHeight": 1.5,
         "stepLead": 1.2000000476837158,
         "stepTime": 0.25999999046325684,
