@@ -118,6 +118,10 @@ void BossSpiderLeg::Configure(const std::string &namePrefix, int legIndex, int l
         freeAttached_.push_back(slot.sphere);
     }
     attached_.clear();
+    extension_ = 0.0f;
+    extendFrom_ = 0.0f;
+    extendTarget_ = 0.0f;
+    extendTimer_ = extendDuration_;
 
     EnsureSpheres(namePrefix + std::to_string(legIndex), jointCount, params.legSphereRadius);
     activeSphereCount_ = jointCount;
@@ -160,7 +164,7 @@ Vector3 BossSpiderLeg::CalcHomePosition(const Vector3 &bodyPosition, float bodyY
                                         const BossSpiderParams &params) const {
     const Vector3 direction = MakeHorizontalDirection(bodyYaw + azimuth_);
     // くっついた球のぶんだけ足を置く位置も外へ伸ばす（脚が実際に長くなる）
-    const float reach = params.footRadius + static_cast<float>(attached_.size()) * CalcSpacing(params);
+    const float reach = params.footRadius + extension_ * CalcSpacing(params);
     // 高さは球の半径ぶん上げる。0にすると足の球が地面に半分めり込む
     return Vector3{bodyPosition.x + direction.x * reach, params.legSphereRadius,
                    bodyPosition.z + direction.z * reach};
@@ -186,6 +190,20 @@ void BossSpiderLeg::ResetFoot(const Vector3 &bodyPosition, float bodyYaw, const 
 
 void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vector3 &moveDirection,
                            const BossSpiderParams &params, bool canStartStep, float deltaTime) {
+    // 脚が伸び縮みしたぶん、接地している足を外／内へ滑らせる。
+    // 踏み替えを待つと、伸びたことが一歩あとまで見えない
+    const float grown = AdvanceExtension(deltaTime) * CalcSpacing(params);
+    if (std::fabs(grown) > 0.0f) {
+        Vector3 outward = footPosition_ - bodyPosition;
+        outward.y = 0.0f;
+        if (outward.LengthSq() > 0.0001f) {
+            const Vector3 slide = outward.Normalize() * grown;
+            footPosition_ += slide;
+            stepFrom_ += slide;
+            stepTo_ += slide;
+        }
+    }
+
     const Vector3 home = CalcHomePosition(bodyPosition, bodyYaw, params);
 
     if (isStepping_) {
@@ -231,6 +249,28 @@ float BossSpiderLeg::CalcSpacing(const BossSpiderParams &params) const {
     // 基本の脚での球の間隔。くっついた球もこの間隔で先へ足していく
     const int baseSpan = (upperSphereCount_ - 1) + (lowerSphereCount_ - 1);
     return ResolvePathLength(params) / static_cast<float>((std::max)(1, baseSpan));
+}
+
+
+void BossSpiderLeg::BeginExtend(float duration) {
+    // いまの位置から目標へ、両端で速度0になる曲線で寄せ直す
+    extendFrom_ = extension_;
+    extendTarget_ = static_cast<float>(attached_.size());
+    extendTimer_ = 0.0f;
+    extendDuration_ = (std::max)(0.01f, duration);
+}
+
+float BossSpiderLeg::AdvanceExtension(float deltaTime) {
+    const float previous = extension_;
+    if (extendTimer_ >= extendDuration_) {
+        extension_ = extendTarget_;
+        return extension_ - previous;
+    }
+
+    extendTimer_ += deltaTime;
+    const float progress = std::clamp(extendTimer_ / extendDuration_, 0.0f, 1.0f);
+    extension_ = Lerp(extendFrom_, extendTarget_, SmoothInOut(progress));
+    return extension_ - previous;
 }
 
 int BossSpiderLeg::GetTipRunLength() const {
@@ -279,6 +319,8 @@ bool BossSpiderLeg::Attach(Color color, const Vector3 &hitPoint, const BossColor
     sphere->BeginAttach(hitPoint, effect.attachTime, effect.attachStartScale);
 
     attached_.push_back(AttachedSlot{sphere, color});
+    // 継ぎ足し量を実数で滑らかに寄せる。整数で切り替えると脚が一瞬で詰め直される
+    BeginExtend(effect.attachTime);
     return true;
 }
 
@@ -298,6 +340,8 @@ int BossSpiderLeg::TryEliminate(int minMatch, const BossEffectParams &effect) {
                             effect.vanishSpread * static_cast<float>(index));
         vanishing_.push_back(sphere);
     }
+    // 消えたぶんだけ、脚も滑らかに縮む
+    BeginExtend(effect.vanishTime);
     return run;
 }
 
@@ -437,11 +481,15 @@ void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const 
     }
 
     // くっついた球は基本の脚の先へ、同じ折れ線を延長する形で並べる。
-    // 上腿の長さは変わらないので、関節（膝）の球はその場から動かない
-    const int baseCount = GetBaseSphereCount();
+    // 上腿の長さは変わらないので、関節（膝）の球はその場から動かない。
+    // いちばん先の球は「ひとつ内側の位置」から折れ線の端へ押し出されてくるので、
+    // 継ぎ足しが滑らかに進むあいだ、先端が伸びていくように見える
+    const float baseCount = static_cast<float>(GetBaseSphereCount());
+    const float tipIndex = baseCount - 1.0f + extension_;
     for (int index = 0; index < static_cast<int>(attached_.size()); ++index) {
         BossSphere *sphere = attached_[static_cast<size_t>(index)].sphere;
-        sphere->SetLocalPosition(PointAlongLeg(static_cast<float>(baseCount + index), hip, knee, foot));
+        const float slot = (std::min)(baseCount + static_cast<float>(index), tipIndex);
+        sphere->SetLocalPosition(PointAlongLeg(slot, hip, knee, foot));
     }
 }
 
@@ -449,15 +497,15 @@ Vector3 BossSpiderLeg::SolveKnee(const Vector3 &hip, const BossSpiderParams &par
     // 上腿と下腿の長さを「球と球のあいだの数」の比で分ける。こうすると節が違う
     // 本数でも球の間隔がそろうので、片側だけ重なって反対側に隙間が空くことがない。
     // くっついた球のぶんは下腿側にだけ足すので、上腿の長さ＝膝の位置は変わらない
-    const int upperSpan = upperSphereCount_ - 1;
-    const int lowerSpan = (lowerSphereCount_ - 1) + static_cast<int>(attached_.size());
-    float pathLength = CalcSpacing(params) * static_cast<float>(upperSpan + lowerSpan);
+    const float upperSpan = static_cast<float>(upperSphereCount_ - 1);
+    const float lowerSpan = static_cast<float>(lowerSphereCount_ - 1) + extension_;
+    float pathLength = CalcSpacing(params) * (upperSpan + lowerSpan);
 
     const Vector3 toFoot = footPosition_ - hip;
     // 伸ばしきっても届かない距離なら、折れ線が閉じるところまで内側に見なす
     const float distance = std::clamp(toFoot.Length(), 0.01f, pathLength * 0.999f);
 
-    const float weight = static_cast<float>(upperSpan) / static_cast<float>(upperSpan + lowerSpan);
+    const float weight = upperSpan / (upperSpan + lowerSpan);
 
     // 片方の節が長すぎると膝が足を通り越し、脚が地面へ突き刺さって見える。
     // そうなる手前まで、比は保ったまま折れ線を縮める（膝が足元へ寄り、脚がまっすぐに近づく）。
@@ -469,7 +517,7 @@ Vector3 BossSpiderLeg::SolveKnee(const Vector3 &hip, const BossSpiderParams &par
 
     const float upperBone = pathLength * weight;
     const float lowerBone = pathLength - upperBone;
-    sphereSpacing_ = pathLength / static_cast<float>(upperSpan + lowerSpan);
+    sphereSpacing_ = pathLength / (upperSpan + lowerSpan);
 
     const Vector3 direction = (toFoot.LengthSq() > 0.0001f) ? toFoot.Normalize() : Vector3{0.0f, -1.0f, 0.0f};
 
@@ -493,7 +541,7 @@ Vector3 BossSpiderLeg::PointAlongLeg(float index, const Vector3 &hip, const Vect
         return Lerp(hip, knee, index / upperSpan);
     }
     // 下腿はくっついた球のぶんだけ長くなっている
-    const float lowerSpan = static_cast<float>((lowerSphereCount_ - 1) + static_cast<int>(attached_.size()));
+    const float lowerSpan = static_cast<float>(lowerSphereCount_ - 1) + extension_;
     return Lerp(knee, foot, (index - upperSpan) / lowerSpan);
 }
 

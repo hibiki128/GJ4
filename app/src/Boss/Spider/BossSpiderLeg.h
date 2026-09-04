@@ -207,6 +207,15 @@ private:
     /// <summary>基本の脚での球の間隔（くっついた球もこの間隔で先へ足す）</summary>
     float CalcSpacing(const BossSpiderParams &params) const;
 
+    /// <summary>くっついた数が変わったので、そこへ向けて滑らかに伸び縮みを始める</summary>
+    /// <param name="duration">伸び縮みにかける時間（秒）</param>
+    void BeginExtend(float duration);
+
+    /// <summary>伸び縮みを1フレームぶん進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>float: このフレームで伸びた量（球の個数ぶん。縮んだら負）</returns>
+    float AdvanceExtension(float deltaTime);
+
     /// <summary>胴に対する足の定位置（ワールド）を求める</summary>
     Hagine::Vector3 CalcHomePosition(const Hagine::Vector3 &bodyPosition, float bodyYaw,
                                      const BossSpiderParams &params) const;
@@ -256,6 +265,15 @@ private:
     std::vector<BossSphere *> freeAttached_{};                // 空いている継ぎ足し球
     std::vector<BossSphere *> vanishing_{};                   // 消滅演出中の球
     std::string namePrefix_{};                                // 継ぎ足し球の名前の接頭辞
+
+    // くっついた数(attached_.size())へ滑らかに寄せていく、実数の継ぎ足し量。
+    // 整数のまま切り替えると、着弾した瞬間に下腿の球がまとめて詰め直されて
+    // 1フレームで球の直径ぶん飛ぶ（伸びずに詰まって見える）
+    float extension_ = 0.0f;      // いまの継ぎ足し量（球の個数ぶん）
+    float extendFrom_ = 0.0f;     // 伸び縮みを始めたときの量
+    float extendTarget_ = 0.0f;   // 目標の量
+    float extendTimer_ = 0.0f;    // 伸び縮みの経過時間（秒）
+    float extendDuration_ = 0.2f; // 伸び縮みにかける時間（秒）
 
     int legIndex_ = 0;      // 脚の番号
     float azimuth_ = 0.0f;  // 胴を上から見たときの、脚の向き（ラジアン）
