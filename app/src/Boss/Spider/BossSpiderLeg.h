@@ -124,6 +124,17 @@ public:
     /// <returns>bool: 脚が出ていれば true</returns>
     bool TryGetTipPosition(Hagine::Vector3 &out) const;
 
+    /// <summary>
+    /// 攻撃中の脚の姿勢を指定する（通常は 1.0, 0.0）
+    /// </summary>
+    /// <param name="reachScale">足を置く半径の倍率（大きいほど脚を広げる）</param>
+    /// <param name="tuck">脚を胴の下へ畳む度合い（0で接地・1で胴の真下）</param>
+    void SetPosture(float reachScale, float tuck) { reachScale_ = reachScale; legTuck_ = tuck; }
+
+    /// <summary>いま足を置いている半径（広げた脚の届く範囲＝攻撃範囲に使う）</summary>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    float CalcFootReach(const BossSpiderParams &params) const;
+
     /// <summary>くっついている球の数</summary>
     int GetAttachedCount() const { return static_cast<int>(attached_.size()); }
 
@@ -204,6 +215,12 @@ private:
         Color color = Color::RED;     // 撃たれた色
     };
 
+    /// <summary>消滅演出中の球1つぶん</summary>
+    struct VanishSlot {
+        BossSphere *sphere = nullptr;  // 実体
+        bool fromAttachedPool = false; // 継ぎ足し用の球か（もともと脚だった球なら false）
+    };
+
     /// <summary>基本の脚での球の間隔（くっついた球もこの間隔で先へ足す）</summary>
     float CalcSpacing(const BossSpiderParams &params) const;
 
@@ -263,7 +280,7 @@ private:
     std::vector<std::unique_ptr<BossSphere>> attachedPool_{}; // 継ぎ足し用の球（所有・増やすだけ）
     std::vector<AttachedSlot> attached_{};                    // 付け根に近い順（末尾が先端）
     std::vector<BossSphere *> freeAttached_{};                // 空いている継ぎ足し球
-    std::vector<BossSphere *> vanishing_{};                   // 消滅演出中の球
+    std::vector<VanishSlot> vanishing_{};                     // 消滅演出中の球
     std::string namePrefix_{};                                // 継ぎ足し球の名前の接頭辞
 
     // くっついた数(attached_.size())へ滑らかに寄せていく、実数の継ぎ足し量。
@@ -274,6 +291,9 @@ private:
     float extendTarget_ = 0.0f;   // 目標の量
     float extendTimer_ = 0.0f;    // 伸び縮みの経過時間（秒）
     float extendDuration_ = 0.2f; // 伸び縮みにかける時間（秒）
+    float reachScale_ = 1.0f;     // 足を置く半径の倍率（攻撃で脚を広げるときに使う）
+    float legTuck_ = 0.0f;        // 脚を胴の下へ畳む度合い（跳躍中に使う）
+    int removedBase_ = 0;         // 消された「もともと脚だった球」の数
 
     int legIndex_ = 0;      // 脚の番号
     float azimuth_ = 0.0f;  // 胴を上から見たときの、脚の向き（ラジアン）

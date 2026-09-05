@@ -5,13 +5,15 @@ class ViewProjection;
 }
 
 class Boss;
+class BossSpider;
 class ITargetLocator;
 
 /// <summary>
 /// 攻撃の更新に必要な情報一式
 /// </summary>
 struct BossAttackContext {
-    Boss *boss = nullptr;             // 攻撃するボス
+    Boss *boss = nullptr;             // 攻撃するボス（球体形態。蜘蛛の攻撃では nullptr）
+    BossSpider *spider = nullptr;     // 攻撃する蜘蛛（第2形態。球体形態の攻撃では nullptr）
     ITargetLocator *target = nullptr; // 狙う相手（未接続なら nullptr）
     float deltaTime = 0.0f;           // 経過時間（秒）
     float exposure = 0.0f;            // 露出度 0〜1（激しさのスケーリングに使う）

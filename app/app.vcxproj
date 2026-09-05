@@ -159,6 +159,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Shell\BossSphereCluster.cpp" />
     <ClCompile Include="src\Boss\Spider\BossSpider.cpp" />
     <ClCompile Include="src\Boss\Spider\BossSpiderLeg.cpp" />
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.cpp" />
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.cpp" />
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.cpp" />
     <ClCompile Include="src\Boss\State\BossStateMachine.cpp" />
     <ClCompile Include="src\Boss\State\BossStates.cpp" />
     <ClCompile Include="src\Camera\Follow\FollowCamera.cpp" />
@@ -197,6 +200,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Shell\BossSphereCluster.h" />
     <ClInclude Include="src\Boss\Spider\BossSpider.h" />
     <ClInclude Include="src\Boss\Spider\BossSpiderLeg.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.h" />
     <ClInclude Include="src\Boss\State\BossState.h" />
     <ClInclude Include="src\Boss\State\BossStateMachine.h" />
     <ClInclude Include="src\Boss\State\BossStates.h" />

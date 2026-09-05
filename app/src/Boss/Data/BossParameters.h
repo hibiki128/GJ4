@@ -98,6 +98,68 @@ struct BossEffectParams {
 };
 
 /// <summary>
+/// 蜘蛛の攻撃1: 跳ねまわる（距離を問わない）。
+/// 沈み込み（予備動作）→ 着地点の真上へ飛び上がる → 落下 → 着地 を何度かくり返す
+/// </summary>
+struct BossSpiderLeapParams {
+    int hopCount = 3;           // 続けて跳ぶ回数
+    float crouchTime = 0.35f;   // 沈み込みにかける時間（助走のような予備動作）
+    float crouchDepth = 1.2f;   // 沈み込む深さ
+    float riseTime = 0.45f;     // 着地点の真上まで飛び上がる時間
+    float apexHeight = 9.0f;    // 飛び上がりの頂点の高さ（立っている高さからの差）
+    float fallTime = 0.30f;     // 真上から落ちる時間
+    float impactTime = 0.25f;   // 着地後の静止時間
+    float impactRadius = 5.5f;  // 着地の有効半径
+    float damage = 15.0f;       // 着地ダメージ
+    float landSpread = 4.0f;    // 着地点が相手からどれだけずれるか（この半径のどこか）
+    float maxLeapRange = 22.0f; // 1回の跳躍で進める最大距離
+    float recoverTime = 0.7f;   // 最後の着地後の硬直
+    float legTuck = 0.55f;      // 空中で脚を畳む度合い（0で伸びたまま・1で胴の真下）
+    float legFoldTime = 0.22f;  // 脚を畳む／伸ばし戻すのにかける時間（秒）
+};
+
+/// <summary>
+/// 蜘蛛の攻撃2: 色つきの弾を撃つ（遠距離）。
+/// 大きめの弾をゆっくり飛ばす。プレイヤーは同じ色を当てて消せる
+/// </summary>
+struct BossSpiderShootParams {
+    float telegraphTime = 0.6f;  // 撃つ前の溜め
+    int shotCount = 5;           // 発射数
+    float shotInterval = 0.35f;  // 発射の間隔（秒）
+    float speed = 9.0f;          // 弾速（ゆっくり）
+    float radius = 1.1f;         // 弾の半径（大きめ）
+    float life = 6.0f;           // 弾が消えるまでの時間（秒）
+    float spreadDegrees = 8.0f;  // 1発ごとの左右のばらつき（度）
+    float homingRate = 2.2f;     // 相手を追う強さ（1秒でどれだけ向きを寄せるか。0で追わない）
+    float homingTime = 2.5f;     // 追いかける時間（秒）。これを過ぎたら真っ直ぐ飛ぶ
+    float damage = 10.0f;        // 命中ダメージ
+    float recoverTime = 0.6f;    // 撃ち終わりの硬直
+};
+
+/// <summary>
+/// 蜘蛛の攻撃3: 脚を広げて回転しながら接近（距離を問わない・稀）。
+/// 広げた脚の届く範囲がそのまま攻撃範囲になる
+/// </summary>
+struct BossSpiderWhirlParams {
+    float telegraphTime = 1.4f; // 脚を広げる予備動作（遅め）
+    float spinTime = 3.0f;      // その場で回っている時間
+    float spinSpeed = 420.0f;   // 回転の速さ（度/秒）
+    float spinHeight = 3.0f;    // 回っているあいだの脚の高さ（地面から。低いほど当たりやすい）
+    float damage = 12.0f;       // 触れたときのダメージ
+    float recoverTime = 1.0f;   // 回転後の硬直
+};
+
+/// <summary>蜘蛛の攻撃全体の設定</summary>
+struct BossSpiderAttackParams {
+    float interval = 3.2f;     // 攻撃と攻撃の間隔（秒）
+    float shootRange = 18.0f;  // これより遠ければ弾を撃つ（近ければ撃たない）
+    float whirlChance = 0.2f;  // 回転接近が選ばれる確率（0〜1。稀に出す）
+    BossSpiderLeapParams leap{};
+    BossSpiderShootParams shoot{};
+    BossSpiderWhirlParams whirl{};
+};
+
+/// <summary>
 /// 第2形態（蜘蛛）の見た目と歩行のパラメータ。
 /// 胴は球体形態の中心と同じ黒い球で、そこから色付きの球が連なった脚が生える
 /// </summary>
@@ -147,6 +209,9 @@ struct BossSpiderParams {
     float bodyBob = 0.16f;      // 歩調に合わせた胴の上下
     float bodySway = 0.12f;     // 歩調に合わせた胴の左右
     float stopDistance = 6.0f;  // 相手にこれだけ近づいたら止まる
+
+    // --- 攻撃 ---
+    BossSpiderAttackParams attack{};
 };
 
 /// <summary>
