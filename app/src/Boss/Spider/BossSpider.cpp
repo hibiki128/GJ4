@@ -891,7 +891,12 @@ void BossSpider::DrawGameplayImGui() {
                 pCurrentAttack_ ? pCurrentAttack_->GetPhaseName() : "-");
     ImGui::Text("次の攻撃まで: %.2f 秒", attackCoolDown_);
     for (size_t index = 0; index < attacks_.size(); ++index) {
-        ImGui::SameLine(index == 0 ? 0.0f : -1.0f);
+        // SameLine の第1引数は「開始位置からのオフセット」なので、
+        // 間隔を詰めるつもりで負の値を渡すとボタンが左端に重なって隠れる。
+        // 2つ目以降を素直に横並びにするだけでよい
+        if (index > 0) {
+            ImGui::SameLine();
+        }
         if (ImGui::Button(attacks_[index]->GetName())) {
             if (pCurrentAttack_) {
                 BossAttackContext cancel{};
