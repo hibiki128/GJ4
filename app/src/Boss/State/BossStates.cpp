@@ -2,6 +2,25 @@
 #include "src/Boss/Boss.h"
 
 /// ===================================================
+/// 登場
+/// ===================================================
+
+void BossStateAppear::Enter(Boss &boss) {
+    boss.BeginAppear();
+}
+
+void BossStateAppear::Update(Boss &boss, float deltaTime) {
+    // 演出が終わったら通常の待機へ
+    if (!boss.UpdateAppear(deltaTime)) {
+        boss.RequestState(BossStateId::Idle);
+    }
+}
+
+void BossStateAppear::Exit(Boss &boss) {
+    boss.EndAppear();
+}
+
+/// ===================================================
 /// 待機
 /// ===================================================
 

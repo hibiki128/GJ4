@@ -87,6 +87,11 @@ void Boss::Update() {
         stateMachine_.Request(BossStateId::Stagger);
     }
 
+    // 実行時に演出パラメータを変えてもすぐ効くよう、毎フレーム渡す
+    cluster_.SetEffectParams(parameters_.Effect());
+    // 吸着・消滅の演出を進める（消え切った球はここでプールへ戻る）
+    cluster_.UpdateMotions(deltaTime);
+
     // 削れるほど攻撃が早く・激しくなる
     UpdateExposureScaling();
 
@@ -125,6 +130,7 @@ void Boss::Draw(const ViewProjection &viewProjection) {
 /// ===================================================
 
 void Boss::SetupStatesAndAttacks() {
+    stateMachine_.Register(std::make_unique<BossStateAppear>());
     stateMachine_.Register(std::make_unique<BossStateIdle>());
     stateMachine_.Register(std::make_unique<BossStateAttack>());
     stateMachine_.Register(std::make_unique<BossStateStagger>());
@@ -136,7 +142,46 @@ void Boss::SetupStatesAndAttacks() {
     UpdateExposureScaling();
     scheduler_.Reset();
 
-    stateMachine_.Start(*this, BossStateId::Idle);
+    stateMachine_.Start(*this, BossStateId::Appear);
+}
+
+/// ===================================================
+/// 登場演出
+/// ===================================================
+
+void Boss::BeginAppear() {
+    appearTime_ = 0.0f;
+    // 配色シードと変えておく（同じ並びで散らばると規則的に見えるため）
+    cluster_.BeginAppear(parameters_.Appear(), parameters_.GetColorSeed() + 1u);
+}
+
+bool Boss::UpdateAppear(float deltaTime) {
+    const BossAppearParams &appear = parameters_.Appear();
+    appearTime_ += deltaTime;
+
+    cluster_.UpdateAppear(appear, appearTime_);
+
+    // 自転は「集束中は高速 → 回転が収まるまで滑らかに減速 → 通常速度」
+    const float idleSpin = parameters_.Battle().idleSpinSpeed;
+    float spinSpeed = idleSpin;
+    if (appearTime_ < appear.gatherTime) {
+        spinSpeed = appear.gatherSpinSpeed;
+    } else if (appearTime_ < appear.gatherTime + appear.settleTime) {
+        const float settle = std::clamp((appearTime_ - appear.gatherTime) /
+                                            (std::max)(0.01f, appear.settleTime),
+                                        0.0f, 1.0f);
+        spinSpeed = ApplyEasing(EasingType::OutCubic, appear.gatherSpinSpeed, idleSpin, settle, 1.0f);
+    }
+    AddSpin(spinSpeed * deltaTime);
+
+    return appearTime_ < BossSphereCluster::GetAppearDuration(appear);
+}
+
+void Boss::EndAppear() {
+    // 端数の時間で中途半端な大きさのまま止まらないよう、最終状態へそろえる
+    cluster_.FinishAppear();
+    // 登場直後にいきなり攻撃しないよう、間隔を取り直す
+    scheduler_.Reset();
 }
 
 void Boss::AddIdleSpin(float deltaTime) {
@@ -274,10 +319,20 @@ void Boss::ApplyDamage(const DamageInfo &info) {
 }
 
 bool Boss::FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) {
+    // 登場演出の最中は球が定位置にいないので狙わせない
+    if (IsAppearing()) {
+        out = LockOnResult{};
+        return false;
+    }
     return cluster_.FindLockOnTarget(request, parameters_.LockOn().requireFacing, out);
 }
 
 BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
+    // 登場演出の最中は無敵（球が飛来中で当たり判定の位置が定まらない）
+    if (IsAppearing()) {
+        return BulletHitResult{};
+    }
+
     const bool wasAlive = !IsDead();
 
     const BulletHitResult result =
@@ -314,7 +369,7 @@ void Boss::ResetBoss() {
     scheduler_.Reset();
     ClearStaggerShake();
     SetBossPosition(homePosition_);
-    stateMachine_.Start(*this, BossStateId::Idle);
+    stateMachine_.Start(*this, BossStateId::Appear);
 }
 
 void Boss::ApplyShellChanges() {
@@ -473,6 +528,25 @@ void Boss::RegisterTuningParameters() {
     hub->Register(paramOwnerLabel_, "落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
     hub->Register(paramOwnerLabel_, "落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
 
+    // --- 吸着・消滅の演出 ---
+    BossEffectParams &effect = parameters_.Effect();
+    hub->Register(paramOwnerLabel_, "演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
+    hub->Register(paramOwnerLabel_, "演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
+    hub->Register(paramOwnerLabel_, "演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
+    hub->Register(paramOwnerLabel_, "演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
+    hub->Register(paramOwnerLabel_, "演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
+
+    // --- 登場演出 ---
+    BossAppearParams &appear = parameters_.Appear();
+    hub->Register(paramOwnerLabel_, "登場:集束の時間", &appear.gatherTime, {0.05f, 0.1f, 10.0f});
+    hub->Register(paramOwnerLabel_, "登場:回転が収まる時間", &appear.settleTime, {0.01f, 0.0f, 5.0f});
+    hub->Register(paramOwnerLabel_, "登場:膨らむ時間", &appear.expandTime, {0.01f, 0.05f, 5.0f});
+    hub->Register(paramOwnerLabel_, "登場:集まってくる距離", &appear.gatherRadius, {0.5f, 1.0f, 100.0f});
+    hub->Register(paramOwnerLabel_, "登場:集束中の自転速度", &appear.gatherSpinSpeed, {5.0f, 0.0f, 3000.0f});
+    hub->Register(paramOwnerLabel_, "登場:飛来中の大きさ", &appear.startScale, {0.01f, 0.01f, 1.0f});
+    hub->Register(paramOwnerLabel_, "登場:到着時の大きさ", &appear.arriveScale, {0.01f, 0.01f, 1.0f});
+    hub->Register(paramOwnerLabel_, "登場:到着のばらつき", &appear.spawnSpread, {0.01f, 0.0f, 3.0f});
+
     // --- 露出度スケーリング（難易度カーブ）---
     BossExposureParams &exposure = parameters_.Exposure();
     hub->Register(paramOwnerLabel_, "露出度:攻撃間隔(露出0)", &exposure.attackIntervalAtZero, {0.05f, 0.2f, 30.0f});
@@ -485,8 +559,12 @@ void Boss::RegisterTuningParameters() {
 }
 
 void Boss::DrawImGui() {
+    // 「トランスフォームマネージャ」ウィンドウで選択したときに出る、オブジェクトの全項目
     BaseObject::DrawImGui();
+    DrawGameplayImGui();
+}
 
+void Boss::DrawGameplayImGui() {
 #ifdef USE_IMGUI
     if (!ImGui::CollapsingHeader("ボス", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
@@ -512,6 +590,10 @@ void Boss::DrawImGui() {
     }
     if (ImGui::Button("今すぐ攻撃")) {
         scheduler_.ForceReady();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("登場演出を再生")) {
+        RequestState(BossStateId::Appear);
     }
     ImGui::SameLine();
     ImGui::TextDisabled("攻撃の当て先: %s", pTargetDamageSink_ ? "接続済み" : "未接続（通知のみ）");

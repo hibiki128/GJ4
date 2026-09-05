@@ -48,6 +48,9 @@ void BossSphereCluster::Build(BaseObject *parent, const std::string &namePrefix,
 
 void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPalette &palette,
                                  const BossChainParams &chain, uint32_t colorSeed) {
+    // 消滅演出の途中の球も片付けてから敷き直す
+    FlushVanishing();
+
     // 置かれている球をすべてプールへ戻してから敷き直す
     for (auto &[cell, slot] : occupied_) {
         slot.sphere->Deactivate();
@@ -64,6 +67,9 @@ void BossSphereCluster::ResetAll(const BossShellParams &shell, const BossColorPa
 }
 
 void BossSphereCluster::ApplyRadius(const BossShellParams &shell) {
+    // 演出途中の球が中途半端な大きさで残らないよう、先に片付ける
+    FlushVanishing();
+
     lattice_.Configure(shell.subdivision, shell.shellRadius, shell.sphereRadius,
                        shell.innerLayers, shell.outerLayers);
     sphereRadius_ = lattice_.GetSphereRadius();
@@ -86,7 +92,7 @@ void BossSphereCluster::SetMetaBallParams(const BossMetaBallParams &params) {
 }
 
 void BossSphereCluster::Update() {
-    // 球が増減した色だけ、融合メッシュのもとになる中心座標を集め直す。
+    // 球が増減した色・演出で動いた色だけ、融合メッシュのもとになる中心座標を集め直す。
     // ボスが回っているだけなら（メッシュはローカル空間なので）ここは何もしない
     for (int index = 0; index < kGameColorCount; ++index) {
         if (!colorDirty_[index]) {
@@ -96,13 +102,30 @@ void BossSphereCluster::Update() {
 
         const Color color = BossColorPalette::FromIndex(index);
         std::vector<Vector3> localPositions;
-        localPositions.reserve(occupied_.size());
+        localPositions.reserve(occupied_.size() + vanishing_.size());
+
+        // 演出中は「見た目の位置」を使う。当たり判定用の論理位置は定位置のままなので、
+        // そちらを渡すと登場も吸着も消滅もメッシュ側では止まって見える
+        float renderRadius = 0.0f;
         for (const auto &[cell, slot] : occupied_) {
             if (slot.color == color) {
-                localPositions.push_back(slot.sphere->GetLocalPosition());
+                localPositions.push_back(slot.sphere->GetRenderPosition());
+                renderRadius = (std::max)(renderRadius, slot.sphere->GetRenderRadius());
             }
         }
-        metaBall_.SetElements(color, std::move(localPositions), sphereRadius_);
+        // 消滅演出の途中の球も、消え切るまでは殻の一部として出す
+        for (const BossSphere *sphere : vanishing_) {
+            if (sphere->GetSphereColor() == color) {
+                localPositions.push_back(sphere->GetRenderPosition());
+            }
+        }
+
+        // 融合メッシュは1色につき半径をひとつしか持てないので、いちばん大きい球に合わせる。
+        // 登場演出の「小さいまま集まって膨らむ」はこれで出るが、
+        // 一部だけ縮む消滅や、吸着の行き過ぎで殻全体が脈打たないよう定寸で頭打ちにする
+        const float elementRadius =
+            (renderRadius > 0.0f) ? (std::min)(renderRadius, sphereRadius_) : sphereRadius_;
+        metaBall_.SetElements(color, std::move(localPositions), elementRadius);
     }
 
     metaBall_.Update();
@@ -175,31 +198,93 @@ void BossSphereCluster::FillInitialShell(const BossShellParams &shell, const Bos
     initialCount_ = static_cast<int>(occupied_.size());
 }
 
-bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette) {
+bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const BossColorPalette &palette,
+                                    const Vector3 *attachFrom) {
     if (freeSpheres_.empty()) {
-        return false;
+        // 消滅演出の途中の球しか残っていない場合は、演出を打ち切って融通する
+        FlushVanishing();
+        if (freeSpheres_.empty()) {
+            return false;
+        }
     }
     BossSphere *sphere = freeSpheres_.back();
     freeSpheres_.pop_back();
 
     sphere->Place(cell, lattice_.ToLocal(cell), color, palette.GetRgba(color));
     occupied_[cell] = SphereSlot{color, sphere};
+
+    if (attachFrom) {
+        // 着弾点から定位置へ吸い寄せられる見せ方にする
+        sphere->BeginAttach(*attachFrom, effect_.attachTime, effect_.attachStartScale);
+    } else {
+        sphere->ClearMotion(sphereRadius_);
+    }
+
     MarkColorDirty(color);
     return true;
 }
 
-void BossSphereCluster::RemoveSphere(const ShellCell &cell) {
+void BossSphereCluster::RemoveSphere(const ShellCell &cell, float vanishDelay) {
     auto it = occupied_.find(cell);
     if (it == occupied_.end()) {
         return;
     }
-    it->second.sphere->Deactivate();
-    freeSpheres_.push_back(it->second.sphere);
+    BossSphere *sphere = it->second.sphere;
+    // ここではプールへ返さない。消え切ったところで UpdateMotions が返す。
+    // 先に freeSpheres_ へ入れると、消滅演出の途中の球が次の着弾で再利用され、
+    // 同じ球が2つのセルに使われて殻が壊れる
     MarkColorDirty(it->second.color);
     occupied_.erase(it);
 
     if (hasHighlight_ && highlightedCell_ == cell) {
         hasHighlight_ = false;
+    }
+
+    // 占有マップからは外すが、消えるまでは描画し続ける。
+    // （当たり判定は occupied_ しか見ないので、演出中の球には当たらない）
+    sphere->SetHighlight(false,metaBallParams_.highlightScale);
+    sphere->BeginVanish(effect_.vanishTime, effect_.vanishDrift, vanishDelay);
+    vanishing_.push_back(sphere);
+}
+
+void BossSphereCluster::FlushVanishing() {
+    for (BossSphere *sphere : vanishing_) {
+        sphere->ClearMotion(sphereRadius_);
+        sphere->Deactivate();
+        freeSpheres_.push_back(sphere);
+    }
+    vanishing_.clear();
+}
+
+void BossSphereCluster::UpdateMotions(float deltaTime) {
+    // 演出で球が動いたら殻のメッシュを作り直す。これをしないと、
+    // 見た目を融合メッシュが描いている以上、動かしても画面では止まったままになる
+    bool anyMoved = false;
+
+    // 吸着中の球（占有マップの中にいる）
+    for (auto &[cell, slot] : occupied_) {
+        if (slot.sphere->UpdateMotion(deltaTime, sphereRadius_)) {
+            anyMoved = true;
+        }
+    }
+
+    // 消滅中の球。消え切ったものはプールへ返す
+    for (size_t index = 0; index < vanishing_.size();) {
+        BossSphere *sphere = vanishing_[index];
+        if (sphere->UpdateMotion(deltaTime, sphereRadius_)) {
+            anyMoved = true;
+            ++index;
+            continue;
+        }
+        sphere->Deactivate();
+        freeSpheres_.push_back(sphere);
+        vanishing_[index] = vanishing_.back();
+        vanishing_.pop_back();
+        anyMoved = true; // 消え切ったぶんをメッシュから外す
+    }
+
+    if (anyMoved) {
+        MarkAllColorsDirty();
     }
 }
 
@@ -210,6 +295,84 @@ Matrix4x4 BossSphereCluster::MakeShellMatrix() {
     // 球は親のスケールを継承しないので、格子空間も平行移動と回転だけで作る
     return MakeAffineMatrix(Vector3{1.0f, 1.0f, 1.0f}, pParent_->GetWorldRotation(),
                             pParent_->GetWorldPosition());
+}
+
+void BossSphereCluster::BeginAppear(const BossAppearParams &appear, uint32_t seed) {
+    const uint32_t actualSeed = (seed != 0) ? seed : std::random_device{}();
+    std::mt19937 engine(actualSeed);
+    std::uniform_real_distribution<float> unit(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> delayRange(0.0f, (std::max)(0.0f, appear.spawnSpread));
+
+    for (auto &[cell, slot] : occupied_) {
+        // 球面上の一様な向きへ散らす（そのままだと軸の周りに偏るので、
+        // 長さが0に近い乱数は引き直す）
+        Vector3 direction{};
+        for (int retry = 0; retry < 8; ++retry) {
+            direction = Vector3{unit(engine), unit(engine), unit(engine)};
+            if (direction.LengthSq() > 0.05f) {
+                break;
+            }
+        }
+        if (direction.LengthSq() <= 0.0001f) {
+            direction = Vector3{0.0f, 1.0f, 0.0f};
+        }
+
+        slot.sphere->SetAppearStart(direction.Normalize() * appear.gatherRadius, delayRange(engine));
+    }
+
+    // 開始時点の見た目（遠くに小さく散らばった状態）へ即座に反映する
+    UpdateAppear(appear, 0.0f);
+}
+
+void BossSphereCluster::UpdateAppear(const BossAppearParams &appear, float elapsed) {
+    const float gatherEnd = appear.gatherTime;
+    const float settleEnd = gatherEnd + appear.settleTime;
+
+    // 遅れてから動き出す球があるので、遅れの分だけ移動時間を短くして
+    // 「gatherTime で全球が到着し終わる」ようにそろえる
+    const float travelTime = (std::max)(0.01f, appear.gatherTime - appear.spawnSpread);
+
+    for (auto &[cell, slot] : occupied_) {
+        BossSphere *sphere = slot.sphere;
+        const Vector3 target = lattice_.ToLocal(cell);
+
+        if (elapsed < gatherEnd) {
+            // --- 集束: 遠くから吸い寄せられる ---
+            const float travel = std::clamp((elapsed - sphere->GetAppearDelay()) / travelTime, 0.0f, 1.0f);
+            // 動き出しで加速し、定位置の手前で減速して収まる（到着時に急停止しない）
+            sphere->SetLocalPosition(ApplyEasing(EasingType::InOutCubic, sphere->GetAppearStart(), target, travel, 1.0f));
+            sphere->SetSphereRadius(sphereRadius_ *
+                                    Lerp(appear.startScale, appear.arriveScale, travel));
+            continue;
+        }
+
+        sphere->SetLocalPosition(target);
+
+        if (elapsed < settleEnd) {
+            // --- 到着後、回転が収まるまでは小さいまま待つ ---
+            sphere->SetSphereRadius(sphereRadius_ * appear.arriveScale);
+            continue;
+        }
+
+        // --- 膨張: 少し行き過ぎてから落ち着く（OutBack）---
+        const float expand = std::clamp((elapsed - settleEnd) / (std::max)(0.01f, appear.expandTime), 0.0f, 1.0f);
+        sphere->SetSphereRadius(ApplyEasing(EasingType::OutBack, sphereRadius_ * appear.arriveScale,
+                                            sphereRadius_, expand, 1.0f));
+    }
+
+    // 毎フレーム球が動くので、そのつど殻のメッシュを作り直す。
+    // これが無いと、見た目を描いている融合メッシュが最初の位置のまま固まる
+    MarkAllColorsDirty();
+}
+
+void BossSphereCluster::FinishAppear() {
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
+        slot.sphere->SetSphereRadius(sphereRadius_);
+    }
+
+    // 位置も大きさも変えたので、殻のメッシュを作り直す
+    MarkAllColorsDirty();
 }
 
 void BossSphereCluster::Draw(const ViewProjection &viewProjection) {
@@ -340,7 +503,8 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
     if (!FindSnapCell(hitCell, localHitPoint, snapCell)) {
         return result; // 当たったが置ける隣が無い（弾は消えるだけ）
     }
-    if (!PlaceSphere(snapCell, color, palette)) {
+    // 着弾点から定位置へ吸い寄せられる演出付きで置く
+    if (!PlaceSphere(snapCell, color, palette, &localHitPoint)) {
         return result; // プールが尽きた
     }
     result.attached = true;
@@ -351,8 +515,10 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
         return result; // 付着しただけ。まだ消えない
     }
 
-    for (const ShellCell &cell : cluster) {
-        RemoveSphere(cell);
+    // 幅優先で集めた順＝着弾点から近い順なので、少しずつ遅らせると
+    // 当てたところから外へ波が広がるように消える
+    for (size_t index = 0; index < cluster.size(); ++index) {
+        RemoveSphere(cluster[index], static_cast<float>(index) * effect_.vanishSpread);
     }
 
     const int overMatch = result.clusterSize - chain.minMatch;

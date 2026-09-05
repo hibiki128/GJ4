@@ -47,6 +47,11 @@ public:
     void DrawImGui() override;
 
     /// <summary>
+    /// ボス固有の項目だけを描く（基底のトランスフォーム等は含めない）。
+    /// オブジェクトを選択しなくても触れるよう、シーンの「オブジェクト設定」窓からも呼ぶ
+    /// </summary>
+    void DrawGameplayImGui();
+  
     /// 殻の形をGPUで作り直すコンピュートを積む。
     /// シャドウより前に走る DrawSystem のコンピュートフェーズ（kGPUParticleCompute）から
     /// 呼ぶこと。CPU生成に切り替えている場合は何もしない
@@ -154,6 +159,26 @@ public:
     /// <summary>状態の変更を要求する（切り替えは次の更新の先頭）</summary>
     void RequestState(BossStateId id) { stateMachine_.Request(id); }
 
+    /// ===================================================
+    /// 登場演出
+    /// ===================================================
+
+    /// <summary>登場演出を最初から再生する</summary>
+    void BeginAppear();
+
+    /// <summary>
+    /// 登場演出を1フレーム進める
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>bool: まだ演出中なら true</returns>
+    bool UpdateAppear(float deltaTime);
+
+    /// <summary>登場演出を終了して通常状態にする</summary>
+    void EndAppear();
+
+    /// <summary>登場演出の最中か（この間は被弾もロックオンも受け付けない）</summary>
+    bool IsAppearing() const { return stateMachine_.GetCurrentId() == BossStateId::Appear; }
+
     /// <summary>待機中の緩やかな自転を進める（死角対策）</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     void AddIdleSpin(float deltaTime);
@@ -204,6 +229,35 @@ public:
     Hagine::Vector3 GetBossPosition() const { return transform_->translation_; }
     void SetBossPosition(const Hagine::Vector3 &position);
     const Hagine::Vector3 &GetHomePosition() const { return homePosition_; }
+    /// <summary>
+    /// コア（黒い球）の半径。第2形態へ引き継いで、同じ大きさから変形を始めるのに使う
+    /// </summary>
+    float GetCoreRadius() const {
+        const BossShellParams &shell = parameters_.Shell();
+        return (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
+    }
+
+    /// <summary>コアの位置（第2形態へ引き継ぐ）</summary>
+    Hagine::Vector3 GetCorePosition() const { return transform_->translation_; }
+
+    /// <summary>
+    /// 殻の球が消え切ったか。撃破した瞬間はまだ消滅演出が残っているので、
+    /// 第2形態へ移るのはこれが true になってから
+    /// </summary>
+    bool IsShellCleared() const { return IsDead() && cluster_.GetVanishingCount() <= 0; }
+
+    /// <summary>コアを第2形態へ渡したか</summary>
+    bool IsCoreHandedOver() const { return coreHandedOver_; }
+
+    /// <summary>
+    /// コアを第2形態へ引き渡す。同じ位置・同じ大きさの黒い球が第2形態側に出るので、
+    /// 見た目は1つのコアがそのまま変形したように見える
+    /// </summary>
+    void HandOverCore() {
+        coreHandedOver_ = true;
+        SetIsModelDraw(false);
+    }
+
     /// <summary>見た目の外周半径（基本殻の球の表面まで）。接地高さや接触判定に使う</summary>
     float GetBodyRadius() const {
         return parameters_.Shell().shellRadius + cluster_.GetSphereRadius();
@@ -245,6 +299,7 @@ private:
 
     std::string bossId_ = "Boss01"; // 読み込むボスデータのID
     BossParameters parameters_{};   // ボスごとのデータ（JSON）
+    bool coreHandedOver_ = false;   // コアを第2形態へ渡したか
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 
@@ -261,6 +316,7 @@ private:
     Hagine::Vector3 homePosition_{};             // 初期位置（アリーナ中心・着地高さの基準）
     float spinAngle_ = 0.0f;                     // 自転の累積角（ラジアン）
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
+    float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
     bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
     std::string paramOwnerLabel_;       // GameParamHub の登録ラベル
