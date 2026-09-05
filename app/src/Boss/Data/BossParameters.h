@@ -111,6 +111,10 @@ struct BossSpiderParams {
     // 膝→足先（下腿）に並べる球の数。0以下なら自動算出
     int lowerSphereCount = 0;
     float legSphereRadius = 0.42f; // 脚の球の半径
+    // 脚1本にくっつけられる球の上限（0以下で無制限）。
+    // 色違いを撃ち続けると脚が伸び続けるので、伸びすぎを止める
+    int maxAttachPerLeg = 9;
+
     // 脚を胴のまわりへ配置するときの、片側（右半分・左半分）の広がり角（度）。
     // 180 なら円周に等間隔。小さくするほど真横へ寄って密集し、蜘蛛らしい並びになる
     float legSpread = 180.0f;

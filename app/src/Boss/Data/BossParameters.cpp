@@ -255,6 +255,8 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.upperSphereCount = JsonValue(spider, "upperSphereCount", out.upperSphereCount);
     out.lowerSphereCount = JsonValue(spider, "lowerSphereCount", out.lowerSphereCount);
     out.legSphereRadius = JsonValue(spider, "legSphereRadius", out.legSphereRadius);
+    out.maxAttachPerLeg = JsonValue(spider, "maxAttachPerLeg", out.maxAttachPerLeg);
+
     out.legSpread = JsonValue(spider, "legSpread", out.legSpread);
     out.legSpreadOffset = JsonValue(spider, "legSpreadOffset", out.legSpreadOffset);
     out.legLength = JsonValue(spider, "legLength", out.legLength);
@@ -289,6 +291,8 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["upperSphereCount"] = params.upperSphereCount;
     spider["lowerSphereCount"] = params.lowerSphereCount;
     spider["legSphereRadius"] = params.legSphereRadius;
+    spider["maxAttachPerLeg"] = params.maxAttachPerLeg;
+
     spider["legSpread"] = params.legSpread;
     spider["legSpreadOffset"] = params.legSpreadOffset;
     spider["legLength"] = params.legLength;

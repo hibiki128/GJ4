@@ -1,4 +1,5 @@
 #pragma once
+#include "src/Boss/Spider/BossSpider.h"
 #include "src/Boss/Boss.h"
 #include "src/Boss/Debug/BossTestProjectile.h"
 #include "src/Character/ColorStruct.h"
@@ -28,6 +29,13 @@ public:
     /// <summary>検証対象のボスを設定する</summary>
     /// <param name="boss">対象のボス（非所有）</param>
     void Init(Boss *boss);
+
+    /// <summary>いま撃つ相手（変形が終わっていれば蜘蛛、そうでなければ球体形態）</summary>
+    IBossTargetQuery *ActiveTarget();
+    /// <summary>第2形態を登録する（変形が終わったら撃つ相手をこちらへ切り替える）</summary>
+    /// <param name="spider">蜘蛛形態（非所有）</param>
+    void SetSpider(BossSpider *spider) { pSpider_ = spider; }
+
 
     /// <summary>入力・ロックオン・弾の更新</summary>
     /// <param name="viewProjection">射線に使うビュープロジェクション</param>
@@ -82,6 +90,8 @@ private:
     /// ===================================================
 
     Boss *pBoss_ = nullptr;         // 検証対象（非所有）
+    BossSpider *pSpider_ = nullptr; // 第2形態（非所有）。変形が終わったらこちらを撃つ
+
     Color selectedColor_ = Color::RED; // 現在の色
     LockOnResult lockOn_{};         // 現在のロックオン結果
     BulletHitResult lastHit_{};     // 直近の着弾結果（UI表示用）

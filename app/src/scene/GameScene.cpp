@@ -83,6 +83,9 @@ void GameScene::Initialize()
 	bossSpider_->Init("BossSpider");
 	bossSpider_->SetTargetLocator(playerBridge_.get());
 	pObjectManager_->RegisterExternal(bossSpider_.get());
+	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする
+	bossTestDriver_->SetSpider(bossSpider_.get());
+	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect());
 }
 
 void GameScene::Finalize()
