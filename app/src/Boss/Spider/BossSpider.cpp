@@ -114,7 +114,8 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 
     transform_->translation_ = bodyPosition_;
     transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
-    transform_->scale_ = Vector3{startRadius_, startRadius_, startRadius_};
+    // コアから引き継いだ大きさと蜘蛛の胴はほぼ同じ寸法なので、ここで1回そろえる
+    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
     transform_->UpdateMatrix();
 
     // 足の着地点は先に決めておく。脚が生えきったあと、ここへ向けて関節が曲がる
@@ -198,11 +199,12 @@ void BossSpider::UpdateTransform(float deltaTime) {
     // 足を地面へ着けるのは脚の関節だけが受け持つ
     const float rise = SmoothInOut(riseProgress);
     bodyPosition_.y = Lerp(startHeight_, standHeight_, rise);
-    const float radius = Lerp(startRadius_, parameters_.bodyRadius, rise);
 
+    // 大きさは Awaken で1回だけ入れる。毎フレーム書き換えないことで、
+    // 変形中に触る状態を歩行中と同じ「位置だけ」にそろえている
     transform_->translation_ = bodyPosition_;
     transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
-    transform_->scale_ = Vector3{radius, radius, radius};
+
     transform_->UpdateMatrix();
 
     const float bend = SmoothInOut(bendProgress);

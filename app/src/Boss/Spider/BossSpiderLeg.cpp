@@ -118,6 +118,7 @@ void BossSpiderLeg::Configure(const std::string &namePrefix, int legIndex, int l
         freeAttached_.push_back(slot.sphere);
     }
     attached_.clear();
+    removedBase_ = 0;
     extension_ = 0.0f;
     extendFrom_ = 0.0f;
     extendTarget_ = 0.0f;
@@ -141,6 +142,10 @@ void BossSpiderLeg::Configure(const std::string &namePrefix, int legIndex, int l
         // 脚の球は格子には属さないので、セルは識別用にだけ使う
         sphere->Place(ShellCell{legIndex, joint}, Vector3{0.0f, 0.0f, 0.0f}, color, palette.GetRgba(color));
         sphere->SetSphereRadius(params.legSphereRadius);
+        // Place は殻の球向けに描画を切るので、脚の球はここで一度だけ戻しておく。
+        // 以降 PlacePose では可視フラグを触らない（毎フレーム切り替えないため）
+        sphere->SetIsAlive(true);
+        sphere->SetIsModelDraw(true);
     }
 }
 
@@ -164,7 +169,9 @@ Vector3 BossSpiderLeg::CalcHomePosition(const Vector3 &bodyPosition, float bodyY
                                         const BossSpiderParams &params) const {
     const Vector3 direction = MakeHorizontalDirection(bodyYaw + azimuth_);
     // くっついた球のぶんだけ足を置く位置も外へ伸ばす（脚が実際に長くなる）
-    const float reach = params.footRadius + extension_ * CalcSpacing(params);
+    // 脚が消されたぶん縮むが、胴に食い込むほど短くはしない
+    const float reach = (std::max)(params.bodyRadius * 1.1f,
+                                   params.footRadius + extension_ * CalcSpacing(params));
     // 高さは球の半径ぶん上げる。0にすると足の球が地面に半分めり込む
     return Vector3{bodyPosition.x + direction.x * reach, params.legSphereRadius,
                    bodyPosition.z + direction.z * reach};
@@ -191,7 +198,6 @@ void BossSpiderLeg::ResetFoot(const Vector3 &bodyPosition, float bodyYaw, const 
 void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vector3 &moveDirection,
                            const BossSpiderParams &params, bool canStartStep, float deltaTime) {
     // 脚が伸び縮みしたぶん、接地している足を外／内へ滑らせる。
-    // 踏み替えを待つと、伸びたことが一歩あとまで見えない
     const float grown = AdvanceExtension(deltaTime) * CalcSpacing(params);
     if (std::fabs(grown) > 0.0f) {
         Vector3 outward = footPosition_ - bodyPosition;
@@ -255,7 +261,8 @@ float BossSpiderLeg::CalcSpacing(const BossSpiderParams &params) const {
 void BossSpiderLeg::BeginExtend(float duration) {
     // いまの位置から目標へ、両端で速度0になる曲線で寄せ直す
     extendFrom_ = extension_;
-    extendTarget_ = static_cast<float>(attached_.size());
+    // 継ぎ足したぶんから、消された脚のぶんを引いた量が目標
+    extendTarget_ = static_cast<float>(static_cast<int>(attached_.size()) - removedBase_);
     extendTimer_ = 0.0f;
     extendDuration_ = (std::max)(0.01f, duration);
 }
@@ -274,14 +281,34 @@ float BossSpiderLeg::AdvanceExtension(float deltaTime) {
 }
 
 int BossSpiderLeg::GetTipRunLength() const {
-    if (attached_.empty()) {
-        return 0;
-    }
-    const Color tipColor = attached_.back().color;
+    Color tipColor = Color::RED;
+    bool hasTip = false;
     int run = 0;
+
+    // 先端から付け根へ向かって、同じ色が続くあいだ数える。
+    // まずはくっついたぶん
     for (auto it = attached_.rbegin(); it != attached_.rend(); ++it) {
+        if (!hasTip) {
+            tipColor = it->color;
+            hasTip = true;
+        }
         if (it->color != tipColor) {
-            break;
+            return run;
+        }
+        ++run;
+    }
+
+    // 続けて、もともと脚だった球も同じ列として数える。
+    // ただし膝（と、そのすぐ先の1個）は残す。脚が付け根まで消えると
+    // 折れ線が閉じられず、足が地面に着けなくなるため
+    for (int joint = activeSphereCount_ - 1; joint > upperSphereCount_; --joint) {
+        const Color color = spheres_[static_cast<size_t>(joint)]->GetSphereColor();
+        if (!hasTip) {
+            tipColor = color;
+            hasTip = true;
+        }
+        if (color != tipColor) {
+            return run;
         }
         ++run;
     }
@@ -330,16 +357,31 @@ int BossSpiderLeg::TryEliminate(int minMatch, const BossEffectParams &effect) {
         return 0;
     }
 
-    // 先端から run 個ぶんを消す。基本の脚（関節を含む）には手を付けない
+    // 先端から run 個ぶんを消す。くっついたぶんを使い切ったら、
+    // もともと脚だった球も先端側から消していく（膝より内側は残る）
     for (int index = 0; index < run; ++index) {
-        BossSphere *sphere = attached_.back().sphere;
-        attached_.pop_back();
-        // 消え切ったところで UpdateMotions がプールへ返す。ここで返すと
+        BossSphere *sphere = nullptr;
+        bool fromAttachedPool = false;
+
+        if (!attached_.empty()) {
+            sphere = attached_.back().sphere;
+            attached_.pop_back();
+            fromAttachedPool = true;
+        } else if (activeSphereCount_ > upperSphereCount_ + 1) {
+            --activeSphereCount_;
+            ++removedBase_;
+            sphere = spheres_[static_cast<size_t>(activeSphereCount_)].get();
+        } else {
+            break; // これ以上は膝側なので消さない
+        }
+
+        // 消え切ったところで UpdateMotions が片付ける。ここで返すと
         // 演出中の球が次の着弾で再利用されてしまう
         sphere->BeginVanish(effect.vanishTime, effect.vanishDrift,
                             effect.vanishSpread * static_cast<float>(index));
-        vanishing_.push_back(sphere);
+        vanishing_.push_back(VanishSlot{sphere, fromAttachedPool});
     }
+
     // 消えたぶんだけ、脚も滑らかに縮む
     BeginExtend(effect.vanishTime);
     return run;
@@ -351,13 +393,17 @@ void BossSpiderLeg::UpdateMotions(float deltaTime, const BossSpiderParams &param
     }
 
     for (size_t index = 0; index < vanishing_.size();) {
-        BossSphere *sphere = vanishing_[index];
-        if (sphere->UpdateMotion(deltaTime, params.legSphereRadius)) {
+        VanishSlot &slot = vanishing_[index];
+        if (slot.sphere->UpdateMotion(deltaTime, params.legSphereRadius)) {
             ++index;
             continue;
         }
-        sphere->Deactivate();
-        freeAttached_.push_back(sphere);
+        slot.sphere->Deactivate();
+        // 継ぎ足し用の球だけをプールへ返す。もともと脚だった球は spheres_ に
+        // 残したままで、activeSphereCount_ の外にあるので並べ直しの対象にならない
+        if (slot.fromAttachedPool) {
+            freeAttached_.push_back(slot.sphere);
+        }
         vanishing_[index] = vanishing_.back();
         vanishing_.pop_back();
     }
@@ -459,25 +505,23 @@ void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const 
 
     // 何個目まで生えたか。端数がその球の「生えかけ具合」になる
     const float emerged = std::clamp(growth, 0.0f, 1.0f) * static_cast<float>(activeSphereCount_);
-
+    // 変形中に「毎フレーム触る状態」を位置だけに絞る。
+    // 可視フラグの切り替えやスケールの上げ下げを毎フレーム行うと、
+    // 描画側の状態が毎フレーム揺れる（ちらつきの調査でここを疑っている）。
+    // まだ生えていない球は胴（黒い球）の中に置いておけば、フラグを触らなくても見えない
     for (int joint = 0; joint < activeSphereCount_; ++joint) {
         BossSphere *sphere = spheres_[static_cast<size_t>(joint)].get();
 
         const float appear = std::clamp(emerged - static_cast<float>(joint), 0.0f, 1.0f);
-        const bool isVisible = appear > 0.0f;
-        sphere->SetIsAlive(isVisible);
-        sphere->SetIsModelDraw(isVisible);
-        if (!isVisible) {
+        if (appear <= 0.0f) {
+            sphere->SetLocalPosition(bodyPosition); // 胴の中へ隠す
             continue;
         }
 
-        // 生えかけの球は、ひとつ内側の球の位置から自分の位置へ押し出されてくる。
-        // こうすると先端が伸びていくように見えて、いきなり列が現れない
-        const float slot = Lerp(static_cast<float>((std::max)(0, joint - 1)), static_cast<float>(joint), appear);
-        sphere->SetLocalPosition(PointAlongLeg(slot, hip, knee, foot));
-        // 出てくる瞬間だけ小さく、押し出されるにつれて本来の大きさになる
-        sphere->SetSphereRadius(params.legSphereRadius *
-                                ApplyEasing(EasingType::OutQuad, 0.0f, 1.0f, appear, 1.0f));
+        // 胴の中から自分の位置へ出てくる。appear=0 のときは胴の中と一致するので、
+        // 出はじめに飛ぶことがない
+        const Vector3 slotPosition = PointAlongLeg(static_cast<float>(joint), hip, knee, foot);
+        sphere->SetLocalPosition(Lerp(bodyPosition, slotPosition, appear));
     }
 
     // くっついた球は基本の脚の先へ、同じ折れ線を延長する形で並べる。
@@ -498,7 +542,7 @@ Vector3 BossSpiderLeg::SolveKnee(const Vector3 &hip, const BossSpiderParams &par
     // 本数でも球の間隔がそろうので、片側だけ重なって反対側に隙間が空くことがない。
     // くっついた球のぶんは下腿側にだけ足すので、上腿の長さ＝膝の位置は変わらない
     const float upperSpan = static_cast<float>(upperSphereCount_ - 1);
-    const float lowerSpan = static_cast<float>(lowerSphereCount_ - 1) + extension_;
+    const float lowerSpan = (std::max)(0.5f, static_cast<float>(lowerSphereCount_ - 1) + extension_);
     float pathLength = CalcSpacing(params) * (upperSpan + lowerSpan);
 
     const Vector3 toFoot = footPosition_ - hip;
@@ -541,7 +585,7 @@ Vector3 BossSpiderLeg::PointAlongLeg(float index, const Vector3 &hip, const Vect
         return Lerp(hip, knee, index / upperSpan);
     }
     // 下腿はくっついた球のぶんだけ長くなっている
-    const float lowerSpan = static_cast<float>(lowerSphereCount_ - 1) + extension_;
+    const float lowerSpan = (std::max)(0.5f, static_cast<float>(lowerSphereCount_ - 1) + extension_);
     return Lerp(knee, foot, (index - upperSpan) / lowerSpan);
 }
 
@@ -555,7 +599,7 @@ void BossSpiderLeg::Draw(const ViewProjection &viewProjection) {
     for (const AttachedSlot &slot : attached_) {
         slot.sphere->Draw(viewProjection);
     }
-    for (BossSphere *sphere : vanishing_) {
-        sphere->Draw(viewProjection);
+    for (const VanishSlot &slot : vanishing_) {
+        slot.sphere->Draw(viewProjection);
     }
 }
