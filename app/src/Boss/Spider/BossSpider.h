@@ -2,9 +2,11 @@
 #include "src/Boss/Data/BossColorPalette.h"
 #include "src/Boss/Data/BossParameters.h"
 #include "src/Boss/Spider/BossSpiderLeg.h"
+#include "src/Boss/Attack/IBossAttack.h"
 #include "src/Interface/IBossTargetQuery.h"
 #include "src/Interface/ITargetLocator.h"
 #include "object/base/BaseObject.h"
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -121,6 +123,70 @@ public:
         effect_ = effect;
     }
 
+
+    /// ===================================================
+    /// 攻撃から蜘蛛を動かすための口
+    /// ===================================================
+
+    /// <summary>相手に当たったことを外へ知らせる関数の型</summary>
+    /// <param name="center">当たり判定の中心（ワールド）</param>
+    /// <param name="radius">有効半径</param>
+    /// <param name="damage">ダメージ量</param>
+    using HitCallback = std::function<void(const Hagine::Vector3 &center, float radius, float damage)>;
+
+    /// <summary>
+    /// 攻撃が当たったときの通知先を設定する。
+    /// プレイヤーへのダメージはこちらから触らないので、受け側で処理してもらう
+    /// </summary>
+    void SetHitCallback(HitCallback callback) { hitCallback_ = std::move(callback); }
+
+    /// <summary>攻撃の当たりを通知する（通知先が未設定なら何もしない）</summary>
+    void ReportHit(const Hagine::Vector3 &center, float radius, float damage);
+
+    /// <summary>胴の位置（揺れを含まない基準の位置）</summary>
+    const Hagine::Vector3 &GetBodyPosition() const { return bodyPosition_; }
+
+    /// <summary>胴の位置を直接置く（攻撃が動きを受け持つあいだに使う）</summary>
+    void SetBodyPosition(const Hagine::Vector3 &position) { bodyPosition_ = position; }
+
+    /// <summary>胴の向き（ラジアン）</summary>
+    float GetBodyYaw() const { return bodyYaw_; }
+
+    /// <summary>胴の向きを足す（回転攻撃で使う）</summary>
+    void AddBodyYaw(float radians) { bodyYaw_ += radians; }
+
+    /// <summary>指定の位置のほうへ即座に向き直る</summary>
+    void FaceTowards(const Hagine::Vector3 &worldPoint);
+
+    /// <summary>足を着いて立っているときの胴の高さ</summary>
+    float GetStandHeight() const { return standHeight_; }
+
+    /// <summary>
+    /// 脚を胴の下へ畳む度合いを、時間をかけて変える（0で接地・1で真下）。
+    /// 一気に切り替えると足がワープするので、必ず時間をかけること
+    /// </summary>
+    /// <param name="tuck">目標の畳み具合</param>
+    /// <param name="duration">かける時間（秒）</param>
+    void SetLegTuck(float tuck, float duration);
+
+    /// <summary>
+    /// 脚の折り具合を時間をかけて変える（1で膝を曲げた通常姿勢・0で真横に伸び切る）
+    /// </summary>
+    /// <param name="bend">目標の折り具合</param>
+    /// <param name="duration">かける時間（秒）</param>
+    void SetLegBend(float bend, float duration);
+
+    /// <summary>いま脚の先が届く半径（広げた脚の攻撃範囲）</summary>
+    float GetFootReach() const;
+
+    /// <summary>足を今の胴のまわりへ置き直す（変形直後など、補間が要らないときだけ）</summary>
+    void ReplantFeet();
+
+    /// <summary>色つきの弾を1発撃つ</summary>
+    /// <param name="direction">飛ばす向き（正規化していなくてよい）</param>
+    /// <param name="params">弾のパラメータ</param>
+    void FireBullet(const Hagine::Vector3 &direction, const BossSpiderShootParams &params);
+
     BossSpiderParams &GetParameters() { return parameters_; }
 
 private:
@@ -150,7 +216,8 @@ private:
     /// <param name="deltaTime">経過時間（秒）</param>
     /// <param name="isMoving">歩いているか（止まっているときは揺らさない）</param>
     /// <returns>Vector3: 揺れを含んだ、実際に描く胴の位置</returns>
-    Hagine::Vector3 UpdateBodyPosture(float deltaTime, bool isMoving);
+    /// <param name="controlHeight">胴の高さをこちらで決めてよいか（攻撃中は攻撃が決めるので false）</param>
+    Hagine::Vector3 UpdateBodyPosture(float deltaTime, bool isMoving, bool controlHeight);
 
     /// <summary>胴の最終的な位置から脚の球を並べ直す</summary>
     /// <param name="bodyPosition">揺れを含んだ胴の位置</param>
@@ -161,6 +228,40 @@ private:
     /// <summary>変形（浮上→脚が生える→着地）を1フレーム進める</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     void UpdateTransform(float deltaTime);
+
+    /// <summary>飛んでいる弾1発ぶん</summary>
+    struct SpiderBullet {
+        BossSphere *sphere = nullptr;  // 見た目（bulletPool_ が所有）
+        Hagine::Vector3 position{};    // 現在位置（ワールド）
+        Hagine::Vector3 velocity{};    // 速度
+        Color color = Color::RED;      // 弾の色（同じ色を当てられると消える）
+        float radius = 1.0f;           // 当たり判定と見た目の半径
+        float life = 0.0f;             // 残り寿命（秒）
+        float damage = 0.0f;           // 命中したときのダメージ
+        float speed = 0.0f;            // 速さ（追尾で向きを変えても速さは保つ）
+        float homingRate = 0.0f;       // 相手を追う強さ（0で追わない）
+        float homingLeft = 0.0f;       // あと何秒追いかけるか
+        bool active = false;           // 飛んでいるか
+    };
+
+    /// <summary>攻撃を選ぶ・始める・進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>Vector3: このフレームの進行方向（脚の踏み替えに渡す）</returns>
+    Hagine::Vector3 UpdateAttack(float deltaTime);
+
+    /// <summary>距離と確率から次の攻撃を選ぶ</summary>
+    IBossAttack *PickAttack();
+
+    /// <summary>飛んでいる弾を進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateBullets(float deltaTime);
+
+    /// <summary>相手までの水平距離（相手がいなければ負の値）</summary>
+    float CalcTargetDistance() const;
+
+    /// <summary>脚の姿勢（畳み・折り）の補間を1フレームぶん進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateLegPosture(float deltaTime);
 
     /// <summary>変形を最後まで飛ばして戦闘できる状態にする（デバッグ用）</summary>
     void SkipTransform();
@@ -200,6 +301,22 @@ private:
     BossChainParams chain_{};   // 連鎖マッチの設定（球体形態と共通）
     BossEffectParams effect_{};  // 吸着・消滅の演出設定
 
+
+    // --- 攻撃 ---
+    /// <summary>attacks_ の並び順（PickAttack から引くのに使う）</summary>
+    static constexpr size_t kAttackLeap = 0;  // 跳ねまわる
+    static constexpr size_t kAttackShoot = 1; // 弾を撃つ
+    static constexpr size_t kAttackWhirl = 2; // 回転して接近
+
+    std::vector<std::unique_ptr<IBossAttack>> attacks_{}; // 使える攻撃（所有）
+    IBossAttack *pCurrentAttack_ = nullptr;               // 進行中の攻撃（非所有）
+    float attackCoolDown_ = 0.0f;                         // 次の攻撃までの残り時間（秒）
+    HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
+
+    // --- 弾 ---
+    std::vector<std::unique_ptr<BossSphere>> bulletPool_{}; // 弾の球（所有・増やすだけ）
+    std::vector<SpiderBullet> bullets_{};                   // 弾の状態（プールと同じ並び）
+
     ITargetLocator *pTargetLocator_ = nullptr; // 歩いて向かう相手（非所有）
 
     Hagine::Vector3 bodyPosition_{}; // 胴の位置（足の平均から高さを決める前の基準）
@@ -210,6 +327,18 @@ private:
     float startRadius_ = 0.0f;       // 引き継いだコアの半径
     float startHeight_ = 0.0f;       // 引き継いだコアの高さ
     float standHeight_ = 0.0f;       // 足を着いて立ったときの胴の高さ
+    // 脚の姿勢は必ず時間をかけて変える（一気に変えると足がワープする）
+    float legTuck_ = 0.0f;           // いまの畳み具合
+    float legTuckFrom_ = 0.0f;       // 変え始めたときの畳み具合
+    float legTuckTarget_ = 0.0f;     // 目標の畳み具合
+    float legTuckTimer_ = 0.0f;      // 経過時間（秒）
+    float legTuckDuration_ = 0.2f;   // かける時間（秒）
+
+    float legBend_ = 1.0f;           // いまの折り具合（1で通常・0で真横）
+    float legBendFrom_ = 1.0f;       // 変え始めたときの折り具合
+    float legBendTarget_ = 1.0f;     // 目標の折り具合
+    float legBendTimer_ = 0.0f;      // 経過時間（秒）
+    float legBendDuration_ = 0.5f;   // かける時間（秒）
     std::string legNamePrefix_;      // 脚の球の名前の接頭辞
     std::string bossId_ = "Boss01";  // パラメータの読み書き先（球体形態と同じファイル）
 };

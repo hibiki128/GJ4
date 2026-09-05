@@ -1,6 +1,10 @@
 #include "BossSpider.h"
 #include "Easing.h"
 #include "MyMath.h"
+#include "Random.h"
+#include "src/Boss/Spider/Attack/BossSpiderAttackLeap.h"
+#include "src/Boss/Spider/Attack/BossSpiderAttackShoot.h"
+#include "src/Boss/Spider/Attack/BossSpiderAttackWhirl.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include "frame/Frame.h"
 #include <algorithm>
@@ -55,6 +59,11 @@ void BossSpider::Init(const std::string objectName) {
 
     legNamePrefix_ = objectName + "Leg";
     RebuildLegs();
+
+    // 使える攻撃を登録する。並び順は kAttackLeap などの定数と合わせること
+    attacks_.push_back(std::make_unique<BossSpiderAttackLeap>(&parameters_.attack.leap));
+    attacks_.push_back(std::make_unique<BossSpiderAttackShoot>(&parameters_.attack.shoot));
+    attacks_.push_back(std::make_unique<BossSpiderAttackWhirl>(&parameters_.attack.whirl));
 
     Hide();
 }
@@ -136,6 +145,23 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 }
 
 void BossSpider::Hide() {
+    // 進行中の攻撃と飛んでいる弾を片付ける
+    if (pCurrentAttack_) {
+        BossAttackContext context{};
+        context.spider = this;
+        context.target = pTargetLocator_;
+        pCurrentAttack_->Cancel(context);
+        pCurrentAttack_ = nullptr;
+    }
+    for (SpiderBullet &bullet : bullets_) {
+        bullet.active = false;
+        bullet.sphere->Deactivate();
+    }
+    SetLegTuck(0.0f, 0.01f);
+    SetLegBend(1.0f, 0.01f);
+    legTuck_ = 0.0f;
+    legBend_ = 1.0f;
+
     phase_ = Phase::Hidden;
     transformTime_ = 0.0f;
     for (int index = 0; index < activeLegCount_; ++index) {
@@ -231,19 +257,29 @@ void BossSpider::Update() {
         return;
     }
 
-    const Vector3 moveDirection = UpdateBodyMove(deltaTime);
+    // 攻撃中は攻撃が胴を動かす。攻撃していなければ相手へ歩いて寄る
+    // 脚の姿勢（畳み・折り）を先に進める。足の位置がこれで決まる
+    UpdateLegPosture(deltaTime);
+
+    // 攻撃中は攻撃が胴を動かす。攻撃していなければ相手へ歩いて寄る
+    const Vector3 moveDirection = UpdateAttack(deltaTime);
     UpdateLegs(moveDirection, deltaTime);
 
     // 胴の高さと揺れを決めてから脚を並べる。逆にすると脚の付け根が1フレーム前の胴を
     // 参照することになり、揺れるたびに胴と脚がずれて見える
-    const Vector3 renderPosition = UpdateBodyPosture(deltaTime, moveDirection.LengthSq() > 0.0001f);
-    PlaceLegs(renderPosition);
+    const bool isAttacking = (pCurrentAttack_ != nullptr);
+    const Vector3 renderPosition =
+        UpdateBodyPosture(deltaTime, !isAttacking && moveDirection.LengthSq() > 0.0001f, !isAttacking);
+    PlaceLegs(renderPosition, 1.0f, legBend_);
 
     // 並べ直したあとに演出を進める。逆にすると、くっついた球の吸い寄せも
     // 消滅の押し出しも、並べ直しで毎フレーム打ち消されてしまう
     for (int index = 0; index < activeLegCount_; ++index) {
         legs_[static_cast<size_t>(index)]->UpdateMotions(deltaTime, parameters_);
     }
+
+    // 撃った弾を進める（攻撃が終わっても飛び続ける）
+    UpdateBullets(deltaTime);
 }
 
 Vector3 BossSpider::CalcDesiredDirection() const {
@@ -319,7 +355,7 @@ float BossSpider::CalcFootAverageHeight() const {
     return sum / static_cast<float>(activeLegCount_);
 }
 
-Vector3 BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving) {
+Vector3 BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving, bool controlHeight) {
     (void)deltaTime;
 
     // 足の平均の高さに胴を乗せる（脚が持ち上がると胴もわずかに上がる）
@@ -332,7 +368,10 @@ Vector3 BossSpider::UpdateBodyPosture(float deltaTime, bool isMoving) {
     const Vector3 right{std::cos(bodyYaw_ + std::numbers::pi_v<float> * 0.5f), 0.0f,
                         std::sin(bodyYaw_ + std::numbers::pi_v<float> * 0.5f)};
 
-    bodyPosition_.y = averageFootHeight + parameters_.bodyHeight;
+    // 攻撃中は胴の高さを攻撃が決めているので、ここでは触らない
+    if (controlHeight) {
+        bodyPosition_.y = averageFootHeight + parameters_.bodyHeight;
+    }
 
     const Vector3 renderPosition = bodyPosition_ + right * sway + Vector3{0.0f, bob, 0.0f};
 
@@ -360,10 +399,260 @@ void BossSpider::PlaceLegs(const Vector3 &bodyPosition, float growth, float bend
 }
 
 
+
+void BossSpider::ReportHit(const Vector3 &center, float radius, float damage) {
+    if (hitCallback_) {
+        hitCallback_(center, radius, damage);
+    }
+}
+
+void BossSpider::FaceTowards(const Vector3 &worldPoint) {
+    Vector3 toPoint = worldPoint - bodyPosition_;
+    toPoint.y = 0.0f;
+    if (toPoint.LengthSq() > 0.0001f) {
+        bodyYaw_ = std::atan2(toPoint.z, toPoint.x);
+    }
+}
+
+void BossSpider::SetLegTuck(float tuck, float duration) {
+    legTuckFrom_ = legTuck_;
+    legTuckTarget_ = std::clamp(tuck, 0.0f, 1.0f);
+    legTuckTimer_ = 0.0f;
+    legTuckDuration_ = (std::max)(0.01f, duration);
+}
+
+void BossSpider::SetLegBend(float bend, float duration) {
+    legBendFrom_ = legBend_;
+    legBendTarget_ = std::clamp(bend, 0.0f, 1.0f);
+    legBendTimer_ = 0.0f;
+    legBendDuration_ = (std::max)(0.01f, duration);
+}
+
+void BossSpider::UpdateLegPosture(float deltaTime) {
+    // 畳み具合。足の位置がこれで決まるので、一気に変えると足がワープする
+    if (legTuckTimer_ < legTuckDuration_) {
+        legTuckTimer_ += deltaTime;
+        const float progress = std::clamp(legTuckTimer_ / legTuckDuration_, 0.0f, 1.0f);
+        legTuck_ = Lerp(legTuckFrom_, legTuckTarget_, SmoothInOut(progress));
+    } else {
+        legTuck_ = legTuckTarget_;
+    }
+
+    // 折り具合（1で膝を曲げた通常姿勢・0で真横に伸び切る）
+    if (legBendTimer_ < legBendDuration_) {
+        legBendTimer_ += deltaTime;
+        const float progress = std::clamp(legBendTimer_ / legBendDuration_, 0.0f, 1.0f);
+        legBend_ = Lerp(legBendFrom_, legBendTarget_, SmoothInOut(progress));
+    } else {
+        legBend_ = legBendTarget_;
+    }
+
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->SetPosture(1.0f, legTuck_);
+    }
+}
+
+float BossSpider::GetFootReach() const {
+    if (activeLegCount_ <= 0) {
+        return parameters_.footRadius;
+    }
+    // 真横に伸び切っているときは、折れ線を伸ばし切った長さがそのまま届く範囲になる。
+    // 膝を曲げているときは足を置いている半径。あいだは混ぜる
+    const float straight = parameters_.bodyRadius * 0.85f + BossSpiderLeg::ResolvePathLength(parameters_);
+    const float bent = legs_[0]->CalcFootReach(parameters_);
+    return Lerp(straight, bent, std::clamp(legBend_, 0.0f, 1.0f));
+}
+
+void BossSpider::ReplantFeet() {
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->ResetFoot(bodyPosition_, bodyYaw_, parameters_);
+    }
+}
+
+float BossSpider::CalcTargetDistance() const {
+    if (!pTargetLocator_ || !pTargetLocator_->IsTargetValid()) {
+        return -1.0f;
+    }
+    Vector3 toTarget = pTargetLocator_->GetTargetPosition() - bodyPosition_;
+    toTarget.y = 0.0f;
+    return toTarget.Length();
+}
+
+IBossAttack *BossSpider::PickAttack() {
+    if (attacks_.empty()) {
+        return nullptr;
+    }
+    const BossSpiderAttackParams &attack = parameters_.attack;
+
+    // 稀に回転接近。距離は問わない
+    if (Random::Range(0.0f, 1.0f) < std::clamp(attack.whirlChance, 0.0f, 1.0f)) {
+        return attacks_[kAttackWhirl].get();
+    }
+    // 遠ければ弾を撃ち、そうでなければ跳ねまわる（跳躍はどの距離でも出る）
+    const float distance = CalcTargetDistance();
+    if (distance > attack.shootRange) {
+        return attacks_[kAttackShoot].get();
+    }
+    return attacks_[kAttackLeap].get();
+}
+
+Vector3 BossSpider::UpdateAttack(float deltaTime) {
+    BossAttackContext context{};
+    context.spider = this;
+    context.target = pTargetLocator_;
+    context.deltaTime = deltaTime;
+
+    if (!pCurrentAttack_) {
+        // 攻撃と攻撃のあいだは歩いて間合いを取る
+        attackCoolDown_ = (std::max)(0.0f, attackCoolDown_ - deltaTime);
+        const Vector3 moveDirection = UpdateBodyMove(deltaTime);
+        if (attackCoolDown_ <= 0.0f) {
+            pCurrentAttack_ = PickAttack();
+            if (pCurrentAttack_) {
+                pCurrentAttack_->Start(context);
+            }
+        }
+        return moveDirection;
+    }
+
+    // 攻撃中は胴の動きを攻撃が受け持つ。進んだぶんを進行方向として脚へ渡す
+    const Vector3 before = bodyPosition_;
+    pCurrentAttack_->Update(context);
+
+    Vector3 moved = bodyPosition_ - before;
+    moved.y = 0.0f;
+    const Vector3 moveDirection = (moved.LengthSq() > 0.0001f) ? moved.Normalize() : Vector3{0.0f, 0.0f, 0.0f};
+
+    if (pCurrentAttack_->IsFinished()) {
+        pCurrentAttack_ = nullptr;
+        attackCoolDown_ = (std::max)(0.0f, parameters_.attack.interval);
+    }
+    return moveDirection;
+}
+
+void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParams &params) {
+    Vector3 forward = direction;
+    forward.y = 0.0f;
+    if (forward.LengthSq() <= 0.0001f) {
+        forward = Vector3{std::cos(bodyYaw_), 0.0f, std::sin(bodyYaw_)};
+    }
+    forward = forward.Normalize();
+
+    // 空きを探す。無ければ増やすだけ（実行中に破棄するとGPUが参照中で落ちる）
+    int slot = -1;
+    for (int index = 0; index < static_cast<int>(bullets_.size()); ++index) {
+        if (!bullets_[static_cast<size_t>(index)].active) {
+            slot = index;
+            break;
+        }
+    }
+    if (slot < 0) {
+        auto sphere = std::make_unique<BossSphere>();
+        sphere->InitSphere(objectName_ + "Bullet" + std::to_string(bulletPool_.size()), params.radius);
+        SpiderBullet bullet{};
+        bullet.sphere = sphere.get();
+        bulletPool_.push_back(std::move(sphere));
+        bullets_.push_back(bullet);
+        slot = static_cast<int>(bullets_.size()) - 1;
+    }
+
+    // 色は蜘蛛が使っている色から選ぶ。プレイヤーは同じ色を当てて消せる
+    const std::vector<Color> &usedColors = palette_.GetUsedColors();
+    const Color color = usedColors.empty()
+                            ? Color::RED
+                            : usedColors[static_cast<size_t>(Random::Range(0, static_cast<int>(usedColors.size()) - 1))];
+
+    SpiderBullet &bullet = bullets_[static_cast<size_t>(slot)];
+    bullet.color = color;
+    bullet.radius = (std::max)(0.05f, params.radius);
+    bullet.life = (std::max)(0.1f, params.life);
+    bullet.damage = params.damage;
+    bullet.speed = (std::max)(0.1f, params.speed);
+    bullet.homingRate = (std::max)(0.0f, params.homingRate);
+    bullet.homingLeft = (std::max)(0.0f, params.homingTime);
+    bullet.velocity = forward * bullet.speed;
+    bullet.position = bodyPosition_ + forward * (parameters_.bodyRadius + bullet.radius);
+    bullet.active = true;
+
+    bullet.sphere->Place(ShellCell{-1, slot}, bullet.position, color, palette_.GetRgba(color));
+    bullet.sphere->SetSphereRadius(bullet.radius);
+    bullet.sphere->SetIsAlive(true);
+    bullet.sphere->SetIsModelDraw(true);
+}
+
+void BossSpider::UpdateBullets(float deltaTime) {
+    const bool hasTarget = (pTargetLocator_ && pTargetLocator_->IsTargetValid());
+    const Vector3 targetPosition = hasTarget ? pTargetLocator_->GetTargetPosition() : Vector3{};
+
+    for (SpiderBullet &bullet : bullets_) {
+        if (!bullet.active) {
+            continue;
+        }
+        // 追尾: 相手のほうへ向きだけを寄せる。速さは変えないので避けられる余地が残る
+        if (hasTarget && bullet.homingLeft > 0.0f && bullet.homingRate > 0.0f) {
+            bullet.homingLeft -= deltaTime;
+            Vector3 toTarget = targetPosition - bullet.position;
+            if (toTarget.LengthSq() > 0.0001f && bullet.velocity.LengthSq() > 0.0001f) {
+                const Vector3 desired = toTarget.Normalize();
+                const Vector3 current = bullet.velocity.Normalize();
+                const float blend = std::clamp(bullet.homingRate * deltaTime, 0.0f, 1.0f);
+                Vector3 mixed = Lerp(current, desired, blend);
+                if (mixed.LengthSq() > 0.0001f) {
+                    bullet.velocity = mixed.Normalize() * bullet.speed;
+                }
+            }
+        }
+
+        bullet.position += bullet.velocity * deltaTime;
+        bullet.life -= deltaTime;
+        bullet.sphere->SetLocalPosition(bullet.position);
+
+        // 相手に届いたら当たりを知らせて消える
+        if (hasTarget && (targetPosition - bullet.position).Length() <= bullet.radius) {
+            ReportHit(bullet.position, bullet.radius, bullet.damage);
+            bullet.active = false;
+            bullet.sphere->Deactivate();
+            continue;
+        }
+        if (bullet.life <= 0.0f) {
+            bullet.active = false;
+            bullet.sphere->Deactivate();
+        }
+    }
+}
+
 BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
     BulletHitResult result{};
     // 変形が終わるまでは当たり判定を持たない（脚が生えている最中に撃たれても困る）
     if (phase_ != Phase::Active) {
+        return result;
+    }
+
+    // まず飛んでいる弾を見る。同じ色を当てられた弾は消える
+    for (SpiderBullet &bullet : bullets_) {
+        if (!bullet.active || bullet.color != color) {
+            continue; // 色が違う弾はすり抜ける（当てても消えない）
+        }
+        const Vector3 segment = worldEnd - worldStart;
+        const float segmentLength = segment.Length();
+        if (segmentLength <= 0.0001f) {
+            continue;
+        }
+        const Vector3 direction = segment / segmentLength;
+        const Vector3 toCenter = bullet.position - worldStart;
+        const float along = toCenter.Dot(direction);
+        if (along < -bullet.radius || along > segmentLength + bullet.radius) {
+            continue;
+        }
+        if (toCenter.LengthSq() - along * along > bullet.radius * bullet.radius) {
+            continue;
+        }
+        bullet.active = false;
+        bullet.sphere->Deactivate();
+        result.hit = true;
+        result.destroyed = true;
+        result.clusterSize = 1;
+        result.hitPoint = bullet.position;
         return result;
     }
 
@@ -462,6 +751,13 @@ void BossSpider::Draw(const ViewProjection &viewProjection) {
     BaseObject::Draw(viewProjection);
     for (int index = 0; index < activeLegCount_ && index < static_cast<int>(legs_.size()); ++index) {
         legs_[static_cast<size_t>(index)]->Draw(viewProjection);
+    }
+
+    // 撃った弾
+    for (SpiderBullet &bullet : bullets_) {
+        if (bullet.active) {
+            bullet.sphere->Draw(viewProjection);
+        }
     }
 }
 
@@ -586,6 +882,94 @@ void BossSpider::DrawGameplayImGui() {
     ImGui::DragFloat("胴の上下の揺れ", &parameters_.bodyBob, 0.01f, 0.0f, 2.0f);
     ImGui::DragFloat("胴の左右の揺れ", &parameters_.bodySway, 0.01f, 0.0f, 2.0f);
     ImGui::DragFloat("止まる距離", &parameters_.stopDistance, 0.1f, 0.0f, 30.0f);
+
+
+    ImGui::SeparatorText("攻撃");
+    BossSpiderAttackParams &attack = parameters_.attack;
+    ImGui::Text("いまの攻撃: %s / %s",
+                pCurrentAttack_ ? pCurrentAttack_->GetName() : "なし",
+                pCurrentAttack_ ? pCurrentAttack_->GetPhaseName() : "-");
+    ImGui::Text("次の攻撃まで: %.2f 秒", attackCoolDown_);
+    for (size_t index = 0; index < attacks_.size(); ++index) {
+        ImGui::SameLine(index == 0 ? 0.0f : -1.0f);
+        if (ImGui::Button(attacks_[index]->GetName())) {
+            if (pCurrentAttack_) {
+                BossAttackContext cancel{};
+                cancel.spider = this;
+                cancel.target = pTargetLocator_;
+                pCurrentAttack_->Cancel(cancel);
+            }
+            pCurrentAttack_ = attacks_[index].get();
+            BossAttackContext start{};
+            start.spider = this;
+            start.target = pTargetLocator_;
+            pCurrentAttack_->Start(start);
+        }
+    }
+    ImGui::DragFloat("攻撃の間隔", &attack.interval, 0.05f, 0.1f, 20.0f);
+    ImGui::DragFloat("弾を撃つ距離", &attack.shootRange, 0.5f, 1.0f, 100.0f);
+    HelpMarker("相手がこれより遠ければ弾を撃ちます。近ければ跳ねまわります");
+    ImGui::SliderFloat("回転接近の確率", &attack.whirlChance, 0.0f, 1.0f);
+    HelpMarker("距離を問わず、この確率で回転接近を選びます（稀に出すので小さめに）");
+
+    if (ImGui::TreeNode("1. 跳ねまわる")) {
+        ImGui::SliderInt("跳ぶ回数", &attack.leap.hopCount, 1, 8);
+        ImGui::DragFloat("沈み込みの時間", &attack.leap.crouchTime, 0.01f, 0.05f, 3.0f);
+        ImGui::DragFloat("沈み込む深さ", &attack.leap.crouchDepth, 0.05f, 0.0f, 5.0f);
+        HelpMarker("飛ぶ前に胴だけ沈めます。足は地面に着いたままなので、脚が縮んで溜めて見えます");
+        ImGui::DragFloat("飛び上がる時間", &attack.leap.riseTime, 0.01f, 0.05f, 3.0f);
+        ImGui::DragFloat("頂点の高さ", &attack.leap.apexHeight, 0.1f, 0.5f, 40.0f);
+        ImGui::DragFloat("落下の時間", &attack.leap.fallTime, 0.01f, 0.05f, 3.0f);
+        ImGui::DragFloat("着地後の静止", &attack.leap.impactTime, 0.01f, 0.0f, 3.0f);
+        ImGui::DragFloat("着地の有効半径", &attack.leap.impactRadius, 0.1f, 0.5f, 30.0f);
+        ImGui::DragFloat("着地のダメージ", &attack.leap.damage, 0.5f, 0.0f, 200.0f);
+        ImGui::DragFloat("着地点のばらつき", &attack.leap.landSpread, 0.1f, 0.0f, 20.0f);
+        HelpMarker("相手のぴったり真上ではなく、この半径のどこかへ落ちます（0で真上）");
+        ImGui::DragFloat("1回で跳べる距離", &attack.leap.maxLeapRange, 0.5f, 1.0f, 80.0f);
+        ImGui::DragFloat("最後の硬直", &attack.leap.recoverTime, 0.05f, 0.0f, 5.0f);
+        ImGui::SliderFloat("空中で脚を畳む量", &attack.leap.legTuck, 0.0f, 1.0f);
+        ImGui::DragFloat("脚を畳む／戻す時間", &attack.leap.legFoldTime, 0.01f, 0.02f, 2.0f);
+        HelpMarker("着地で足を地面へ戻すときの補間時間です。0に近いと足がワープします");
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("2. 弾を撃つ")) {
+        ImGui::DragFloat("溜めの時間", &attack.shoot.telegraphTime, 0.05f, 0.0f, 5.0f);
+        ImGui::SliderInt("発射数", &attack.shoot.shotCount, 1, 20);
+        ImGui::DragFloat("発射の間隔", &attack.shoot.shotInterval, 0.01f, 0.02f, 3.0f);
+        ImGui::DragFloat("弾速", &attack.shoot.speed, 0.1f, 0.5f, 60.0f);
+        ImGui::DragFloat("弾の半径", &attack.shoot.radius, 0.05f, 0.1f, 6.0f);
+        ImGui::DragFloat("弾が消えるまで", &attack.shoot.life, 0.1f, 0.5f, 30.0f);
+        ImGui::DragFloat("左右のばらつき", &attack.shoot.spreadDegrees, 0.5f, 0.0f, 60.0f);
+        ImGui::DragFloat("追尾の強さ", &attack.shoot.homingRate, 0.05f, 0.0f, 12.0f);
+        HelpMarker("相手のほうへ向きを寄せる強さです。0で真っ直ぐ飛びます。"
+                   "速さは変わらないので、大きくしても回り込めば避けられます");
+        ImGui::DragFloat("追尾する時間", &attack.shoot.homingTime, 0.1f, 0.0f, 20.0f);
+        HelpMarker("この時間を過ぎたら追うのをやめて真っ直ぐ飛びます");
+        ImGui::DragFloat("命中ダメージ", &attack.shoot.damage, 0.5f, 0.0f, 200.0f);
+        ImGui::DragFloat("撃ち終わりの硬直", &attack.shoot.recoverTime, 0.05f, 0.0f, 5.0f);
+        int flying = 0;
+        for (const SpiderBullet &bullet : bullets_) {
+            flying += bullet.active ? 1 : 0;
+        }
+        ImGui::TextDisabled("飛んでいる弾: %d 発（同じ色を当てると消える）", flying);
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("3. 真横に広げて回転")) {
+        ImGui::DragFloat("脚を広げる時間", &attack.whirl.telegraphTime, 0.05f, 0.05f, 8.0f);
+        HelpMarker("予備動作です。遅いほど避ける余地が生まれます");
+        ImGui::DragFloat("その場で回る時間", &attack.whirl.spinTime, 0.05f, 0.1f, 15.0f);
+        ImGui::DragFloat("回転の速さ", &attack.whirl.spinSpeed, 5.0f, 0.0f, 1440.0f);
+        ImGui::DragFloat("回るときの脚の高さ", &attack.whirl.spinHeight, 0.05f, 0.0f, 15.0f);
+        HelpMarker("地面からの高さです。低いほど当たりやすくなります（胴が地面へ潜らない範囲で止まります）");
+        ImGui::TextDisabled("いまの届く範囲: %.2f（真横に伸び切ると %.2f）", GetFootReach(),
+                            parameters_.bodyRadius * 0.85f + BossSpiderLeg::ResolvePathLength(parameters_));
+        HelpMarker("真横に伸び切った脚の先が届く範囲が、そのまま攻撃範囲になります。歩かずその場で回ります");
+        ImGui::DragFloat("接触ダメージ", &attack.whirl.damage, 0.5f, 0.0f, 200.0f);
+        ImGui::DragFloat("回転後の硬直", &attack.whirl.recoverTime, 0.05f, 0.0f, 5.0f);
+        ImGui::TreePop();
+    }
 
     ImGui::SeparatorText("保存");
     ImGui::TextDisabled("保存先: Assets/jsons/Boss/%s.json の \"spider\"", bossId_.c_str());

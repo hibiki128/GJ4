@@ -124,6 +124,17 @@ public:
     /// <returns>bool: 脚が出ていれば true</returns>
     bool TryGetTipPosition(Hagine::Vector3 &out) const;
 
+    /// <summary>
+    /// 攻撃中の脚の姿勢を指定する（通常は 1.0, 0.0）
+    /// </summary>
+    /// <param name="reachScale">足を置く半径の倍率（大きいほど脚を広げる）</param>
+    /// <param name="tuck">脚を胴の下へ畳む度合い（0で接地・1で胴の真下）</param>
+    void SetPosture(float reachScale, float tuck) { reachScale_ = reachScale; legTuck_ = tuck; }
+
+    /// <summary>いま足を置いている半径（広げた脚の届く範囲＝攻撃範囲に使う）</summary>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    float CalcFootReach(const BossSpiderParams &params) const;
+
     /// <summary>くっついている球の数</summary>
     int GetAttachedCount() const { return static_cast<int>(attached_.size()); }
 
@@ -280,6 +291,8 @@ private:
     float extendTarget_ = 0.0f;   // 目標の量
     float extendTimer_ = 0.0f;    // 伸び縮みの経過時間（秒）
     float extendDuration_ = 0.2f; // 伸び縮みにかける時間（秒）
+    float reachScale_ = 1.0f;     // 足を置く半径の倍率（攻撃で脚を広げるときに使う）
+    float legTuck_ = 0.0f;        // 脚を胴の下へ畳む度合い（跳躍中に使う）
     int removedBase_ = 0;         // 消された「もともと脚だった球」の数
 
     int legIndex_ = 0;      // 脚の番号

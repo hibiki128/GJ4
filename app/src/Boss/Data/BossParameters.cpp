@@ -278,6 +278,49 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.bodyBob = JsonValue(spider, "bodyBob", out.bodyBob);
     out.bodySway = JsonValue(spider, "bodySway", out.bodySway);
     out.stopDistance = JsonValue(spider, "stopDistance", out.stopDistance);
+    // --- 攻撃 ---
+    const json attacks = JsonValue(spider, "attacks", json::object());
+    out.attack.interval = JsonValue(attacks, "interval", out.attack.interval);
+    out.attack.shootRange = JsonValue(attacks, "shootRange", out.attack.shootRange);
+    out.attack.whirlChance = JsonValue(attacks, "whirlChance", out.attack.whirlChance);
+
+    const json leap = JsonValue(attacks, "leap", json::object());
+    out.attack.leap.hopCount = JsonValue(leap, "hopCount", out.attack.leap.hopCount);
+    out.attack.leap.crouchTime = JsonValue(leap, "crouchTime", out.attack.leap.crouchTime);
+    out.attack.leap.crouchDepth = JsonValue(leap, "crouchDepth", out.attack.leap.crouchDepth);
+    out.attack.leap.riseTime = JsonValue(leap, "riseTime", out.attack.leap.riseTime);
+    out.attack.leap.apexHeight = JsonValue(leap, "apexHeight", out.attack.leap.apexHeight);
+    out.attack.leap.fallTime = JsonValue(leap, "fallTime", out.attack.leap.fallTime);
+    out.attack.leap.impactTime = JsonValue(leap, "impactTime", out.attack.leap.impactTime);
+    out.attack.leap.impactRadius = JsonValue(leap, "impactRadius", out.attack.leap.impactRadius);
+    out.attack.leap.damage = JsonValue(leap, "damage", out.attack.leap.damage);
+    out.attack.leap.landSpread = JsonValue(leap, "landSpread", out.attack.leap.landSpread);
+    out.attack.leap.maxLeapRange = JsonValue(leap, "maxLeapRange", out.attack.leap.maxLeapRange);
+    out.attack.leap.recoverTime = JsonValue(leap, "recoverTime", out.attack.leap.recoverTime);
+    out.attack.leap.legTuck = JsonValue(leap, "legTuck", out.attack.leap.legTuck);
+    out.attack.leap.legFoldTime = JsonValue(leap, "legFoldTime", out.attack.leap.legFoldTime);
+
+    const json shoot = JsonValue(attacks, "shoot", json::object());
+    out.attack.shoot.telegraphTime = JsonValue(shoot, "telegraphTime", out.attack.shoot.telegraphTime);
+    out.attack.shoot.shotCount = JsonValue(shoot, "shotCount", out.attack.shoot.shotCount);
+    out.attack.shoot.shotInterval = JsonValue(shoot, "shotInterval", out.attack.shoot.shotInterval);
+    out.attack.shoot.speed = JsonValue(shoot, "speed", out.attack.shoot.speed);
+    out.attack.shoot.radius = JsonValue(shoot, "radius", out.attack.shoot.radius);
+    out.attack.shoot.life = JsonValue(shoot, "life", out.attack.shoot.life);
+    out.attack.shoot.spreadDegrees = JsonValue(shoot, "spreadDegrees", out.attack.shoot.spreadDegrees);
+    out.attack.shoot.homingRate = JsonValue(shoot, "homingRate", out.attack.shoot.homingRate);
+    out.attack.shoot.homingTime = JsonValue(shoot, "homingTime", out.attack.shoot.homingTime);
+    out.attack.shoot.damage = JsonValue(shoot, "damage", out.attack.shoot.damage);
+    out.attack.shoot.recoverTime = JsonValue(shoot, "recoverTime", out.attack.shoot.recoverTime);
+
+    const json whirl = JsonValue(attacks, "whirl", json::object());
+    out.attack.whirl.telegraphTime = JsonValue(whirl, "telegraphTime", out.attack.whirl.telegraphTime);
+    out.attack.whirl.spinTime = JsonValue(whirl, "spinTime", out.attack.whirl.spinTime);
+    out.attack.whirl.spinSpeed = JsonValue(whirl, "spinSpeed", out.attack.whirl.spinSpeed);
+    out.attack.whirl.spinHeight = JsonValue(whirl, "spinHeight", out.attack.whirl.spinHeight);
+    out.attack.whirl.damage = JsonValue(whirl, "damage", out.attack.whirl.damage);
+    out.attack.whirl.recoverTime = JsonValue(whirl, "recoverTime", out.attack.whirl.recoverTime);
+
 }
 
 void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params) {
@@ -314,6 +357,52 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["bodyBob"] = params.bodyBob;
     spider["bodySway"] = params.bodySway;
     spider["stopDistance"] = params.stopDistance;
+    json leap = json::object();
+    leap["hopCount"] = params.attack.leap.hopCount;
+    leap["crouchTime"] = params.attack.leap.crouchTime;
+    leap["crouchDepth"] = params.attack.leap.crouchDepth;
+    leap["riseTime"] = params.attack.leap.riseTime;
+    leap["apexHeight"] = params.attack.leap.apexHeight;
+    leap["fallTime"] = params.attack.leap.fallTime;
+    leap["impactTime"] = params.attack.leap.impactTime;
+    leap["impactRadius"] = params.attack.leap.impactRadius;
+    leap["damage"] = params.attack.leap.damage;
+    leap["landSpread"] = params.attack.leap.landSpread;
+    leap["maxLeapRange"] = params.attack.leap.maxLeapRange;
+    leap["recoverTime"] = params.attack.leap.recoverTime;
+    leap["legTuck"] = params.attack.leap.legTuck;
+    leap["legFoldTime"] = params.attack.leap.legFoldTime;
+
+    json shoot = json::object();
+    shoot["telegraphTime"] = params.attack.shoot.telegraphTime;
+    shoot["shotCount"] = params.attack.shoot.shotCount;
+    shoot["shotInterval"] = params.attack.shoot.shotInterval;
+    shoot["speed"] = params.attack.shoot.speed;
+    shoot["radius"] = params.attack.shoot.radius;
+    shoot["life"] = params.attack.shoot.life;
+    shoot["spreadDegrees"] = params.attack.shoot.spreadDegrees;
+    shoot["homingRate"] = params.attack.shoot.homingRate;
+    shoot["homingTime"] = params.attack.shoot.homingTime;
+    shoot["damage"] = params.attack.shoot.damage;
+    shoot["recoverTime"] = params.attack.shoot.recoverTime;
+
+    json whirl = json::object();
+    whirl["telegraphTime"] = params.attack.whirl.telegraphTime;
+    whirl["spinTime"] = params.attack.whirl.spinTime;
+    whirl["spinSpeed"] = params.attack.whirl.spinSpeed;
+    whirl["spinHeight"] = params.attack.whirl.spinHeight;
+    whirl["damage"] = params.attack.whirl.damage;
+    whirl["recoverTime"] = params.attack.whirl.recoverTime;
+
+    json attacks = json::object();
+    attacks["interval"] = params.attack.interval;
+    attacks["shootRange"] = params.attack.shootRange;
+    attacks["whirlChance"] = params.attack.whirlChance;
+    attacks["leap"] = leap;
+    attacks["shoot"] = shoot;
+    attacks["whirl"] = whirl;
+    spider["attacks"] = attacks;
+
 
     data.Save("spider", spider);
 }

@@ -165,16 +165,28 @@ void BossSpiderLeg::SetHidden(bool hidden) {
     }
 }
 
+float BossSpiderLeg::CalcFootReach(const BossSpiderParams &params) const {
+    // 脚が消されたぶん縮み、攻撃で広げたぶん伸びる。胴に食い込むほど短くはしない
+    return (std::max)(params.bodyRadius * 1.1f,
+                      (params.footRadius + extension_ * CalcSpacing(params)) * reachScale_);
+}
+
 Vector3 BossSpiderLeg::CalcHomePosition(const Vector3 &bodyPosition, float bodyYaw,
                                         const BossSpiderParams &params) const {
     const Vector3 direction = MakeHorizontalDirection(bodyYaw + azimuth_);
-    // くっついた球のぶんだけ足を置く位置も外へ伸ばす（脚が実際に長くなる）
-    // 脚が消されたぶん縮むが、胴に食い込むほど短くはしない
-    const float reach = (std::max)(params.bodyRadius * 1.1f,
-                                   params.footRadius + extension_ * CalcSpacing(params));
+    const float reach = CalcFootReach(params);
     // 高さは球の半径ぶん上げる。0にすると足の球が地面に半分めり込む
-    return Vector3{bodyPosition.x + direction.x * reach, params.legSphereRadius,
-                   bodyPosition.z + direction.z * reach};
+    Vector3 home{bodyPosition.x + direction.x * reach, params.legSphereRadius,
+                 bodyPosition.z + direction.z * reach};
+
+    // 跳躍中は足を地面へ置けないので、脚を胴の下へ畳む
+    if (legTuck_ > 0.0f) {
+        const Vector3 under{bodyPosition.x + direction.x * reach * 0.35f,
+                            bodyPosition.y - params.bodyRadius * 1.2f,
+                            bodyPosition.z + direction.z * reach * 0.35f};
+        home = Lerp(home, under, std::clamp(legTuck_, 0.0f, 1.0f));
+    }
+    return home;
 }
 
 Vector3 BossSpiderLeg::CalcHipPosition(const Vector3 &bodyPosition, float bodyYaw,
@@ -211,6 +223,15 @@ void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vec
     }
 
     const Vector3 home = CalcHomePosition(bodyPosition, bodyYaw, params);
+
+    // 畳んでいるあいだは踏み替えをせず、足は胴について回る
+    if (legTuck_ > 0.0f) {
+        footPosition_ = home;
+        stepFrom_ = home;
+        stepTo_ = home;
+        isStepping_ = false;
+        return;
+    }
 
     if (isStepping_) {
         stepTimer_ += deltaTime;
