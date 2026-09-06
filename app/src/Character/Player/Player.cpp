@@ -8,7 +8,8 @@
 
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
-	CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+	CreateModel("slime/slime.obj");
 
 	// ステートを登録
 	states_["Idle"] = std::make_unique<PlayerStateIdle>();
