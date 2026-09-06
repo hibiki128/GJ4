@@ -109,7 +109,7 @@ private:
 #ifdef _DEBUG
     bool isEnabled_ = true;
 #else
-    bool isEnabled_ = false; // Release ではプレイヤーの射撃を邪魔しないよう既定で無効
+    bool isEnabled_ = true; // Release ではプレイヤーの射撃を邪魔しないよう既定で無効
 #endif
     bool drawAimLine_ = true; // 照準線・ロックオン位置を線で表示する
 };

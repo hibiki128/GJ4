@@ -6,6 +6,8 @@ void PlayerStateIdle::Enter(Player& player, PlayerContext& context) {
 }
 
 void PlayerStateIdle::Update(Player& player, PlayerContext& context) {
+	player.GetWorldTransform()->scale_ = {1.5f, 1.5f, 1.5f};
+
 
 	if (context.input_.move) {
 		player.ChangeState("Move");
