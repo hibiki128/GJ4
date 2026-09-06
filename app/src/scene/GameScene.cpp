@@ -126,14 +126,20 @@ void GameScene::UpdateFormChange()
 	/// 第1形態（球体）→ 第2形態（蜘蛛）への引き継ぎ
 	/// ===================================================
 
-	// 色付きの球をすべて壊し、消滅演出も終わったらコアを渡す。
-	// 渡した側は同じフレームでコアを消すので、見た目は1つのコアが変形し続ける
-	if (boss_->IsCoreHandedOver() || !boss_->IsShellCleared()) {
-		return;
+	// 引き継ぐ元のコアの位置・大きさを毎フレーム教えておく。
+	// デバッグの「変形を再生」でも、本番と同じ場所・同じ大きさから変形が始まる
+	bossSpider_->SetCoreHandoff(boss_->GetCorePosition(), boss_->GetCoreRadius());
+
+	// 色付きの球をすべて壊し、消滅演出も終わったらコアを渡す
+	if (!boss_->IsCoreHandedOver() && boss_->IsShellCleared()) {
+		bossSpider_->Awaken(boss_->GetCorePosition(), boss_->GetCoreRadius());
+		boss_->HandOverCore();
 	}
 
-	bossSpider_->Awaken(boss_->GetCorePosition(), boss_->GetCoreRadius());
-	boss_->HandOverCore();
+	// コアは1つしかないので、描くのはどちらか片方だけ。
+	// 蜘蛛が出ているあいだは球体形態を丸ごと消す（デバッグで出したときも同じ）。
+	// 両方描くと同じ場所に黒い球が2つ重なってちらつく
+	boss_->SetFormVisible(!bossSpider_->IsActive());
 }
 
 void GameScene::AddSceneSetting() {

@@ -109,10 +109,19 @@ void Boss::Update() {
 }
 
 void Boss::DispatchShellCompute() {
+    // 描いていないなら殻のメッシュを作り直す必要もない
+    if (!formVisible_) {
+        return;
+    }
     cluster_.DispatchCompute(Frame::DeltaTime());
 }
 
 void Boss::Draw(const ViewProjection &viewProjection) {
+    // 第2形態が出ているあいだは、こちらは丸ごと描かない（コアは1つに見せる）
+    if (!formVisible_) {
+        return;
+    }
+
     // コア（自分自身）→ パーツの順に描く。
     // 呼び出し元（BaseObjectManager::Draw）のインスタンシング収集範囲内なので、
     // 同じプリミティブを使うパーツはまとめて1ドローになる
@@ -573,6 +582,9 @@ void Boss::DrawGameplayImGui() {
     // 撃破条件は「中心のコアを除く色付きの球をすべて破壊すること」。
     // 残りの球数がそのまま撃破までの進捗になる
     const float initialCount = (std::max)(1.0f, GetMaxHp());
+    if (!formVisible_) {
+        ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "第2形態が出ているので、この形態は描いていません");
+    }
     ImGui::Text("残りの球: %.0f / %.0f %s", GetHp(), initialCount, IsDead() ? "（撃破）" : "");
     ImGui::ProgressBar(1.0f - GetHp() / initialCount, ImVec2(-1.0f, 0.0f), "破壊した割合");
 
