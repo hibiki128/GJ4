@@ -108,9 +108,10 @@ struct BossSpiderLeapParams {
     float riseTime = 0.45f;     // 着地点の真上まで飛び上がる時間
     float apexHeight = 9.0f;    // 飛び上がりの頂点の高さ（立っている高さからの差）
     float fallTime = 0.30f;     // 真上から落ちる時間
-    float impactTime = 0.25f;   // 着地後の静止時間
+    float impactTime = 0.35f;   // 着地の沈み込み〜立ち上がりにかける時間
     float impactRadius = 5.5f;  // 着地の有効半径
     float damage = 15.0f;       // 着地ダメージ
+    float landAbsorbDepth = 1.0f; // 着地の衝撃を殺すために沈む深さ
     float landSpread = 4.0f;    // 着地点が相手からどれだけずれるか（この半径のどこか）
     float maxLeapRange = 22.0f; // 1回の跳躍で進める最大距離
     float recoverTime = 0.7f;   // 最後の着地後の硬直
@@ -134,6 +135,13 @@ struct BossSpiderShootParams {
     float homingTime = 2.5f;     // 追いかける時間（秒）。これを過ぎたら真っ直ぐ飛ぶ
     float damage = 10.0f;        // 命中ダメージ
     float recoverTime = 0.6f;    // 撃ち終わりの硬直
+
+    // --- 撃つときの動き ---
+    float telegraphRise = 1.4f;  // 撃つ前に伸び上がる高さ（溜めの予備動作）
+    float recoilDepth = 0.5f;    // 1発ごとに沈む深さ（撃った反動）
+    float recoilTime = 0.18f;    // 反動が収まるまでの時間（秒）
+    float shakeAmount = 0.12f;   // 撃った直後の震えの大きさ
+    float shakeSpeed = 55.0f;    // 震えの速さ（大きいほど細かく震える）
 };
 
 /// <summary>

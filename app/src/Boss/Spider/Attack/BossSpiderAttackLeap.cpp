@@ -10,6 +10,13 @@
 
 using namespace Hagine;
 
+namespace {
+
+/// <summary>着地の沈み込みに使う割合（残りは立ち上がりに使う）</summary>
+constexpr float kAbsorbRatio = 0.35f;
+
+} // namespace
+
 void BossSpiderAttackLeap::Start(const BossAttackContext &context) {
     if (!context.spider) {
         phase_ = Phase::Finished;
@@ -76,13 +83,20 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
         break;
     }
     case Phase::Rise: {
-        // 着地点の真上まで飛び上がる
+        // 着地点の真上まで飛び上がる。
+        // 水平はなめらかに寄せ、上下は「蹴り出しが最も速く、頂点で止まる」形にする。
+        // 沈み込みの底では速度が0なので、そこから一気に伸び上がる＝屈伸の反動になる
         const float progress = std::clamp(timer_ / (std::max)(0.01f, pParams_->riseTime), 0.0f, 1.0f);
-        spider->SetBodyPosition(Lerp(phaseStart_, apexPosition_, SmoothInOut(progress)));
+        Vector3 position = Lerp(phaseStart_, apexPosition_, SmoothInOut(progress));
+        position.y = ApplyEasing(EasingType::OutQuad, phaseStart_.y, apexPosition_.y, progress, 1.0f);
+        spider->SetBodyPosition(position);
         if (progress >= 1.0f) {
             phase_ = Phase::Fall;
             timer_ = 0.0f;
             phaseStart_ = apexPosition_;
+            // 落ちながら脚を伸ばし、接地する前に着地姿勢を作り終える。
+            // 着地してから戻すと、脚だけ遅れて動いて「ぬるっと」見える
+            spider->SetLegTuck(0.0f, (std::max)(0.01f, pParams_->fallTime * 0.9f));
         }
         break;
     }
@@ -94,15 +108,29 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
         if (progress >= 1.0f) {
             phase_ = Phase::Impact;
             timer_ = 0.0f;
-            // 足を地面へ戻す。ここも補間する（置き直すと着地の瞬間に足が飛ぶ）
-            spider->SetLegTuck(0.0f, pParams_->legFoldTime);
             spider->ReportHit(Vector3{landingPoint_.x, 0.0f, landingPoint_.z},
                               pParams_->impactRadius, pParams_->damage);
         }
         break;
     }
     case Phase::Impact: {
-        if (timer_ < pParams_->impactTime) {
+        // 着地の衝撃を殺すように、いったん沈んでから押し返して立ち上がる。
+        // 足は地面に着いたままなので、胴が下がったぶんだけ脚が畳まれる（人の屈伸と同じ）
+        const float duration = (std::max)(0.01f, pParams_->impactTime);
+        const float progress = std::clamp(timer_ / duration, 0.0f, 1.0f);
+        float dip = 0.0f;
+        if (progress < kAbsorbRatio) {
+            // 沈み込み: 落下の勢いがそのまま体を沈めるので、入りが速い
+            dip = ApplyEasing(EasingType::OutQuad, 0.0f, 1.0f, progress / kAbsorbRatio, 1.0f);
+        } else {
+            // 押し返し: 沈み切ってからゆっくり立ち上がる
+            dip = 1.0f - SmoothInOut((progress - kAbsorbRatio) / (1.0f - kAbsorbRatio));
+        }
+        spider->SetBodyPosition(Vector3{landingPoint_.x,
+                                        standHeight_ - pParams_->landAbsorbDepth * dip,
+                                        landingPoint_.z});
+
+        if (progress < 1.0f) {
             break;
         }
         ++hopIndex_;

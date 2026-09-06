@@ -294,6 +294,7 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.attack.leap.impactTime = JsonValue(leap, "impactTime", out.attack.leap.impactTime);
     out.attack.leap.impactRadius = JsonValue(leap, "impactRadius", out.attack.leap.impactRadius);
     out.attack.leap.damage = JsonValue(leap, "damage", out.attack.leap.damage);
+    out.attack.leap.landAbsorbDepth = JsonValue(leap, "landAbsorbDepth", out.attack.leap.landAbsorbDepth);
     out.attack.leap.landSpread = JsonValue(leap, "landSpread", out.attack.leap.landSpread);
     out.attack.leap.maxLeapRange = JsonValue(leap, "maxLeapRange", out.attack.leap.maxLeapRange);
     out.attack.leap.recoverTime = JsonValue(leap, "recoverTime", out.attack.leap.recoverTime);
@@ -312,6 +313,11 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.attack.shoot.homingTime = JsonValue(shoot, "homingTime", out.attack.shoot.homingTime);
     out.attack.shoot.damage = JsonValue(shoot, "damage", out.attack.shoot.damage);
     out.attack.shoot.recoverTime = JsonValue(shoot, "recoverTime", out.attack.shoot.recoverTime);
+    out.attack.shoot.telegraphRise = JsonValue(shoot, "telegraphRise", out.attack.shoot.telegraphRise);
+    out.attack.shoot.recoilDepth = JsonValue(shoot, "recoilDepth", out.attack.shoot.recoilDepth);
+    out.attack.shoot.recoilTime = JsonValue(shoot, "recoilTime", out.attack.shoot.recoilTime);
+    out.attack.shoot.shakeAmount = JsonValue(shoot, "shakeAmount", out.attack.shoot.shakeAmount);
+    out.attack.shoot.shakeSpeed = JsonValue(shoot, "shakeSpeed", out.attack.shoot.shakeSpeed);
 
     const json whirl = JsonValue(attacks, "whirl", json::object());
     out.attack.whirl.telegraphTime = JsonValue(whirl, "telegraphTime", out.attack.whirl.telegraphTime);
@@ -367,6 +373,7 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     leap["impactTime"] = params.attack.leap.impactTime;
     leap["impactRadius"] = params.attack.leap.impactRadius;
     leap["damage"] = params.attack.leap.damage;
+    leap["landAbsorbDepth"] = params.attack.leap.landAbsorbDepth;
     leap["landSpread"] = params.attack.leap.landSpread;
     leap["maxLeapRange"] = params.attack.leap.maxLeapRange;
     leap["recoverTime"] = params.attack.leap.recoverTime;
@@ -385,6 +392,11 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     shoot["homingTime"] = params.attack.shoot.homingTime;
     shoot["damage"] = params.attack.shoot.damage;
     shoot["recoverTime"] = params.attack.shoot.recoverTime;
+    shoot["telegraphRise"] = params.attack.shoot.telegraphRise;
+    shoot["recoilDepth"] = params.attack.shoot.recoilDepth;
+    shoot["recoilTime"] = params.attack.shoot.recoilTime;
+    shoot["shakeAmount"] = params.attack.shoot.shakeAmount;
+    shoot["shakeSpeed"] = params.attack.shoot.shakeSpeed;
 
     json whirl = json::object();
     whirl["telegraphTime"] = params.attack.whirl.telegraphTime;

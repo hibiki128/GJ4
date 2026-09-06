@@ -1,6 +1,7 @@
 #pragma once
 #include "src/Boss/Attack/IBossAttack.h"
 #include "src/Boss/Data/BossParameters.h"
+#include "type/Vector3.h"
 
 /// <summary>
 /// 蜘蛛の攻撃2: 色つきの弾を撃つ（遠距離）。
@@ -35,4 +36,8 @@ private:
     float timer_ = 0.0f;      // 現在段階の経過時間
     float shotTimer_ = 0.0f;  // 次の1発までの経過時間
     int firedCount_ = 0;      // 撃った数
+
+    float standHeight_ = 0.0f;       // 立っているときの胴の高さ
+    Hagine::Vector3 basePosition_{}; // 撃っているあいだの基準位置（ここからは動かない）
+    float recoilTimer_ = 999.0f;     // 直前の1発からの経過時間（大きい値＝反動なし）
 };
