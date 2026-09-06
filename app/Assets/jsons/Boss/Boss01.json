@@ -88,6 +88,49 @@
         "subdivision": 1
     },
     "spider": {
+        "attacks": {
+            "interval": 3.200000047683716,
+            "leap": {
+                "apexHeight": 9.0,
+                "crouchDepth": 1.2000000476837158,
+                "crouchTime": 0.3499999940395355,
+                "damage": 15.0,
+                "fallTime": 0.30000001192092896,
+                "hopCount": 3,
+                "impactRadius": 5.5,
+                "impactTime": 0.3499999940395355,
+                "landAbsorbDepth": 1.0,
+                "landSpread": 4.0,
+                "legFoldTime": 0.2199999988079071,
+                "legTuck": 0.550000011920929,
+                "maxLeapRange": 22.0,
+                "recoverTime": 0.699999988079071,
+                "riseTime": 0.44999998807907104
+            },
+            "shoot": {
+                "damage": 10.0,
+                "homingRate": 2.200000047683716,
+                "homingTime": 2.5,
+                "life": 6.0,
+                "radius": 1.100000023841858,
+                "recoverTime": 0.6000000238418579,
+                "shotCount": 5,
+                "shotInterval": 0.3499999940395355,
+                "speed": 9.0,
+                "spreadDegrees": 8.0,
+                "telegraphTime": 0.6000000238418579
+            },
+            "shootRange": 18.0,
+            "whirl": {
+                "damage": 12.0,
+                "recoverTime": 1.0,
+                "spinHeight": 3.0,
+                "spinSpeed": 420.0,
+                "spinTime": 3.0,
+                "telegraphTime": 1.399999976158142
+            },
+            "whirlChance": 0.20000000298023224
+        },
         "bodyBob": 0.1599999964237213,
         "bodyHeight": 4.099999904632568,
         "bodyRadius": 1.25,
@@ -100,9 +143,10 @@
         "legCount": 6,
         "legLength": 8.5,
         "legSphereRadius": 0.6899999976158142,
-        "legSpread": 140.0,
+        "legSpread": 93.0,
         "legSpreadOffset": 0.0,
         "lowerSphereCount": 6,
+        "maxAttachPerLeg": 9,
         "moveSpeed": 3.5,
         "riseTime": 1.399999976158142,
         "stepHeight": 1.5,

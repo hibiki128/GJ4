@@ -919,13 +919,16 @@ void BossSpider::DrawGameplayImGui() {
 
     if (ImGui::TreeNode("1. 跳ねまわる")) {
         ImGui::SliderInt("跳ぶ回数", &attack.leap.hopCount, 1, 8);
-        ImGui::DragFloat("沈み込みの時間", &attack.leap.crouchTime, 0.01f, 0.05f, 3.0f);
-        ImGui::DragFloat("沈み込む深さ", &attack.leap.crouchDepth, 0.05f, 0.0f, 5.0f);
-        HelpMarker("飛ぶ前に胴だけ沈めます。足は地面に着いたままなので、脚が縮んで溜めて見えます");
+        ImGui::DragFloat("跳ぶ前の屈伸の時間", &attack.leap.crouchTime, 0.01f, 0.05f, 3.0f);
+        ImGui::DragFloat("跳ぶ前に沈む深さ", &attack.leap.crouchDepth, 0.05f, 0.0f, 5.0f);
+        HelpMarker("飛ぶ前に胴だけ沈めます。足は地面に着いたままなので脚が畳まれ、"
+                   "そこから一気に伸び上がるので立ち幅跳びの屈伸のように見えます");
         ImGui::DragFloat("飛び上がる時間", &attack.leap.riseTime, 0.01f, 0.05f, 3.0f);
         ImGui::DragFloat("頂点の高さ", &attack.leap.apexHeight, 0.1f, 0.5f, 40.0f);
         ImGui::DragFloat("落下の時間", &attack.leap.fallTime, 0.01f, 0.05f, 3.0f);
-        ImGui::DragFloat("着地後の静止", &attack.leap.impactTime, 0.01f, 0.0f, 3.0f);
+        ImGui::DragFloat("着地の屈伸の時間", &attack.leap.impactTime, 0.01f, 0.02f, 3.0f);
+        ImGui::DragFloat("着地で沈む深さ", &attack.leap.landAbsorbDepth, 0.05f, 0.0f, 5.0f);
+        HelpMarker("着地の衝撃を殺すように沈んでから立ち上がります。0にすると硬い着地になります");
         ImGui::DragFloat("着地の有効半径", &attack.leap.impactRadius, 0.1f, 0.5f, 30.0f);
         ImGui::DragFloat("着地のダメージ", &attack.leap.damage, 0.5f, 0.0f, 200.0f);
         ImGui::DragFloat("着地点のばらつき", &attack.leap.landSpread, 0.1f, 0.0f, 20.0f);
@@ -933,8 +936,9 @@ void BossSpider::DrawGameplayImGui() {
         ImGui::DragFloat("1回で跳べる距離", &attack.leap.maxLeapRange, 0.5f, 1.0f, 80.0f);
         ImGui::DragFloat("最後の硬直", &attack.leap.recoverTime, 0.05f, 0.0f, 5.0f);
         ImGui::SliderFloat("空中で脚を畳む量", &attack.leap.legTuck, 0.0f, 1.0f);
-        ImGui::DragFloat("脚を畳む／戻す時間", &attack.leap.legFoldTime, 0.01f, 0.02f, 2.0f);
-        HelpMarker("着地で足を地面へ戻すときの補間時間です。0に近いと足がワープします");
+        ImGui::DragFloat("脚を畳む時間", &attack.leap.legFoldTime, 0.01f, 0.02f, 2.0f);
+        HelpMarker("飛び上がるときに脚を畳むのにかける時間です。"
+                   "伸ばし戻すほうは落下の時間に合わせて自動で行い、接地する前に着地姿勢を作り終えます");
         ImGui::TreePop();
     }
 
@@ -953,6 +957,16 @@ void BossSpider::DrawGameplayImGui() {
         HelpMarker("この時間を過ぎたら追うのをやめて真っ直ぐ飛びます");
         ImGui::DragFloat("命中ダメージ", &attack.shoot.damage, 0.5f, 0.0f, 200.0f);
         ImGui::DragFloat("撃ち終わりの硬直", &attack.shoot.recoverTime, 0.05f, 0.0f, 5.0f);
+
+        ImGui::SeparatorText("撃つときの動き");
+        ImGui::DragFloat("撃つ前に伸び上がる高さ", &attack.shoot.telegraphRise, 0.05f, 0.0f, 6.0f);
+        HelpMarker("溜めのあいだに胴を持ち上げます。脚は接地したままなので、伸び上がる形になります");
+        ImGui::DragFloat("1発ごとに沈む深さ", &attack.shoot.recoilDepth, 0.05f, 0.0f, 4.0f);
+        ImGui::DragFloat("反動が収まる時間", &attack.shoot.recoilTime, 0.01f, 0.02f, 2.0f);
+        HelpMarker("撃った瞬間にすとんと沈み、この時間をかけて戻ります");
+        ImGui::DragFloat("震えの大きさ", &attack.shoot.shakeAmount, 0.01f, 0.0f, 1.5f);
+        ImGui::DragFloat("震えの速さ", &attack.shoot.shakeSpeed, 1.0f, 1.0f, 200.0f);
+        HelpMarker("反動が収まるにつれて震えも小さくなります。0にすると沈むだけになります");
         int flying = 0;
         for (const SpiderBullet &bullet : bullets_) {
             flying += bullet.active ? 1 : 0;
