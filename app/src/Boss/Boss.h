@@ -253,10 +253,17 @@ public:
     /// コアを第2形態へ引き渡す。同じ位置・同じ大きさの黒い球が第2形態側に出るので、
     /// 見た目は1つのコアがそのまま変形したように見える
     /// </summary>
-    void HandOverCore() {
-        coreHandedOver_ = true;
-        SetIsModelDraw(false);
-    }
+    void HandOverCore() { coreHandedOver_ = true; }
+
+    /// <summary>
+    /// この形態を描くかどうか。第2形態が出ているあいだは false にする。
+    /// 同じ場所に黒い球が2つ出ると、重なった面が取り合いになってちらつく
+    /// </summary>
+    /// <param name="visible">描くなら true</param>
+    void SetFormVisible(bool visible) { formVisible_ = visible; }
+
+    /// <summary>この形態を描いているか</summary>
+    bool IsFormVisible() const { return formVisible_; }
 
     /// <summary>見た目の外周半径（基本殻の球の表面まで）。接地高さや接触判定に使う</summary>
     float GetBodyRadius() const {
@@ -300,6 +307,7 @@ private:
     std::string bossId_ = "Boss01"; // 読み込むボスデータのID
     BossParameters parameters_{};   // ボスごとのデータ（JSON）
     bool coreHandedOver_ = false;   // コアを第2形態へ渡したか
+    bool formVisible_ = true;       // この形態を描くか（第2形態が出ていれば false）
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 

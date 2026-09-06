@@ -123,8 +123,8 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 
     transform_->translation_ = bodyPosition_;
     transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
-    // コアから引き継いだ大きさと蜘蛛の胴はほぼ同じ寸法なので、ここで1回そろえる
-    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+    // 引き継いだ大きさから始める（変形のあいだに蜘蛛の胴の大きさへ寄せる）
+    transform_->scale_ = Vector3{startRadius_, startRadius_, startRadius_};
     transform_->UpdateMatrix();
 
     // 足の着地点は先に決めておく。脚が生えきったあと、ここへ向けて関節が曲がる
@@ -226,8 +226,11 @@ void BossSpider::UpdateTransform(float deltaTime) {
     const float rise = SmoothInOut(riseProgress);
     bodyPosition_.y = Lerp(startHeight_, standHeight_, rise);
 
-    // 大きさは Awaken で1回だけ入れる。毎フレーム書き換えないことで、
-    // 変形中に触る状態を歩行中と同じ「位置だけ」にそろえている
+    // 引き継いだコアの大きさから、蜘蛛の胴の大きさへ寄せる。
+    // 同じ球がそのまま変形したように見せるため、位置と一緒に大きさも繋ぐ
+    const float radius = Lerp(startRadius_, parameters_.bodyRadius, rise);
+    transform_->scale_ = Vector3{radius, radius, radius};
+
     transform_->translation_ = bodyPosition_;
     transform_->quaternionRotation_ = Quaternion::FromAxisAngle(kWorldUp, bodyYaw_);
 
@@ -774,13 +777,14 @@ void BossSpider::DrawGameplayImGui() {
     }
 
     ImGui::Text("状態: %s", GetPhaseName());
+    ImGui::TextDisabled("出ているあいだ、球体形態は描かれません（コアは1つ）");
     if (ImGui::Button("変形を再生")) {
-        // 球体形態のコアと同じ大きさ・同じ接地高さから始めて、変形だけを確かめる
-        Awaken(Vector3{0.0f, parameters_.bodyRadius, 0.0f}, parameters_.bodyRadius);
+        // 本番と同じく、球体形態のコアの位置・大きさから始める
+        Awaken(handoffPosition_, handoffRadius_);
     }
     ImGui::SameLine();
     if (ImGui::Button("変形を飛ばす")) {
-        Awaken(Vector3{0.0f, parameters_.bodyRadius, 0.0f}, parameters_.bodyRadius);
+        Awaken(handoffPosition_, handoffRadius_);
         SkipTransform();
     }
     ImGui::SameLine();
