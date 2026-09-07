@@ -1,4 +1,6 @@
 #include "GJ4App.h"
+#include "src/Settings/GameSettings.h"
+#include <Frame.h>
 #include <collider/ColliderTagManager.h>
 
 using namespace Hagine;
@@ -10,6 +12,10 @@ void GJ4App::Initialize() {
     Framework::RegisterShortcutKey();
 
     // -----ゲーム固有の処理-----
+
+    // 保存済みの設定（音量・コントローラー）を読み込んでエンジンへ反映する。
+    // Audio と GamePad の初期化が済んだ後でないと反映先が無いので、ここで呼ぶ
+    GameSettings::GetInstance()->Initialize();
 
     // ゲームで使うコライダーのタグを登録する。
     // ここに無いタグはシーンデータやコードから設定しても無視されるので、シーンを作る前に登録しておく
@@ -33,6 +39,9 @@ void GJ4App::Update() {
     Framework::Update();
 
     // -----ゲーム固有の処理-----
+
+    // 振動の鳴らしっぱなし防止と、設定変更のまとめ書き出し
+    GameSettings::GetInstance()->Update(Frame::DeltaTime());
 #ifdef _DEBUG
     if (imGuiManager_->GetEditorMode()) {
         pInput_->UpdateRay(*pSceneManager_->GetBaseScene()->GetViewProjection(), {imGuiManager_->GetScenePosForRay(), imGuiManager_->GetSceneSizeForRay()}, 10000.0f);

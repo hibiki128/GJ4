@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include "src/UI/Pause/PauseMenu.h"
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
 
@@ -13,6 +14,10 @@ void GameScene::Initialize()
 	/// ===================================================
 	BaseScene::Initialize();
 	pObjectManager_->LoadAll("GameScene");
+
+	// ポーズ画面はどのシーンからでも開けるようにしてある
+	PauseMenu::GetInstance()->Initialize();
+	PauseMenu::GetInstance()->CloseImmediately();
 
 	followCamera_ = std::make_unique<FollowCamera>();
 
@@ -40,6 +45,12 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+        });
+
+    // ポーズ画面（スプライトより手前に出したいので後から登録する）
+    pDrawSystem_->Register("GameScene_PauseMenu", DrawLayer::PostEffect, [](const ViewProjection& vp)
+        {
+            PauseMenu::GetInstance()->Draw();
         });
 
 	/// ===================================================
@@ -101,7 +112,16 @@ void GameScene::Update()
 	/// ===================================================
 	/// 更新処理
 	/// ===================================================
-	
+
+	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
+	PauseMenu::GetInstance()->Update();
+
+	// ポーズ中はゲーム側の更新を止める（カメラだけは動かしておく）
+	if (PauseMenu::GetInstance()->IsPaused()) {
+		CameraUpdate();
+		return;
+	}
+
 	// ゲーム入力の更新
 	gameInput_->UpdateInputState();
 
@@ -154,6 +174,8 @@ void GameScene::AddSceneSetting() {
 	{
 		followCamera_->DrawImGui();
 	}
+
+	PauseMenu::GetInstance()->DrawImGui();
 }
 
 void GameScene::AddObjectSetting()

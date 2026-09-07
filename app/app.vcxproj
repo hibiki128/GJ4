@@ -181,6 +181,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Weapon\Bullet\PlayerBullet.cpp" />
     <ClCompile Include="src\Character\Player\Weapon\PlayerWeapon.cpp" />
     <ClCompile Include="src\Input\GameInput.cpp" />
+    <ClCompile Include="src\Settings\GameSettings.cpp" />
+    <ClCompile Include="src\UI\Pause\PauseMenu.cpp" />
+    <ClCompile Include="src\UI\Text\UiText.cpp" />
     <ClCompile Include="src\scene\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -230,6 +233,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Weapon\Bullet\PlayerBullet.h" />
     <ClInclude Include="src\Character\Player\Weapon\PlayerWeapon.h" />
     <ClInclude Include="src\Input\GameInput.h" />
+    <ClInclude Include="src\Settings\GameSettings.h" />
+    <ClInclude Include="src\UI\Pause\PauseMenu.h" />
+    <ClInclude Include="src\UI\Text\UiText.h" />
     <ClInclude Include="src\Interface\FunctionalPlayerBridge.h" />
     <ClInclude Include="src\Interface\IBossTargetQuery.h" />
     <ClInclude Include="src\Interface\IColorProvider.h" />

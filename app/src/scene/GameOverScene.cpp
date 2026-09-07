@@ -1,4 +1,5 @@
 #include"GameOverScene.h"
+#include "src/UI/Pause/PauseMenu.h"
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
 
@@ -14,6 +15,10 @@ void GameOverScene::Initialize()
 	BaseScene::Initialize();
 	pObjectManager_->LoadAll("GameOverScene");
 
+	// ポーズ画面はどのシーンからでも開けるようにしてある
+	PauseMenu::GetInstance()->Initialize();
+	PauseMenu::GetInstance()->CloseImmediately();
+
 	// 3Dオブジェクトの描画（ポストエフェクトあり）
 	pDrawSystem_->Register("GameOverScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
@@ -25,6 +30,12 @@ void GameOverScene::Initialize()
 	pDrawSystem_->Register("GameOverScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
 		{
 			pSpriteManager_->DrawAll();
+		});
+
+	// ポーズ画面（スプライトより手前に出したいので後から登録する）
+	pDrawSystem_->Register("GameOverScene_PauseMenu", DrawLayer::PostEffect, [](const ViewProjection& vp)
+		{
+			PauseMenu::GetInstance()->Draw();
 		});
 
 }
@@ -43,6 +54,9 @@ void GameOverScene::Update()
 	/// 更新処理
 	/// ===================================================
 
+	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
+	PauseMenu::GetInstance()->Update();
+
 	CameraUpdate();
 
 }
@@ -53,6 +67,8 @@ void GameOverScene::AddSceneSetting() {
 	/// ===================================================
 	DrawDebugCameraImGui();
 	camera_->ShowDebugWindow();
+
+	PauseMenu::GetInstance()->DrawImGui();
 }
 
 void GameOverScene::AddObjectSetting()
