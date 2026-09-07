@@ -157,6 +157,36 @@ struct BossSpiderWhirlParams {
     float recoverTime = 1.0f;   // 回転後の硬直
 };
 
+/// <summary>
+/// 第2形態を撃破したときの演出。
+/// 脚をすべて壊すとここが動き、上下の黒帯が閉じてカメラが寄り、
+/// コアがふらつきながら地面へ落ちる
+/// </summary>
+struct BossSpiderDefeatParams {
+    // --- コアの墜落 ---
+    float fallTime = 3.0f;    // 地面へ落ちきるまでの時間（秒）
+    float swayAmount = 0.9f;  // ふらつきの大きさ
+    float swaySpeed = 3.2f;   // ふらつきの速さ
+    float tiltAngle = 25.0f;  // ふらつきに合わせて傾く角度（度）
+    float restTime = 1.5f;    // 落ちたあと、はじけるまでの間（秒）
+
+    // --- 最後にはじけて消える ---
+    float burstScale = 1.25f; // ふくらむときの大きさ（通常を1とした倍率）
+    float burstTime = 0.45f;  // ふくらんでから消えきるまでの時間（秒）
+
+    // --- 画面演出 ---
+    float barTime = 0.8f;     // 上下の黒帯が閉じきるまでの時間（秒）
+    float barRatio = 0.14f;   // 黒帯の高さ（画面の高さに対する割合）
+    float focusTime = 1.6f;   // カメラが寄りきるまでの時間（秒）
+    float focusDistance = 9.0f; // 寄りきったときのコアからの距離
+    // 敵の正面からどれだけ横へずらすか（度）。0で真正面から向き合う
+    float focusYawOffset = 15.0f;
+    float focusHeight = 3.5f;   // 寄りきったときのカメラの高さ（コアからの差）
+    float lookHeight = 1.0f;    // 注視点をコアからどれだけ上へずらすか
+    float handheldAmount = 0.35f; // 手持ちのような揺れの大きさ
+    float handheldSpeed = 1.6f;   // 手持ちのような揺れの速さ
+};
+
 /// <summary>脚を切り落としたときの、飛び散り方</summary>
 struct BossSpiderSeverParams {
     float speed = 4.0f;    // 外向きに飛び出す速さ
@@ -233,6 +263,9 @@ struct BossSpiderParams {
 
     // --- 脚を切り落とすとき ---
     BossSpiderSeverParams sever{};
+
+    // --- 撃破演出 ---
+    BossSpiderDefeatParams defeat{};
 };
 
 /// <summary>

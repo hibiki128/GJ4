@@ -678,3 +678,12 @@ void BossSpiderLeg::Draw(const ViewProjection &viewProjection) {
         piece.sphere->Draw(viewProjection);
     }
 }
+
+void BossSpiderLeg::SeverAll(const BossSpiderParams &params) {
+    // 残っているぶんを根元から順に飛ばす。先の球ほど勢いよく飛ぶのは通常の切断と同じ
+    for (int index = 0; index < static_cast<int>(chain_.size()); ++index) {
+        BeginSever(chain_[static_cast<size_t>(index)], index, params);
+    }
+    chain_.clear();
+    lastAttachIndex_ = -1;
+}

@@ -278,6 +278,32 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.bodyBob = JsonValue(spider, "bodyBob", out.bodyBob);
     out.bodySway = JsonValue(spider, "bodySway", out.bodySway);
     out.stopDistance = JsonValue(spider, "stopDistance", out.stopDistance);
+
+    const json defeat = JsonValue(spider, "defeat", json::object());
+    out.defeat.fallTime = JsonValue(defeat, "fallTime", out.defeat.fallTime);
+    out.defeat.swayAmount = JsonValue(defeat, "swayAmount", out.defeat.swayAmount);
+    out.defeat.swaySpeed = JsonValue(defeat, "swaySpeed", out.defeat.swaySpeed);
+    out.defeat.tiltAngle = JsonValue(defeat, "tiltAngle", out.defeat.tiltAngle);
+    out.defeat.restTime = JsonValue(defeat, "restTime", out.defeat.restTime);
+    out.defeat.burstScale = JsonValue(defeat, "burstScale", out.defeat.burstScale);
+    out.defeat.burstTime = JsonValue(defeat, "burstTime", out.defeat.burstTime);
+    out.defeat.barTime = JsonValue(defeat, "barTime", out.defeat.barTime);
+    out.defeat.barRatio = JsonValue(defeat, "barRatio", out.defeat.barRatio);
+    out.defeat.focusTime = JsonValue(defeat, "focusTime", out.defeat.focusTime);
+    out.defeat.focusDistance = JsonValue(defeat, "focusDistance", out.defeat.focusDistance);
+    out.defeat.focusYawOffset = JsonValue(defeat, "focusYawOffset", out.defeat.focusYawOffset);
+    out.defeat.focusHeight = JsonValue(defeat, "focusHeight", out.defeat.focusHeight);
+    out.defeat.lookHeight = JsonValue(defeat, "lookHeight", out.defeat.lookHeight);
+    out.defeat.handheldAmount = JsonValue(defeat, "handheldAmount", out.defeat.handheldAmount);
+    out.defeat.handheldSpeed = JsonValue(defeat, "handheldSpeed", out.defeat.handheldSpeed);
+
+    const json sever = JsonValue(spider, "sever", json::object());
+    out.sever.speed = JsonValue(sever, "speed", out.sever.speed);
+    out.sever.lift = JsonValue(sever, "lift", out.sever.lift);
+    out.sever.scatter = JsonValue(sever, "scatter", out.sever.scatter);
+    out.sever.gravity = JsonValue(sever, "gravity", out.sever.gravity);
+    out.sever.bounce = JsonValue(sever, "bounce", out.sever.bounce);
+    out.sever.life = JsonValue(sever, "life", out.sever.life);
     // --- 攻撃 ---
     const json attacks = JsonValue(spider, "attacks", json::object());
     out.attack.interval = JsonValue(attacks, "interval", out.attack.interval);
@@ -363,6 +389,25 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["bodyBob"] = params.bodyBob;
     spider["bodySway"] = params.bodySway;
     spider["stopDistance"] = params.stopDistance;
+    json defeat = json::object();
+    defeat["fallTime"] = params.defeat.fallTime;
+    defeat["swayAmount"] = params.defeat.swayAmount;
+    defeat["swaySpeed"] = params.defeat.swaySpeed;
+    defeat["tiltAngle"] = params.defeat.tiltAngle;
+    defeat["restTime"] = params.defeat.restTime;
+    defeat["burstScale"] = params.defeat.burstScale;
+    defeat["burstTime"] = params.defeat.burstTime;
+    defeat["barTime"] = params.defeat.barTime;
+    defeat["barRatio"] = params.defeat.barRatio;
+    defeat["focusTime"] = params.defeat.focusTime;
+    defeat["focusDistance"] = params.defeat.focusDistance;
+    defeat["focusYawOffset"] = params.defeat.focusYawOffset;
+    defeat["focusHeight"] = params.defeat.focusHeight;
+    defeat["lookHeight"] = params.defeat.lookHeight;
+    defeat["handheldAmount"] = params.defeat.handheldAmount;
+    defeat["handheldSpeed"] = params.defeat.handheldSpeed;
+    spider["defeat"] = defeat;
+
     json sever = json::object();
     sever["speed"] = params.sever.speed;
     sever["lift"] = params.sever.lift;

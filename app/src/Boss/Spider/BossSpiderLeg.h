@@ -142,6 +142,13 @@ public:
     /// <summary>くっついている球の数</summary>
     int GetChainCount() const { return static_cast<int>(chain_.size()); }
 
+    /// <summary>
+    /// 残っている球をすべて切り落とす（脚が丸ごと無くなる）。
+    /// 撃破のときに、実際に脚を壊したときと同じ見え方にするために使う
+    /// </summary>
+    /// <param name="params">蜘蛛のパラメータ（飛び方に使う）</param>
+    void SeverAll(const BossSpiderParams &params);
+
     /// <summary>いま切り落とされて飛び散っている球の数（デバッグ表示用）</summary>
     int GetSeveredCount() const { return static_cast<int>(severed_.size()); }
 
