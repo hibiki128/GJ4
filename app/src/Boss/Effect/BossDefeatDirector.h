@@ -31,7 +31,28 @@ public:
     /// </summary>
     /// <param name="focusPoint">寄っていく先（コアの位置）</param>
     /// <param name="from">寄り始めのカメラ位置（いまのカメラの位置を渡す）</param>
-    void Begin(const Hagine::Vector3 &focusPoint, const Hagine::Vector3 &from);
+    /// <param name="holdPosition">寄りきったあと位置を動かさないか（登場演出では true）</param>
+    /// <param name="holdDistance">位置を固定するときのコアからの距離</param>
+    /// <param name="holdHeight">位置を固定するときのカメラの高さ（地面から）</param>
+    void Begin(const Hagine::Vector3 &focusPoint, const Hagine::Vector3 &from, bool holdPosition = false,
+               float holdDistance = 0.0f, float holdHeight = 0.0f);
+
+    /// <summary>
+    /// 演出を終わらせて、カメラをプレイヤーの側へ戻し始める。
+    /// 黒帯もここから開いていく
+    /// </summary>
+    void BeginReturn();
+
+    /// <summary>
+    /// 戻り中の見た目を進める（戻りきったら true）
+    /// </summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <param name="cameraTo">戻り先のカメラ位置（追従カメラの現在位置）</param>
+    /// <param name="lookTo">戻り先の注視点（プレイヤーの位置）</param>
+    /// <param name="params">撃破演出のパラメータ</param>
+    /// <returns>bool: 戻りきったら true</returns>
+    bool UpdateReturn(float deltaTime, const Hagine::Vector3 &cameraTo, const Hagine::Vector3 &lookTo,
+                      const BossSpiderDefeatParams &params);
 
     /// <summary>
     /// 1フレーム進める
@@ -52,6 +73,9 @@ public:
     /// <summary>演出をやめて、黒帯を引っ込める</summary>
     void Stop();
 
+    /// <summary>カメラをプレイヤーへ戻している最中か</summary>
+    bool IsReturning() const { return isReturning_; }
+
 private:
     /// ===================================================
     /// private variables
@@ -61,7 +85,16 @@ private:
     std::unique_ptr<Hagine::Sprite> bottomBar_; // 下の黒帯
     Hagine::Camera *pCamera_ = nullptr;         // 演出用カメラ（CameraManager が所有）
 
-    Hagine::Vector3 cameraFrom_{}; // 寄り始めのカメラ位置
-    float elapsed_ = 0.0f;         // 演出を始めてからの経過時間（秒）
-    bool isActive_ = false;        // 演出中か
+    Hagine::Vector3 cameraFrom_{};    // 寄り始めのカメラ位置
+    Hagine::Vector3 holdPosition_{};  // 位置を固定するときの、寄りきった位置
+    Hagine::Vector3 returnFrom_{};    // 戻り始めのカメラ位置
+    Hagine::Vector3 returnLookFrom_{}; // 戻り始めの注視点
+    float holdDistance_ = 0.0f;       // 位置を固定するときのコアからの距離
+    float holdHeight_ = 0.0f;         // 位置を固定するときのカメラの高さ（地面から）
+    float elapsed_ = 0.0f;            // 演出を始めてからの経過時間（秒）
+    float returnElapsed_ = 0.0f;      // 戻り始めてからの経過時間（秒）
+    bool isActive_ = false;           // 演出中か
+    bool isHoldPosition_ = false;     // 寄りきったあと位置を動かさないか
+    bool isReturning_ = false;        // カメラを戻している最中か
+    Hagine::Vector3 lastLookAt_{};    // 直近の注視点（戻りの始点に使う）
 };

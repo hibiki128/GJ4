@@ -156,25 +156,47 @@ void GameScene::UpdateFormChange()
 void GameScene::UpdateDefeatDirection()
 {
 	/// ===================================================
-	/// 第2形態の撃破演出（黒帯とカメラ寄せ）
+	/// 第2形態の演出（登場・撃破）で使う、黒帯とカメラ寄せ
 	/// ===================================================
 
-	if (!bossSpider_->IsDefeated()) {
-		// 演出をやめたとき（デバッグで戦闘中へ戻したとき）は追従カメラへ返す
-		if (defeatDirector_->IsActive()) {
-			defeatDirector_->Stop();
+	const float deltaTime = Frame::DeltaTime();
+	const BossSpiderDefeatParams &params = bossSpider_->GetParameters().defeat;
+	const Vector3 corePosition = bossSpider_->GetBodyPosition();
+
+	// カメラをプレイヤーへ戻している最中
+	if (defeatDirector_->IsReturning()) {
+		if (defeatDirector_->UpdateReturn(deltaTime, followCamera_->GetViewProjection().translation_,
+		                                  player_->GetWorldPosition(), params)) {
 			followCamera_->Activate();
 		}
 		return;
 	}
 
-	const Vector3 corePosition = bossSpider_->GetBodyPosition();
-	if (!defeatDirector_->IsActive()) {
-		// いまのカメラの位置から寄り始めるので、切り替わった瞬間に絵が飛ばない
-		defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_);
+	// 撃破演出：最後まで出しっぱなし（この先はシーン遷移へ繋ぐ）
+	if (bossSpider_->IsDefeated()) {
+		if (!defeatDirector_->IsActive()) {
+			defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_);
+		}
+		defeatDirector_->Update(deltaTime, corePosition, bossSpider_->GetBodyYaw(), params);
+		return;
 	}
-	defeatDirector_->Update(Frame::DeltaTime(), corePosition, bossSpider_->GetBodyYaw(),
-	                        bossSpider_->GetParameters().defeat);
+
+	// 登場演出：崩れ落ちて起き上がるあいだだけ。カメラは座標を動かさず、
+	// 落ちたコアの高さに構えたまま、浮き上がるコアを見上げる
+	if (bossSpider_->IsIntroCinematic()) {
+		if (!defeatDirector_->IsActive()) {
+			const BossSpiderParams &spider = bossSpider_->GetParameters();
+			defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_, true,
+			                       spider.introCameraDistance, spider.introCameraHeight);
+		}
+		defeatDirector_->Update(deltaTime, corePosition, bossSpider_->GetBodyYaw(), params);
+		return;
+	}
+
+	// 演出が終わった（変形しきった・デバッグで戻した）ので、カメラを返しにいく
+	if (defeatDirector_->IsActive()) {
+		defeatDirector_->BeginReturn();
+	}
 }
 
 void GameScene::AddSceneSetting() {

@@ -34,11 +34,18 @@ void BossDefeatDirector::Init() {
     pCamera_ = CameraManager::GetInstance()->Create("BossDefeatCamera");
 }
 
-void BossDefeatDirector::Begin(const Vector3 &focusPoint, const Vector3 &from) {
+void BossDefeatDirector::Begin(const Vector3 &focusPoint, const Vector3 &from, bool holdPosition,
+                              float holdDistance, float holdHeight) {
     (void)focusPoint;
     isActive_ = true;
+    isReturning_ = false;
     elapsed_ = 0.0f;
+    returnElapsed_ = 0.0f;
     cameraFrom_ = from;
+    isHoldPosition_ = holdPosition;
+    holdDistance_ = holdDistance;
+    // 地面に沈み込まないよう、わずかに浮かせておく
+    holdHeight_ = (std::max)(0.2f, holdHeight);
 
     // ここから演出用カメラで描く。戻すのは呼び出し側（元のカメラを知っているのはそちら）
     if (pCamera_) {
@@ -76,8 +83,17 @@ void BossDefeatDirector::Update(float deltaTime, const Vector3 &focusPoint, floa
     const float angle = facingYaw + params.focusYawOffset * (std::numbers::pi_v<float> / 180.0f);
     const Vector3 front{std::cos(angle), 0.0f, std::sin(angle)};
 
-    const Vector3 focusTarget = focusPoint + front * params.focusDistance +
-                                Vector3{0.0f, params.focusHeight, 0.0f};
+    Vector3 focusTarget = focusPoint + front * params.focusDistance +
+                          Vector3{0.0f, params.focusHeight, 0.0f};
+    if (isHoldPosition_) {
+        // 登場演出では座標を動かさない。地面に据えたまま、起き上がるコアを見上げ続ける。
+        // 変形でコアが大きくなるぶん、寄り先も通常より離しておく
+        if (holdPosition_.LengthSq() <= 0.0001f) {
+            holdPosition_ = Vector3{focusPoint.x + front.x * holdDistance_, holdHeight_,
+                                    focusPoint.z + front.z * holdDistance_};
+        }
+        focusTarget = holdPosition_;
+    }
     const float focusProgress = std::clamp(elapsed_ / (std::max)(0.01f, params.focusTime), 0.0f, 1.0f);
     Vector3 position = Lerp(cameraFrom_, focusTarget, SmoothInOut(focusProgress));
 
@@ -88,7 +104,8 @@ void BossDefeatDirector::Update(float deltaTime, const Vector3 &focusPoint, floa
     position.z += std::cos(elapsed_ * params.handheldSpeed * 0.8f) * sway;
 
     pCamera_->SetPosition(position);
-    pCamera_->SetTarget(focusPoint + Vector3{0.0f, params.lookHeight, 0.0f});
+    lastLookAt_ = focusPoint + Vector3{0.0f, params.lookHeight, 0.0f};
+    pCamera_->SetTarget(lastLookAt_);
     pCamera_->Update();
 }
 
@@ -102,5 +119,50 @@ void BossDefeatDirector::Draw() {
 
 void BossDefeatDirector::Stop() {
     isActive_ = false;
+    isReturning_ = false;
     elapsed_ = 0.0f;
+    returnElapsed_ = 0.0f;
+    holdPosition_ = Vector3{};
+}
+
+void BossDefeatDirector::BeginReturn() {
+    if (!isActive_ || isReturning_) {
+        return;
+    }
+    isReturning_ = true;
+    returnElapsed_ = 0.0f;
+    returnFrom_ = pCamera_ ? pCamera_->GetViewProjection().translation_ : Vector3{};
+    returnLookFrom_ = lastLookAt_;
+}
+
+bool BossDefeatDirector::UpdateReturn(float deltaTime, const Vector3 &cameraTo, const Vector3 &lookTo,
+                                      const BossSpiderDefeatParams &params) {
+    if (!isActive_ || !isReturning_) {
+        return false;
+    }
+    returnElapsed_ += deltaTime;
+    const float progress = std::clamp(returnElapsed_ / (std::max)(0.01f, params.returnTime), 0.0f, 1.0f);
+    const float eased = SmoothInOut(progress);
+
+    // 黒帯は逆に開いていく
+    const float screenWidth = static_cast<float>(WinApp::GetVirtualWidth());
+    const float screenHeight = static_cast<float>(WinApp::GetVirtualHeight());
+    const float barHeight = screenHeight * std::clamp(params.barRatio, 0.0f, 0.5f) * (1.0f - eased);
+    topBar_->SetPosition(Vector2{0.0f, 0.0f});
+    topBar_->SetSize(Vector2{screenWidth, barHeight});
+    bottomBar_->SetPosition(Vector2{0.0f, screenHeight - barHeight});
+    bottomBar_->SetSize(Vector2{screenWidth, barHeight});
+
+    // カメラは位置も注視点も滑らかに戻す（両端で速度0なので繋ぎ目が出ない）
+    if (pCamera_) {
+        pCamera_->SetPosition(Lerp(returnFrom_, cameraTo, eased));
+        pCamera_->SetTarget(Lerp(returnLookFrom_, lookTo, eased));
+        pCamera_->Update();
+    }
+
+    if (progress < 1.0f) {
+        return false;
+    }
+    Stop();
+    return true;
 }

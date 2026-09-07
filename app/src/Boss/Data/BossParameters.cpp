@@ -264,6 +264,12 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.footRadius = JsonValue(spider, "footRadius", out.footRadius);
     out.bodyHeight = JsonValue(spider, "bodyHeight", out.bodyHeight);
 
+    out.collapseTime = JsonValue(spider, "collapseTime", out.collapseTime);
+    out.collapseSway = JsonValue(spider, "collapseSway", out.collapseSway);
+    out.collapseSwaySpeed = JsonValue(spider, "collapseSwaySpeed", out.collapseSwaySpeed);
+    out.collapseRest = JsonValue(spider, "collapseRest", out.collapseRest);
+    out.introCameraDistance = JsonValue(spider, "introCameraDistance", out.introCameraDistance);
+    out.introCameraHeight = JsonValue(spider, "introCameraHeight", out.introCameraHeight);
     out.riseTime = JsonValue(spider, "riseTime", out.riseTime);
     out.growTime = JsonValue(spider, "growTime", out.growTime);
     out.growStagger = JsonValue(spider, "growStagger", out.growStagger);
@@ -296,6 +302,7 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.defeat.lookHeight = JsonValue(defeat, "lookHeight", out.defeat.lookHeight);
     out.defeat.handheldAmount = JsonValue(defeat, "handheldAmount", out.defeat.handheldAmount);
     out.defeat.handheldSpeed = JsonValue(defeat, "handheldSpeed", out.defeat.handheldSpeed);
+    out.defeat.returnTime = JsonValue(defeat, "returnTime", out.defeat.returnTime);
 
     const json sever = JsonValue(spider, "sever", json::object());
     out.sever.speed = JsonValue(sever, "speed", out.sever.speed);
@@ -307,6 +314,7 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     // --- 攻撃 ---
     const json attacks = JsonValue(spider, "attacks", json::object());
     out.attack.interval = JsonValue(attacks, "interval", out.attack.interval);
+    out.attack.firstDelay = JsonValue(attacks, "firstDelay", out.attack.firstDelay);
     out.attack.shootRange = JsonValue(attacks, "shootRange", out.attack.shootRange);
     out.attack.whirlChance = JsonValue(attacks, "whirlChance", out.attack.whirlChance);
 
@@ -375,6 +383,12 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["footRadius"] = params.footRadius;
     spider["bodyHeight"] = params.bodyHeight;
 
+    spider["collapseTime"] = params.collapseTime;
+    spider["collapseSway"] = params.collapseSway;
+    spider["collapseSwaySpeed"] = params.collapseSwaySpeed;
+    spider["collapseRest"] = params.collapseRest;
+    spider["introCameraDistance"] = params.introCameraDistance;
+    spider["introCameraHeight"] = params.introCameraHeight;
     spider["riseTime"] = params.riseTime;
     spider["growTime"] = params.growTime;
     spider["growStagger"] = params.growStagger;
@@ -406,6 +420,7 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     defeat["lookHeight"] = params.defeat.lookHeight;
     defeat["handheldAmount"] = params.defeat.handheldAmount;
     defeat["handheldSpeed"] = params.defeat.handheldSpeed;
+    defeat["returnTime"] = params.defeat.returnTime;
     spider["defeat"] = defeat;
 
     json sever = json::object();
@@ -462,6 +477,7 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
 
     json attacks = json::object();
     attacks["interval"] = params.attack.interval;
+    attacks["firstDelay"] = params.attack.firstDelay;
     attacks["shootRange"] = params.attack.shootRange;
     attacks["whirlChance"] = params.attack.whirlChance;
     attacks["leap"] = leap;
