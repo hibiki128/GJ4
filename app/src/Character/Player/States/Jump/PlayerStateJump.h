@@ -1,6 +1,7 @@
 #pragma once
 #include "src/Character/Player/States/Base/PlayerStateBase.h"
 #include "Math/type/Vector3.h"
+#include "Utility/Debug/Param/GameParamHub.h"
 
 class PlayerStateJump : public PlayerStateBase {
 public:
@@ -13,6 +14,10 @@ public:
 private:
 	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};
 	float time_ = 0.0f;
+
+	// GameParamHub への登録用。生成時にオーナーを決めておくと、
+	// 登録は名前と変数だけで済み、破棄時の解除も自動で行われる
+	Hagine::GameParamOwner params_{"Player/Jump"};
 
 	float kDuration = 2.0f; // 長さ
 	float kAmplitude = 0.2f;  // 潰れる量

@@ -13,12 +13,11 @@ void PlayerStateMove::Enter(Player& player, PlayerContext& context) {
 void PlayerStateMove::Update(Player& player, PlayerContext& context) {
 	context.moveComponent_->Move(context, context.input_.dir, 0.2);
 
-	std::string paramOwnerLabel = "Player/Move";
-	Hagine::GameParamHub* hub = Hagine::GameParamHub::GetInstance();
-
-	hub->Register(paramOwnerLabel, "Duration", &kDuration);
-	hub->Register(paramOwnerLabel, "Amplitude", &kAmplitude);
-	hub->Register(paramOwnerLabel, "Period", &kPeriod);
+	// オーナーは params_ が握っているので、ここでは名前と変数だけ渡せばよい。
+	// 破棄時の Unregister も params_ が面倒を見る
+	params_.Register("Duration", &kDuration);
+	params_.Register("Amplitude", &kAmplitude);
+	params_.Register("Period", &kPeriod);
 
 	time_ += Hagine::Frame::DeltaTime();
 	if (time_ >= kDuration) { time_ = 0.0f; } // ループさせる

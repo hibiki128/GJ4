@@ -8,6 +8,7 @@
 #include "src/Interface/IColorProvider.h"
 #include "src/Interface/IDamageable.h"
 #include "src/Interface/ITargetLocator.h"
+#include "debug/param/GameParamHub.h"
 #include "object/base/BaseObject.h"
 #include <string>
 
@@ -327,5 +328,8 @@ private:
     float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
     bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
-    std::string paramOwnerLabel_;       // GameParamHub の登録ラベル
+
+    // GameParamHub への登録用。オーナー名はボスIDが決まってから SetOwner で入れる。
+    // 登録は名前と変数だけで済み、破棄時の解除もこれが面倒を見る
+    Hagine::GameParamOwner params_;
 };

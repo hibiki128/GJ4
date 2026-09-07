@@ -11,12 +11,11 @@ void PlayerStateIdle::Enter(Player& player, PlayerContext& context) {
 }
 
 void PlayerStateIdle::Update(Player& player, PlayerContext& context) {
-	std::string paramOwnerLabel = "Player/Idle";
-	Hagine::GameParamHub* hub = Hagine::GameParamHub::GetInstance();
-
-	hub->Register(paramOwnerLabel, "Duration", &kDuration);
-	hub->Register(paramOwnerLabel, "Amplitude", &kAmplitude);
-	hub->Register(paramOwnerLabel, "Period", &kPeriod);
+	// オーナーは params_ が握っているので、ここでは名前と変数だけ渡せばよい。
+	// 破棄時の Unregister も params_ が面倒を見る
+	params_.Register("Duration", &kDuration);
+	params_.Register("Amplitude", &kAmplitude);
+	params_.Register("Period", &kPeriod);
 
 	time_ += Hagine::Frame::DeltaTime();
 	if (time_ >= kDuration) { time_ = 0.0f; } // ループさせる
