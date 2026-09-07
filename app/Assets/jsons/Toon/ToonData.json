@@ -1,31 +1,31 @@
 {
-    "enabled": false,
-    "steps": 2.0,
-    "threshold": 0.5,
-    "softness": 0.03,
+    "enabled": true,
+    "rimColor": {
+        "w": 0.3499999940395355,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+    },
+    "rimLightMask": 1.0,
+    "rimPower": 4.0,
+    "rimSoftness": 0.10000000149011612,
+    "rimThreshold": 0.3499999940395355,
     "shadeColor": {
-        "x": 0.550000011920929,
-        "y": 0.5600000023841858,
-        "z": 0.6800000071525574,
-        "w": 1.0
+        "w": 1.0,
+        "x": 0.699999988079071,
+        "y": 0.699999988079071,
+        "z": 0.800000011920929
     },
     "shadowSharpness": 1.0,
+    "softness": 0.05000000074505806,
     "specularColor": {
+        "w": 0.3499999940395355,
         "x": 1.0,
         "y": 1.0,
-        "z": 1.0,
-        "w": 0.3499999940395355
+        "z": 1.0
     },
-    "specularThreshold": 0.5,
     "specularSoftness": 0.05000000074505806,
-    "rimColor": {
-        "x": 1.0,
-        "y": 1.0,
-        "z": 1.0,
-        "w": 0.3499999940395355
-    },
-    "rimPower": 4.0,
-    "rimThreshold": 0.3499999940395355,
-    "rimSoftness": 0.10000000149011612,
-    "rimLightMask": 1.0
+    "specularThreshold": 0.5,
+    "steps": 2.0,
+    "threshold": 0.5
 }
