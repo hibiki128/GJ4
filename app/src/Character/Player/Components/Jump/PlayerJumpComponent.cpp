@@ -13,8 +13,22 @@ void PlayerJumpComponent::UpdateJump(PlayerContext& context) {
 	if (!isJumping_ || !context.rigidBody_) {
 		return;
 	}
+
+	if (context.rigidBody_->velocity.y < 0.0f) {
+		fallSpeed_ = -context.rigidBody_->velocity.y;
+	}
+
 	// 落下に転じたあとに床へ触れたら着地とする（接地は床コライダーとの衝突で決まる）
 	if (context.isOnGround_ && context.rigidBody_->velocity.y <= 0.0f) {
 		isJumping_ = false;
+		justLanded_ = true;
+		landingSpeed_ = fallSpeed_;   // 押し出しで 0 にされる前の値
+		fallSpeed_ = 0.0f;
 	}
+}
+
+bool PlayerJumpComponent::ConsumeLanded() {
+	bool l = justLanded_;
+	justLanded_ = false;
+	return l;
 }
