@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
+    <ClCompile Include="src\scene\GameOverScene.cpp">
+      <Filter>src\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\ClearScene.cpp">
+      <Filter>src\scene</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp">
+      <Filter>src\Character\Player\Components\Reaction</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pch.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\framework\GJ4App.cpp">
       <Filter>src\framework</Filter>
@@ -53,6 +65,15 @@
     <ClCompile Include="src\Boss\Spider\BossSpiderLeg.cpp">
       <Filter>src\Boss\Spider</Filter>
     </ClCompile>
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.cpp">
+      <Filter>src\Boss\Spider\Attack</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.cpp">
+      <Filter>src\Boss\Spider\Attack</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.cpp">
+      <Filter>src\Boss\Spider\Attack</Filter>
+    </ClCompile>
     <ClCompile Include="src\Boss\State\BossStateMachine.cpp">
       <Filter>src\Boss\State</Filter>
     </ClCompile>
@@ -101,22 +122,18 @@
     <ClCompile Include="src\Input\GameInput.cpp">
       <Filter>src\Input</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="src\Settings\GameSettings.cpp">
+      <Filter>src\Settings</Filter>
     </ClCompile>
-    <ClCompile Include="src\pch.cpp">
-      <Filter>src</Filter>
+    <ClCompile Include="src\UI\Pause\PauseMenu.cpp">
+      <Filter>src\UI\Pause</Filter>
     </ClCompile>
-    <ClCompile Include="src\scene\GameScene.cpp">
+    <ClCompile Include="src\UI\Text\UiText.cpp">
+      <Filter>src\UI\Text</Filter>
+    </ClCompile>
+    <ClCompile Include="src\scene\TitleScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
-    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.cpp" />
-    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.cpp" />
-    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.cpp" />
-    <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
-    <ClCompile Include="src\scene\TitleScene.cpp" />
-    <ClCompile Include="src\scene\ClearScene.cpp" />
-    <ClCompile Include="src\scene\GameOverScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -142,6 +159,12 @@
     </Filter>
     <Filter Include="src\scene">
       <UniqueIdentifier>{72706981-6907-EF9F-9DF9-4B763CF81236}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Settings">
+      <UniqueIdentifier>{5e5bed2d-dba8-4b12-b17d-b86eac88ae50}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI">
+      <UniqueIdentifier>{58df3bb0-7dc2-4704-9c74-aa8c303bff7e}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Boss\Attack">
       <UniqueIdentifier>{6D371BCD-B899-0167-9AAD-35702996B735}</UniqueIdentifier>
@@ -170,6 +193,15 @@
     <Filter Include="src\Character\Player">
       <UniqueIdentifier>{E3B27ACB-6BD6-079E-9FCD-1A3A2F94A98C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\UI\Pause">
+      <UniqueIdentifier>{d27fd43a-eadb-4d09-bf1a-27ebf32ad691}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\UI\Text">
+      <UniqueIdentifier>{de44cdb9-c1be-4604-ac81-a6521784623f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Boss\Spider\Attack">
+      <UniqueIdentifier>{fca08e51-2ae6-4dbf-80df-94980100a029}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Character\Player\Components">
       <UniqueIdentifier>{0D95733D-5B7B-5C40-0AD1-00501AF4C0A5}</UniqueIdentifier>
     </Filter>
@@ -187,6 +219,9 @@
     </Filter>
     <Filter Include="src\Character\Player\Components\Move">
       <UniqueIdentifier>{051B7C3C-2262-AB48-F900-BE48C982F958}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Components\Reaction">
+      <UniqueIdentifier>{f7505688-5cc0-42c8-be12-6f985211b392}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Character\Player\Components\Shoot">
       <UniqueIdentifier>{F2BA291B-3678-0030-0635-50DEC898D537}</UniqueIdentifier>
@@ -220,6 +255,18 @@
     <Manifest Include="app.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\scene\GameOverScene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene\ClearScene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h">
+      <Filter>src\Character\Player\Components\Reaction</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pch.h">
+      <Filter>src</Filter>
+    </ClInclude>
     <ClInclude Include="src\framework\GJ4App.h">
       <Filter>src\framework</Filter>
     </ClInclude>
@@ -242,6 +289,9 @@
       <Filter>src\Boss</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Data\BossColorPalette.h">
+      <Filter>src\Boss\Data</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Data\BossEasing.h">
       <Filter>src\Boss\Data</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Data\BossParameters.h">
@@ -273,6 +323,15 @@
     </ClInclude>
     <ClInclude Include="src\Boss\Spider\BossSpiderLeg.h">
       <Filter>src\Boss\Spider</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.h">
+      <Filter>src\Boss\Spider\Attack</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.h">
+      <Filter>src\Boss\Spider\Attack</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.h">
+      <Filter>src\Boss\Spider\Attack</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\State\BossState.h">
       <Filter>src\Boss\State</Filter>
@@ -334,8 +393,14 @@
     <ClInclude Include="src\Input\GameInput.h">
       <Filter>src\Input</Filter>
     </ClInclude>
-    <ClInclude Include="src\pch.h">
-      <Filter>src</Filter>
+    <ClInclude Include="src\Settings\GameSettings.h">
+      <Filter>src\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Pause\PauseMenu.h">
+      <Filter>src\UI\Pause</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Text\UiText.h">
+      <Filter>src\UI\Text</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\FunctionalPlayerBridge.h">
       <Filter>src\Interface</Filter>
@@ -352,14 +417,9 @@
     <ClInclude Include="src\Interface\ITargetLocator.h">
       <Filter>src\Interface</Filter>
     </ClInclude>
-    <ClInclude Include="src\Boss\Data\BossEasing.h" />
-    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.h" />
-    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.h" />
-    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.h" />
-    <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
-    <ClInclude Include="src\scene\TitleScene.h" />
-    <ClInclude Include="src\scene\ClearScene.h" />
-    <ClInclude Include="src\scene\GameOverScene.h" />
+    <ClInclude Include="src\scene\TitleScene.h">
+      <Filter>src\scene</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
