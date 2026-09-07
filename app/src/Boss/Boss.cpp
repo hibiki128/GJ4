@@ -17,10 +17,7 @@
 using namespace Hagine;
 
 Boss::~Boss() {
-    // 登録したポインタが宙に浮かないよう、破棄前に必ず解除する
-    if (!paramOwnerLabel_.empty()) {
-        GameParamHub::GetInstance()->Unregister(paramOwnerLabel_);
-    }
+    // GameParamHub の解除は params_ のデストラクタが行う
 }
 
 void Boss::Init(const std::string objectName) {
@@ -419,9 +416,8 @@ void Boss::RegisterGameTags() {
 }
 
 void Boss::RegisterTuningParameters() {
-    paramOwnerLabel_ = "Boss/" + bossId_;
-
-    GameParamHub *hub = GameParamHub::GetInstance();
+    // ボスIDが決まったこの時点でオーナーを確定させる。以降は名前と変数だけで登録できる
+    params_.SetOwner("Boss/" + bossId_);
     BossChainParams &chain = parameters_.Chain();
     BossLockOnParams &lockOn = parameters_.LockOn();
     BossShellParams &shell = parameters_.Shell();
@@ -432,7 +428,7 @@ void Boss::RegisterTuningParameters() {
     radiusOptions.min = 0.05f;
     radiusOptions.max = 3.0f;
     radiusOptions.onChange = [this] { ApplyShellChanges(); };
-    hub->Register(paramOwnerLabel_, "殻:球の半径", &shell.sphereRadius, radiusOptions);
+    params_.Register("殻:球の半径", &shell.sphereRadius, radiusOptions);
 
     GameParamHub::Options bandOptions{};
     bandOptions.speed = 0.05f;
@@ -440,23 +436,23 @@ void Boss::RegisterTuningParameters() {
     bandOptions.max = 30.0f;
     // 帯を動かすと球の数が変わるので、作り直す
     bandOptions.onChange = [this] { RebuildShell(); };
-    hub->Register(paramOwnerLabel_, "殻:基本殻の半径", &shell.shellRadius, bandOptions);
+    params_.Register("殻:基本殻の半径", &shell.shellRadius, bandOptions);
 
     GameParamHub::Options layerOptions{};
     layerOptions.speed = 1.0f;
     layerOptions.min = 0.0f;
     layerOptions.max = 5.0f;
     layerOptions.onChange = [this] { RebuildShell(); };
-    hub->Register(paramOwnerLabel_, "殻:分割数(0=12/1=42/2=162)", &shell.subdivision, layerOptions);
-    hub->Register(paramOwnerLabel_, "殻:外側へ付着できる層数", &shell.outerLayers, layerOptions);
-    hub->Register(paramOwnerLabel_, "殻:内側へ付着できる層数", &shell.innerLayers, layerOptions);
+    params_.Register("殻:分割数(0=12/1=42/2=162)", &shell.subdivision, layerOptions);
+    params_.Register("殻:外側へ付着できる層数", &shell.outerLayers, layerOptions);
+    params_.Register("殻:内側へ付着できる層数", &shell.innerLayers, layerOptions);
 
     GameParamHub::Options coreOptions{};
     coreOptions.speed = 0.01f;
     coreOptions.min = 0.1f;
     coreOptions.max = 1.2f;
     coreOptions.onChange = [this] { ApplyShellChanges(); };
-    hub->Register(paramOwnerLabel_, "殻:コアの大きさ", &shell.coreScale, coreOptions);
+    params_.Register("殻:コアの大きさ", &shell.coreScale, coreOptions);
 
     // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
     BossMetaBallParams &metaBall = parameters_.MetaBall();
@@ -465,36 +461,36 @@ void Boss::RegisterTuningParameters() {
     metaBallOptions.min = 0.05f;
     metaBallOptions.max = 4.0f;
     metaBallOptions.onChange = [this] { cluster_.SetMetaBallParams(parameters_.MetaBall()); };
-    hub->Register(paramOwnerLabel_, "メタボール:影響半径の倍率", &metaBall.influenceScale, metaBallOptions);
+    params_.Register("メタボール:影響半径の倍率", &metaBall.influenceScale, metaBallOptions);
 
     GameParamHub::Options voxelOptions = metaBallOptions;
     voxelOptions.min = 0.1f;
     voxelOptions.max = 1.0f;
-    hub->Register(paramOwnerLabel_, "メタボール:セルの細かさ", &metaBall.voxelRatio, voxelOptions);
+    params_.Register("メタボール:セルの細かさ", &metaBall.voxelRatio, voxelOptions);
 
     GameParamHub::Options thresholdOptions = metaBallOptions;
     thresholdOptions.min = 0.05f;
     thresholdOptions.max = 2.0f;
-    hub->Register(paramOwnerLabel_, "メタボール:しきい値", &metaBall.threshold, thresholdOptions);
+    params_.Register("メタボール:しきい値", &metaBall.threshold, thresholdOptions);
 
     GameParamHub::Options highlightOptions = metaBallOptions;
     highlightOptions.min = 1.0f;
     highlightOptions.max = 2.0f;
-    hub->Register(paramOwnerLabel_, "メタボール:強調球の倍率", &metaBall.highlightScale, highlightOptions);
+    params_.Register("メタボール:強調球の倍率", &metaBall.highlightScale, highlightOptions);
 
     // 脈動（GPU生成のときだけ効く）
     GameParamHub::Options wobbleOptions = metaBallOptions;
     wobbleOptions.speed = 0.005f;
     wobbleOptions.min = 0.0f;
     wobbleOptions.max = 0.5f;
-    hub->Register(paramOwnerLabel_, "メタボール:脈動の振幅", &metaBall.wobbleAmplitude, wobbleOptions);
+    params_.Register("メタボール:脈動の振幅", &metaBall.wobbleAmplitude, wobbleOptions);
 
     GameParamHub::Options wobbleSpeedOptions = metaBallOptions;
     wobbleSpeedOptions.speed = 0.05f;
     wobbleSpeedOptions.min = 0.0f;
     wobbleSpeedOptions.max = 20.0f;
-    hub->Register(paramOwnerLabel_, "メタボール:脈動の速さ", &metaBall.wobbleSpeed, wobbleSpeedOptions);
-    hub->Register(paramOwnerLabel_, "メタボール:脈動のばらけ", &metaBall.wobbleFrequency, wobbleSpeedOptions);
+    params_.Register("メタボール:脈動の速さ", &metaBall.wobbleSpeed, wobbleSpeedOptions);
+    params_.Register("メタボール:脈動のばらけ", &metaBall.wobbleFrequency, wobbleSpeedOptions);
 
     // 上限を変えると頂点バッファを作り直すので、GPU の完了待ちが1回入る
     GameParamHub::Options budgetOptions{};
@@ -502,69 +498,69 @@ void Boss::RegisterTuningParameters() {
     budgetOptions.min = 1000.0f;
     budgetOptions.max = 200000.0f;
     budgetOptions.onChange = metaBallOptions.onChange;
-    hub->Register(paramOwnerLabel_, "メタボール:1色の三角形上限", &metaBall.maxTrianglesPerColor, budgetOptions);
+    params_.Register("メタボール:1色の三角形上限", &metaBall.maxTrianglesPerColor, budgetOptions);
 
-    hub->Register(paramOwnerLabel_, "連鎖:最低連結数", &chain.minMatch, {1.0f, 2.0f, 8.0f});
-    hub->Register(paramOwnerLabel_, "連鎖:基礎怯み時間", &chain.staggerBase, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "連鎖:1つあたり怯み加算", &chain.staggerPerPart, {0.01f, 0.0f, 2.0f});
-    hub->Register(paramOwnerLabel_, "連鎖:初期塊の上限", &chain.maxInitialCluster, {1.0f, 0.0f, 60.0f});
-    hub->Register(paramOwnerLabel_, "ロックオン:許容角度", &lockOn.maxAngleDegrees, {0.5f, 0.0f, 90.0f});
-    hub->Register(paramOwnerLabel_, "ロックオン:有効距離", &lockOn.maxDistance, {0.5f, 0.0f, 300.0f});
-    hub->Register(paramOwnerLabel_, "ロックオン:表面のみ狙う", &lockOn.requireFacing);
+    params_.Register("連鎖:最低連結数", &chain.minMatch, {1.0f, 2.0f, 8.0f});
+    params_.Register("連鎖:基礎怯み時間", &chain.staggerBase, {0.01f, 0.0f, 5.0f});
+    params_.Register("連鎖:1つあたり怯み加算", &chain.staggerPerPart, {0.01f, 0.0f, 2.0f});
+    params_.Register("連鎖:初期塊の上限", &chain.maxInitialCluster, {1.0f, 0.0f, 60.0f});
+    params_.Register("ロックオン:許容角度", &lockOn.maxAngleDegrees, {0.5f, 0.0f, 90.0f});
+    params_.Register("ロックオン:有効距離", &lockOn.maxDistance, {0.5f, 0.0f, 300.0f});
+    params_.Register("ロックオン:表面のみ狙う", &lockOn.requireFacing);
 
     // --- 戦闘・攻撃 ---
     BossBattleParams &battle = parameters_.Battle();
     BossSpinAttackParams &spin = parameters_.Spin();
     BossSlamAttackParams &slam = parameters_.Slam();
 
-    hub->Register(paramOwnerLabel_, "戦闘:行動範囲", &battle.arenaRadius, {0.5f, 1.0f, 200.0f});
-    hub->Register(paramOwnerLabel_, "戦闘:待機時の自転速度", &battle.idleSpinSpeed, {0.5f, 0.0f, 360.0f});
+    params_.Register("戦闘:行動範囲", &battle.arenaRadius, {0.5f, 1.0f, 200.0f});
+    params_.Register("戦闘:待機時の自転速度", &battle.idleSpinSpeed, {0.5f, 0.0f, 360.0f});
 
-    hub->Register(paramOwnerLabel_, "突進:予兆時間", &spin.telegraphTime, {0.01f, 0.05f, 5.0f});
-    hub->Register(paramOwnerLabel_, "突進:予兆の自転速度", &spin.telegraphSpinSpeed, {5.0f, 0.0f, 2000.0f});
-    hub->Register(paramOwnerLabel_, "突進:速度", &spin.dashSpeed, {0.2f, 0.0f, 100.0f});
-    hub->Register(paramOwnerLabel_, "突進:時間", &spin.dashTime, {0.01f, 0.05f, 5.0f});
-    hub->Register(paramOwnerLabel_, "突進:硬直", &spin.recoverTime, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "突進:ダメージ", &spin.damage, {0.5f, 0.0f, 200.0f});
-    hub->Register(paramOwnerLabel_, "突進:当たりの甘さ", &spin.contactMargin, {0.05f, 0.0f, 10.0f});
+    params_.Register("突進:予兆時間", &spin.telegraphTime, {0.01f, 0.05f, 5.0f});
+    params_.Register("突進:予兆の自転速度", &spin.telegraphSpinSpeed, {5.0f, 0.0f, 2000.0f});
+    params_.Register("突進:速度", &spin.dashSpeed, {0.2f, 0.0f, 100.0f});
+    params_.Register("突進:時間", &spin.dashTime, {0.01f, 0.05f, 5.0f});
+    params_.Register("突進:硬直", &spin.recoverTime, {0.01f, 0.0f, 5.0f});
+    params_.Register("突進:ダメージ", &spin.damage, {0.5f, 0.0f, 200.0f});
+    params_.Register("突進:当たりの甘さ", &spin.contactMargin, {0.05f, 0.0f, 10.0f});
 
-    hub->Register(paramOwnerLabel_, "落下:飛び上がり時間", &slam.riseTime, {0.01f, 0.05f, 5.0f});
-    hub->Register(paramOwnerLabel_, "落下:高さ", &slam.riseHeight, {0.2f, 1.0f, 80.0f});
-    hub->Register(paramOwnerLabel_, "落下:狙いの時間", &slam.aimTime, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "落下:落下時間", &slam.fallTime, {0.01f, 0.05f, 5.0f});
-    hub->Register(paramOwnerLabel_, "落下:着弾後の静止", &slam.impactTime, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "落下:有効半径", &slam.impactRadius, {0.1f, 0.5f, 40.0f});
-    hub->Register(paramOwnerLabel_, "落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
-    hub->Register(paramOwnerLabel_, "落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
+    params_.Register("落下:飛び上がり時間", &slam.riseTime, {0.01f, 0.05f, 5.0f});
+    params_.Register("落下:高さ", &slam.riseHeight, {0.2f, 1.0f, 80.0f});
+    params_.Register("落下:狙いの時間", &slam.aimTime, {0.01f, 0.0f, 5.0f});
+    params_.Register("落下:落下時間", &slam.fallTime, {0.01f, 0.05f, 5.0f});
+    params_.Register("落下:着弾後の静止", &slam.impactTime, {0.01f, 0.0f, 5.0f});
+    params_.Register("落下:有効半径", &slam.impactRadius, {0.1f, 0.5f, 40.0f});
+    params_.Register("落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
+    params_.Register("落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
 
     // --- 吸着・消滅の演出 ---
     BossEffectParams &effect = parameters_.Effect();
-    hub->Register(paramOwnerLabel_, "演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
-    hub->Register(paramOwnerLabel_, "演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
-    hub->Register(paramOwnerLabel_, "演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
-    hub->Register(paramOwnerLabel_, "演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
+    params_.Register("演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
+    params_.Register("演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
+    params_.Register("演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
+    params_.Register("演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
+    params_.Register("演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
 
     // --- 登場演出 ---
     BossAppearParams &appear = parameters_.Appear();
-    hub->Register(paramOwnerLabel_, "登場:集束の時間", &appear.gatherTime, {0.05f, 0.1f, 10.0f});
-    hub->Register(paramOwnerLabel_, "登場:回転が収まる時間", &appear.settleTime, {0.01f, 0.0f, 5.0f});
-    hub->Register(paramOwnerLabel_, "登場:膨らむ時間", &appear.expandTime, {0.01f, 0.05f, 5.0f});
-    hub->Register(paramOwnerLabel_, "登場:集まってくる距離", &appear.gatherRadius, {0.5f, 1.0f, 100.0f});
-    hub->Register(paramOwnerLabel_, "登場:集束中の自転速度", &appear.gatherSpinSpeed, {5.0f, 0.0f, 3000.0f});
-    hub->Register(paramOwnerLabel_, "登場:飛来中の大きさ", &appear.startScale, {0.01f, 0.01f, 1.0f});
-    hub->Register(paramOwnerLabel_, "登場:到着時の大きさ", &appear.arriveScale, {0.01f, 0.01f, 1.0f});
-    hub->Register(paramOwnerLabel_, "登場:到着のばらつき", &appear.spawnSpread, {0.01f, 0.0f, 3.0f});
+    params_.Register("登場:集束の時間", &appear.gatherTime, {0.05f, 0.1f, 10.0f});
+    params_.Register("登場:回転が収まる時間", &appear.settleTime, {0.01f, 0.0f, 5.0f});
+    params_.Register("登場:膨らむ時間", &appear.expandTime, {0.01f, 0.05f, 5.0f});
+    params_.Register("登場:集まってくる距離", &appear.gatherRadius, {0.5f, 1.0f, 100.0f});
+    params_.Register("登場:集束中の自転速度", &appear.gatherSpinSpeed, {5.0f, 0.0f, 3000.0f});
+    params_.Register("登場:飛来中の大きさ", &appear.startScale, {0.01f, 0.01f, 1.0f});
+    params_.Register("登場:到着時の大きさ", &appear.arriveScale, {0.01f, 0.01f, 1.0f});
+    params_.Register("登場:到着のばらつき", &appear.spawnSpread, {0.01f, 0.0f, 3.0f});
 
     // --- 露出度スケーリング（難易度カーブ）---
     BossExposureParams &exposure = parameters_.Exposure();
-    hub->Register(paramOwnerLabel_, "露出度:攻撃間隔(露出0)", &exposure.attackIntervalAtZero, {0.05f, 0.2f, 30.0f});
-    hub->Register(paramOwnerLabel_, "露出度:攻撃間隔(露出1)", &exposure.attackIntervalAtFull, {0.05f, 0.2f, 30.0f});
-    hub->Register(paramOwnerLabel_, "露出度:突進速度の倍率(露出1)", &exposure.spinDashSpeedScaleAtFull, {0.01f, 0.1f, 5.0f});
-    hub->Register(paramOwnerLabel_, "露出度:突進予兆の倍率(露出1)", &exposure.spinTelegraphScaleAtFull, {0.01f, 0.1f, 2.0f});
-    hub->Register(paramOwnerLabel_, "露出度:落下回数(露出0)", &exposure.slamCountAtZero, {1.0f, 1.0f, 12.0f});
-    hub->Register(paramOwnerLabel_, "露出度:落下回数(露出1)", &exposure.slamCountAtFull, {1.0f, 1.0f, 12.0f});
-    hub->Register(paramOwnerLabel_, "露出度:狙い時間の倍率(露出1)", &exposure.slamAimScaleAtFull, {0.01f, 0.1f, 2.0f});
+    params_.Register("露出度:攻撃間隔(露出0)", &exposure.attackIntervalAtZero, {0.05f, 0.2f, 30.0f});
+    params_.Register("露出度:攻撃間隔(露出1)", &exposure.attackIntervalAtFull, {0.05f, 0.2f, 30.0f});
+    params_.Register("露出度:突進速度の倍率(露出1)", &exposure.spinDashSpeedScaleAtFull, {0.01f, 0.1f, 5.0f});
+    params_.Register("露出度:突進予兆の倍率(露出1)", &exposure.spinTelegraphScaleAtFull, {0.01f, 0.1f, 2.0f});
+    params_.Register("露出度:落下回数(露出0)", &exposure.slamCountAtZero, {1.0f, 1.0f, 12.0f});
+    params_.Register("露出度:落下回数(露出1)", &exposure.slamCountAtFull, {1.0f, 1.0f, 12.0f});
+    params_.Register("露出度:狙い時間の倍率(露出1)", &exposure.slamAimScaleAtFull, {0.01f, 0.1f, 2.0f});
 }
 
 void Boss::DrawImGui() {
