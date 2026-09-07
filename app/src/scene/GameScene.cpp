@@ -97,6 +97,8 @@ void GameScene::Initialize()
 	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする
 	bossTestDriver_->SetSpider(bossSpider_.get());
 	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect());
+
+	pOffScreen_->LoadData("GameScenePostEffect");
 }
 
 void GameScene::Finalize()

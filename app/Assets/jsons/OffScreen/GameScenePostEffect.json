@@ -1,0 +1,24 @@
+{
+    "slot0_enabled": true,
+    "slot0_name": "outLine",
+    "slot0_occupied": true,
+    "slot0_param_kernelSize": 3,
+    "slot0_param_outlineColor": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "slot0_param_thickness": 3.0,
+    "slot0_param_threshold": 0.019999999552965164,
+    "slot0_shaderMode": 6,
+    "slot1_occupied": false,
+    "slot2_occupied": false,
+    "slot3_occupied": false,
+    "slot4_occupied": false,
+    "slot5_occupied": false,
+    "slot6_occupied": false,
+    "slot7_occupied": false,
+    "slot8_occupied": false,
+    "slot9_occupied": false
+}
