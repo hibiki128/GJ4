@@ -138,6 +138,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <!-- pch.h をプリコンパイルする翻訳単位。ここだけ /Yc(作成)、他は /Yu(使用) -->
+    <ClCompile Include="src\scene\GameOverScene.cpp" />
+    <ClCompile Include="src\scene\ClearScene.cpp" />
+    <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -178,8 +181,12 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Weapon\Bullet\PlayerBullet.cpp" />
     <ClCompile Include="src\Character\Player\Weapon\PlayerWeapon.cpp" />
     <ClCompile Include="src\Input\GameInput.cpp" />
+    <ClCompile Include="src\scene\TitleScene.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\scene\GameOverScene.h" />
+    <ClInclude Include="src\scene\ClearScene.h" />
+    <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
@@ -228,6 +235,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Interface\IColorProvider.h" />
     <ClInclude Include="src\Interface\IDamageable.h" />
     <ClInclude Include="src\Interface\ITargetLocator.h" />
+    <ClInclude Include="src\scene\TitleScene.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

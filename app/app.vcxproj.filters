@@ -110,6 +110,13 @@
     <ClCompile Include="src\scene\GameScene.cpp">
       <Filter>src\scene</Filter>
     </ClCompile>
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.cpp" />
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.cpp" />
+    <ClCompile Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.cpp" />
+    <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
+    <ClCompile Include="src\scene\TitleScene.cpp" />
+    <ClCompile Include="src\scene\ClearScene.cpp" />
+    <ClCompile Include="src\scene\GameOverScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="src">
@@ -345,5 +352,16 @@
     <ClInclude Include="src\Interface\ITargetLocator.h">
       <Filter>src\Interface</Filter>
     </ClInclude>
+    <ClInclude Include="src\Boss\Data\BossEasing.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackLeap.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackShoot.h" />
+    <ClInclude Include="src\Boss\Spider\Attack\BossSpiderAttackWhirl.h" />
+    <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
+    <ClInclude Include="src\scene\TitleScene.h" />
+    <ClInclude Include="src\scene\ClearScene.h" />
+    <ClInclude Include="src\scene\GameOverScene.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

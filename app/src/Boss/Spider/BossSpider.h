@@ -58,6 +58,18 @@ public:
     /// <summary>引っ込める（非表示にして動きも止める）</summary>
     void Hide();
 
+    /// <summary>
+    /// 引き継ぐ元（球体形態のコア）の現在値を教えておく。
+    /// デバッグの「変形を再生」でも本番と同じ位置・大きさから始められるよう、
+    /// シーンから毎フレーム渡してもらう
+    /// </summary>
+    /// <param name="position">コアの位置</param>
+    /// <param name="radius">コアの半径</param>
+    void SetCoreHandoff(const Hagine::Vector3 &position, float radius) {
+        handoffPosition_ = position;
+        handoffRadius_ = radius;
+    }
+
     /// <summary>変形が始まっているか（出現していれば true）</summary>
     bool IsActive() const { return phase_ != Phase::Hidden; }
 
@@ -327,6 +339,9 @@ private:
     float startRadius_ = 0.0f;       // 引き継いだコアの半径
     float startHeight_ = 0.0f;       // 引き継いだコアの高さ
     float standHeight_ = 0.0f;       // 足を着いて立ったときの胴の高さ
+
+    Hagine::Vector3 handoffPosition_{}; // 引き継ぐ元のコアの位置（シーンが毎フレーム更新）
+    float handoffRadius_ = 0.0f;        // 引き継ぐ元のコアの半径
     // 脚の姿勢は必ず時間をかけて変える（一気に変えると足がワープする）
     float legTuck_ = 0.0f;           // いまの畳み具合
     float legTuckFrom_ = 0.0f;       // 変え始めたときの畳み具合

@@ -91,7 +91,7 @@ public:
     /// <param name="params">蜘蛛のパラメータ</param>
     /// <param name="effect">吸着・消滅の演出設定</param>
     /// <returns>bool: くっついたら true（上限に達していたら false）</returns>
-    bool Attach(Color color, const Hagine::Vector3 &hitPoint, const BossColorPalette &palette,
+    bool Attach(Color color, const Hagine::Vector3 &hitPoint, int hitIndex, const BossColorPalette &palette,
                 const BossSpiderParams &params, const BossEffectParams &effect);
 
     /// <summary>
@@ -99,8 +99,11 @@ public:
     /// </summary>
     /// <param name="minMatch">消えるのに必要な数</param>
     /// <param name="effect">消滅の演出設定</param>
+    /// <param name="params">蜘蛛のパラメータ（切り落とした球の飛び方に使う）</param>
+    /// <param name="outSevered">切り落とした（消したのではない）球の数</param>
     /// <returns>int: 消した数（そろっていなければ0）</returns>
-    int TryEliminate(int minMatch, const BossEffectParams &effect);
+    int TryEliminate(int minMatch, const BossEffectParams &effect, const BossSpiderParams &params,
+                     int &outSevered);
 
     /// <summary>くっつき・消滅の演出を進める（並べ直したあとに呼ぶこと）</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
@@ -116,8 +119,9 @@ public:
     /// <param name="outDistance">始点から着弾までの距離</param>
     /// <param name="outPoint">着弾位置</param>
     /// <returns>bool: 当たれば true</returns>
+    /// <param name="outIndex">当たった球の並び順（付け根から数えた番号）</param>
     bool Raycast(const Hagine::Vector3 &start, const Hagine::Vector3 &end, const BossSpiderParams &params,
-                 float &outDistance, Hagine::Vector3 &outPoint) const;
+                 float &outDistance, Hagine::Vector3 &outPoint, int &outIndex) const;
 
     /// <summary>脚のいちばん先の球のワールド座標（ロックオンと弾の追尾に使う）</summary>
     /// <param name="out">ワールド座標</param>
@@ -136,13 +140,13 @@ public:
     float CalcFootReach(const BossSpiderParams &params) const;
 
     /// <summary>くっついている球の数</summary>
-    int GetAttachedCount() const { return static_cast<int>(attached_.size()); }
+    int GetChainCount() const { return static_cast<int>(chain_.size()); }
 
-    /// <summary>先端にそろっている同色の数</summary>
-    int GetTipRunLength() const;
+    /// <summary>いま切り落とされて飛び散っている球の数（デバッグ表示用）</summary>
+    int GetSeveredCount() const { return static_cast<int>(severed_.size()); }
 
-    /// <summary>基本の脚（絶対に消えない部分）の球の数</summary>
-    int GetBaseSphereCount() const { return activeSphereCount_; }
+    /// <summary>組み立て直後の球の数（伸び縮みの基準）</summary>
+    int GetBaseChainCount() const { return baseChainCount_; }
 
     /// <summary>脚を描画する</summary>
     void Draw(const Hagine::ViewProjection &viewProjection);
@@ -158,7 +162,7 @@ public:
     bool IsStepping() const { return isStepping_; }
 
     /// <summary>この脚を構成する球の数（実際に使っている数）</summary>
-    int GetSphereCount() const { return activeSphereCount_; }
+    int GetSphereCount() const { return static_cast<int>(chain_.size()); }
 
     /// <summary>付け根→膝に並んでいる球の数（膝を含む）</summary>
     int GetUpperSphereCount() const { return upperSphereCount_; }
@@ -209,17 +213,45 @@ private:
     /// private method
     /// ===================================================
 
-    /// <summary>くっついた球1つぶん</summary>
-    struct AttachedSlot {
-        BossSphere *sphere = nullptr; // 実体（attachedPool_ が所有）
-        Color color = Color::RED;     // 撃たれた色
+    /// <summary>脚の連なり1つぶん（もともとの脚の球も、くっついた球も同じように扱う）</summary>
+    struct ChainSlot {
+        BossSphere *sphere = nullptr;  // 実体
+        Color color = Color::RED;      // 色
+        bool fromAttachedPool = false; // 継ぎ足し用プールの球か（もともとの脚なら false）
     };
 
     /// <summary>消滅演出中の球1つぶん</summary>
     struct VanishSlot {
         BossSphere *sphere = nullptr;  // 実体
-        bool fromAttachedPool = false; // 継ぎ足し用の球か（もともと脚だった球なら false）
+        bool fromAttachedPool = false; // 継ぎ足し用プールの球か
     };
+
+    /// <summary>切り落とされて飛び散っている球1つぶん</summary>
+    struct SeveredPiece {
+        BossSphere *sphere = nullptr;   // 実体
+        Hagine::Vector3 position{};     // 現在位置（ワールド）
+        Hagine::Vector3 velocity{};     // 速度
+        float life = 0.0f;              // 残り時間（秒）
+        float maxLife = 1.0f;           // 最初の寿命（縮み始めの基準）
+        bool fromAttachedPool = false;  // 継ぎ足し用プールの球か
+    };
+
+    /// <summary>index の球と同じ色が、どこから続いているかを返す（膝側は守る）</summary>
+    int FindRunStart(int index) const;
+
+    /// <summary>index の球と同じ色が、どこまで続いているかを返す</summary>
+    int FindRunEnd(int index) const;
+
+    /// <summary>1個ぶんを切り落として飛び散らせる</summary>
+    /// <param name="slot">切り落とす球</param>
+    /// <param name="index">その球の並び順（先の球ほど勢いよく飛ばす）</param>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    void BeginSever(const ChainSlot &slot, int index, const BossSpiderParams &params);
+
+    /// <summary>飛び散っている球を落下させ、消えたらプールへ返す</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <param name="params">蜘蛛のパラメータ</param>
+    void UpdateSevered(float deltaTime, const BossSpiderParams &params);
 
     /// <summary>基本の脚での球の間隔（くっついた球もこの間隔で先へ足す）</summary>
     float CalcSpacing(const BossSpiderParams &params) const;
@@ -269,21 +301,22 @@ private:
     /// ===================================================
 
     std::vector<std::unique_ptr<BossSphere>> spheres_{}; // 脚を構成する球（付け根→足先の順・使い回す）
-    int activeSphereCount_ = 0;                          // 実際に使っている球の数
+
     int upperSphereCount_ = 0;                           // うち付け根→膝の数（膝を含む）
     int lowerSphereCount_ = 0;                           // うち膝→足先の数（膝を含む）
     float sphereSpacing_ = 0.0f;                         // いまの球の間隔（上腿・下腿で共通）
     bool isHidden_ = false;                              // 本数を減らして余った脚か
-
-
-    // --- 弾がくっついたぶん（基本の脚の先へ継ぎ足される） ---
+    // --- 脚の連なり（もともとの脚と、くっついた球をひとつの並びで持つ）---
+    // ひと続きにしておくと、途中に差し込む・途中で切るのがそのまま書ける
     std::vector<std::unique_ptr<BossSphere>> attachedPool_{}; // 継ぎ足し用の球（所有・増やすだけ）
-    std::vector<AttachedSlot> attached_{};                    // 付け根に近い順（末尾が先端）
     std::vector<BossSphere *> freeAttached_{};                // 空いている継ぎ足し球
+    std::vector<ChainSlot> chain_{};                          // 付け根→先端の並び
+    int baseChainCount_ = 0;                                  // 組み立て直後の球の数（伸び縮みの基準）
     std::vector<VanishSlot> vanishing_{};                     // 消滅演出中の球
+    std::vector<SeveredPiece> severed_{};                     // 切り落とされて飛び散っている球
     std::string namePrefix_{};                                // 継ぎ足し球の名前の接頭辞
 
-    // くっついた数(attached_.size())へ滑らかに寄せていく、実数の継ぎ足し量。
+    // 組み立て直後の数からの増減へ滑らかに寄せていく、実数の継ぎ足し量。
     // 整数のまま切り替えると、着弾した瞬間に下腿の球がまとめて詰め直されて
     // 1フレームで球の直径ぶん飛ぶ（伸びずに詰まって見える）
     float extension_ = 0.0f;      // いまの継ぎ足し量（球の個数ぶん）
@@ -291,9 +324,10 @@ private:
     float extendTarget_ = 0.0f;   // 目標の量
     float extendTimer_ = 0.0f;    // 伸び縮みの経過時間（秒）
     float extendDuration_ = 0.2f; // 伸び縮みにかける時間（秒）
+    int lastAttachIndex_ = -1;    // 直前に差し込んだ球の並び順（同色の並びを探す起点）
     float reachScale_ = 1.0f;     // 足を置く半径の倍率（攻撃で脚を広げるときに使う）
     float legTuck_ = 0.0f;        // 脚を胴の下へ畳む度合い（跳躍中に使う）
-    int removedBase_ = 0;         // 消された「もともと脚だった球」の数
+
 
     int legIndex_ = 0;      // 脚の番号
     float azimuth_ = 0.0f;  // 胴を上から見たときの、脚の向き（ラジアン）

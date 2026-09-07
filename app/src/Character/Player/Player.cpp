@@ -8,7 +8,8 @@
 
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
-	CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
+	CreateModel("slime/slime.obj");
 
 	// ステートを登録
 	states_["Idle"] = std::make_unique<PlayerStateIdle>();
@@ -17,6 +18,8 @@ void Player::Init(const std::string objectName) {
 	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
 	currentState_ = states_["Idle"].get();
+	// 初期ステートの初期化
+	currentState_->Enter(*this, context_);
 
 	// 弾のプールを生成してオブジェクトマネージャーに登録する
 	// （以降、弾の更新と描画はオブジェクトマネージャーが行う）
@@ -28,6 +31,7 @@ void Player::Init(const std::string objectName) {
 	context_.moveComponent_ = &move_;
 	context_.jumpComponent_ = &jump_;
 	context_.shootComponent_ = &shoot_;
+	context_.reactionComponent_ = &reaction_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
 
