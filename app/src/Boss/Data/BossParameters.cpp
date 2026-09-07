@@ -363,6 +363,15 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     spider["bodyBob"] = params.bodyBob;
     spider["bodySway"] = params.bodySway;
     spider["stopDistance"] = params.stopDistance;
+    json sever = json::object();
+    sever["speed"] = params.sever.speed;
+    sever["lift"] = params.sever.lift;
+    sever["scatter"] = params.sever.scatter;
+    sever["gravity"] = params.sever.gravity;
+    sever["bounce"] = params.sever.bounce;
+    sever["life"] = params.sever.life;
+    spider["sever"] = sever;
+
     json leap = json::object();
     leap["hopCount"] = params.attack.leap.hopCount;
     leap["crouchTime"] = params.attack.leap.crouchTime;
