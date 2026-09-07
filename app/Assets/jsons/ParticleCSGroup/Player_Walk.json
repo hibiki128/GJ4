@@ -1,0 +1,8 @@
+{
+    "blendMode": 2,
+    "groupName": "Player_Walk",
+    "maxParticleCount": 10000,
+    "modelFilePath": "",
+    "primitiveType": 2,
+    "textureName": "debug/white1x1.png"
+}
