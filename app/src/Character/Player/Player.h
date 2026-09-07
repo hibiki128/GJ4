@@ -41,6 +41,9 @@ private:
 
 	PlayerContext context_;
 
+	// ぷにぷにの中心になるスケール（Init 時のスケールを基準にする）
+	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};
+
 	bool isJumping_ = false;
 };
 
