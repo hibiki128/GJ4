@@ -1,0 +1,19 @@
+{
+    "directional_BlinnPhong": 1,
+    "directional_HalfLambert": 0,
+    "directional_active": true,
+    "directional_color": {
+        "w": 1.0,
+        "x": 1.0,
+        "y": 1.0,
+        "z": 1.0
+    },
+    "directional_direction": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+    },
+    "directional_intensity": 1.0,
+    "pointLight_count": 0,
+    "spotLight_count": 0
+}

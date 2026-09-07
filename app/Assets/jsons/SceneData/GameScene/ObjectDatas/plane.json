@@ -19,6 +19,7 @@
     "isWireframe": false,
     "material_0_enableNormalMap": false,
     "material_0_enableProceduralNormal": false,
+    "material_0_enableToon": true,
     "material_0_normalMapPath": "",
     "material_0_normalStrength": 1.0,
     "material_0_proceduralScale": 3.0,
@@ -61,7 +62,7 @@
     "textureName_0": "Field/Floor.png",
     "translation": {
         "x": 0.0,
-        "y": -3.0,
+        "y": 0.0,
         "z": 0.0
     }
 }

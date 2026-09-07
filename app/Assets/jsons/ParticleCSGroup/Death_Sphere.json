@@ -1,0 +1,8 @@
+{
+    "blendMode": 2,
+    "groupName": "Death_Sphere",
+    "maxParticleCount": 50000,
+    "modelFilePath": "",
+    "primitiveType": 1,
+    "textureName": "debug/circle2.png"
+}

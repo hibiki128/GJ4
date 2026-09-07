@@ -1,5 +1,5 @@
 {
-    "enabled": true,
+    "enabled": false,
     "steps": 2.0,
     "threshold": 0.5,
     "softness": 0.03,
