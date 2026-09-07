@@ -157,6 +157,16 @@ struct BossSpiderWhirlParams {
     float recoverTime = 1.0f;   // 回転後の硬直
 };
 
+/// <summary>脚を切り落としたときの、飛び散り方</summary>
+struct BossSpiderSeverParams {
+    float speed = 4.0f;    // 外向きに飛び出す速さ
+    float lift = 5.0f;     // 上向きの初速
+    float scatter = 2.5f;  // 1個ごとの散らばり
+    float gravity = 24.0f; // 落下の強さ
+    float bounce = 0.35f;  // 地面で跳ねる強さ（0で跳ねない）
+    float life = 1.4f;     // 消えるまでの時間（秒）
+};
+
 /// <summary>蜘蛛の攻撃全体の設定</summary>
 struct BossSpiderAttackParams {
     float interval = 3.2f;     // 攻撃と攻撃の間隔（秒）
@@ -220,6 +230,9 @@ struct BossSpiderParams {
 
     // --- 攻撃 ---
     BossSpiderAttackParams attack{};
+
+    // --- 脚を切り落とすとき ---
+    BossSpiderSeverParams sever{};
 };
 
 /// <summary>

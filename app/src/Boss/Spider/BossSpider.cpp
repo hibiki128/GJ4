@@ -48,7 +48,7 @@ void BossSpider::Init(const std::string objectName) {
     BaseObject::Init(objectName);
 
     // 胴は球体形態の中心と同じ、暗い球
-    CreatePrimitiveModel(PrimitiveType::Sphere);
+    CreateModel("boss.obj");
     SetTexture(kBossTexturePath);
     SetShouldSave(false);
 
@@ -661,16 +661,20 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
 
     // いちばん手前で当たった脚を選ぶ
     int hitLeg = -1;
+    int hitIndex = -1;
     float nearest = 0.0f;
     Vector3 hitPoint{};
     for (int index = 0; index < activeLegCount_; ++index) {
         float distance = 0.0f;
         Vector3 point{};
-        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point)) {
+        int sphereIndex = -1;
+        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point,
+                                                        sphereIndex)) {
             continue;
         }
         if (hitLeg < 0 || distance < nearest) {
             hitLeg = index;
+            hitIndex = sphereIndex;
             nearest = distance;
             hitPoint = point;
         }
@@ -683,16 +687,17 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
     result.hitPoint = hitPoint;
 
     BossSpiderLeg *leg = legs_[static_cast<size_t>(hitLeg)].get();
-    result.attached = leg->Attach(color, hitPoint, palette_, parameters_, effect_);
+    result.attached = leg->Attach(color, hitPoint, hitIndex, palette_, parameters_, effect_);
     if (!result.attached) {
         return result; // これ以上伸ばせない（弾は当たったので消える）
     }
 
-    // 先端に同じ色がそろっていたら、そのぶんだけ脚が縮む
-    const int destroyed = leg->TryEliminate(chain_.minMatch, effect_);
+    // 同じ色がそろっていたらそこが消え、その先に残っていた球は切り落とされる
+    int severed = 0;
+    const int destroyed = leg->TryEliminate(chain_.minMatch, effect_, parameters_, severed);
     if (destroyed > 0) {
         result.destroyed = true;
-        result.clusterSize = destroyed;
+        result.clusterSize = destroyed + severed;
         result.staggerTime = chain_.staggerBase +
                              chain_.staggerPerPart * static_cast<float>(destroyed - chain_.minMatch);
     }
@@ -887,6 +892,23 @@ void BossSpider::DrawGameplayImGui() {
     ImGui::DragFloat("胴の左右の揺れ", &parameters_.bodySway, 0.01f, 0.0f, 2.0f);
     ImGui::DragFloat("止まる距離", &parameters_.stopDistance, 0.1f, 0.0f, 30.0f);
 
+
+
+    ImGui::SeparatorText("脚を切り落とす");
+    ImGui::TextDisabled("同じ色がそろった場所より先に球が残っていれば、そこから先は切り落とされます");
+    int severedTotal = 0;
+    for (int index = 0; index < activeLegCount_; ++index) {
+        severedTotal += legs_[static_cast<size_t>(index)]->GetSeveredCount();
+    }
+    ImGui::Text("飛び散っている球: %d 個", severedTotal);
+    ImGui::DragFloat("外へ飛ぶ速さ", &parameters_.sever.speed, 0.1f, 0.0f, 40.0f);
+    ImGui::DragFloat("上へ飛ぶ速さ", &parameters_.sever.lift, 0.1f, 0.0f, 40.0f);
+    ImGui::DragFloat("散らばり", &parameters_.sever.scatter, 0.05f, 0.0f, 15.0f);
+    HelpMarker("1個ごとに速度をばらつかせます。0にすると全部そろって飛びます");
+    ImGui::DragFloat("落下の強さ", &parameters_.sever.gravity, 0.5f, 0.0f, 120.0f);
+    ImGui::SliderFloat("地面で跳ねる強さ", &parameters_.sever.bounce, 0.0f, 1.0f);
+    ImGui::DragFloat("消えるまでの時間", &parameters_.sever.life, 0.05f, 0.1f, 10.0f);
+    HelpMarker("最後の3割の時間で縮んで消えます");
 
     ImGui::SeparatorText("攻撃");
     BossSpiderAttackParams &attack = parameters_.attack;

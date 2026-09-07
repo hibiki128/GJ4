@@ -33,7 +33,7 @@ void Boss::Init(const std::string objectName) {
 
     // --- コア（内側の球）を生成 ---
     BaseObject::Init(objectName);
-    CreatePrimitiveModel(PrimitiveType::Sphere);
+    CreateModel("boss.obj");
 
     // パーツを組む前に登録する。保存済みの実行時調整値があればここで反映され、
     // その値でパーツが作られる

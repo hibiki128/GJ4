@@ -1,6 +1,7 @@
 #include "BossSpiderLeg.h"
 #include "Easing.h"
 #include "MyMath.h"
+#include "Random.h"
 #include "camera/projection/ViewProjection.h"
 #include "object/base/BaseObject.h"
 #include <algorithm>
@@ -112,20 +113,30 @@ void BossSpiderLeg::Configure(const std::string &namePrefix, int legIndex, int l
     lowerSphereCount_ = ResolveLowerSphereCount(params);
     const int jointCount = upperSphereCount_ + lowerSphereCount_ - 1;
 
-    // 組み直したらくっついていたぶんは無かったことにする
-    for (const AttachedSlot &slot : attached_) {
-        slot.sphere->Deactivate();
-        freeAttached_.push_back(slot.sphere);
+    // 組み直したら、くっついた球も切り落とし中の球もいったん片付ける
+    for (const ChainSlot &slot : chain_) {
+        if (slot.fromAttachedPool) {
+            slot.sphere->Deactivate();
+            freeAttached_.push_back(slot.sphere);
+        }
     }
-    attached_.clear();
-    removedBase_ = 0;
+    for (const SeveredPiece &piece : severed_) {
+        piece.sphere->Deactivate();
+        piece.sphere->SetSphereRadius(params.legSphereRadius);
+        if (piece.fromAttachedPool) {
+            freeAttached_.push_back(piece.sphere);
+        }
+    }
+    severed_.clear();
+    chain_.clear();
+    lastAttachIndex_ = -1;
     extension_ = 0.0f;
     extendFrom_ = 0.0f;
     extendTarget_ = 0.0f;
     extendTimer_ = extendDuration_;
 
     EnsureSpheres(namePrefix + std::to_string(legIndex), jointCount, params.legSphereRadius);
-    activeSphereCount_ = jointCount;
+    baseChainCount_ = jointCount;
     isHidden_ = false;
 
     for (int joint = 0; joint < static_cast<int>(spheres_.size()); ++joint) {
@@ -146,20 +157,18 @@ void BossSpiderLeg::Configure(const std::string &namePrefix, int legIndex, int l
         // 以降 PlacePose では可視フラグを触らない（毎フレーム切り替えないため）
         sphere->SetIsAlive(true);
         sphere->SetIsModelDraw(true);
+        chain_.push_back(ChainSlot{sphere, color, false});
     }
 }
 
 void BossSpiderLeg::SetHidden(bool hidden) {
     isHidden_ = hidden;
-    for (int joint = 0; joint < static_cast<int>(spheres_.size()); ++joint) {
-        BossSphere *sphere = spheres_[static_cast<size_t>(joint)].get();
-        const bool visible = !hidden && joint < activeSphereCount_;
-        sphere->SetIsAlive(visible);
-        sphere->SetIsModelDraw(visible);
+    // 使っていない球まで出さないよう、いま脚に付いているものだけを切り替える
+    for (const std::unique_ptr<BossSphere> &sphere : spheres_) {
+        sphere->SetIsAlive(false);
+        sphere->SetIsModelDraw(false);
     }
-
-    // くっついたぶんも一緒に隠す
-    for (const AttachedSlot &slot : attached_) {
+    for (const ChainSlot &slot : chain_) {
         slot.sphere->SetIsAlive(!hidden);
         slot.sphere->SetIsModelDraw(!hidden);
     }
@@ -283,7 +292,8 @@ void BossSpiderLeg::BeginExtend(float duration) {
     // いまの位置から目標へ、両端で速度0になる曲線で寄せ直す
     extendFrom_ = extension_;
     // 継ぎ足したぶんから、消された脚のぶんを引いた量が目標
-    extendTarget_ = static_cast<float>(static_cast<int>(attached_.size()) - removedBase_);
+    // 組み立て直後からどれだけ増減したかが目標
+    extendTarget_ = static_cast<float>(static_cast<int>(chain_.size()) - baseChainCount_);
     extendTimer_ = 0.0f;
     extendDuration_ = (std::max)(0.01f, duration);
 }
@@ -301,48 +311,37 @@ float BossSpiderLeg::AdvanceExtension(float deltaTime) {
     return extension_ - previous;
 }
 
-int BossSpiderLeg::GetTipRunLength() const {
-    Color tipColor = Color::RED;
-    bool hasTip = false;
-    int run = 0;
-
-    // 先端から付け根へ向かって、同じ色が続くあいだ数える。
-    // まずはくっついたぶん
-    for (auto it = attached_.rbegin(); it != attached_.rend(); ++it) {
-        if (!hasTip) {
-            tipColor = it->color;
-            hasTip = true;
-        }
-        if (it->color != tipColor) {
-            return run;
-        }
-        ++run;
+int BossSpiderLeg::FindRunStart(int index) const {
+    // 差し込んだ球と同じ色が、どこから続いているかを探す。
+    // 膝（と、そのすぐ先の1個）は残すので、そこより内側へは伸ばさない
+    const int limit = upperSphereCount_ + 1;
+    const Color color = chain_[static_cast<size_t>(index)].color;
+    int start = index;
+    while (start > limit && chain_[static_cast<size_t>(start - 1)].color == color) {
+        --start;
     }
-
-    // 続けて、もともと脚だった球も同じ列として数える。
-    // ただし膝（と、そのすぐ先の1個）は残す。脚が付け根まで消えると
-    // 折れ線が閉じられず、足が地面に着けなくなるため
-    for (int joint = activeSphereCount_ - 1; joint > upperSphereCount_; --joint) {
-        const Color color = spheres_[static_cast<size_t>(joint)]->GetSphereColor();
-        if (!hasTip) {
-            tipColor = color;
-            hasTip = true;
-        }
-        if (color != tipColor) {
-            return run;
-        }
-        ++run;
-    }
-    return run;
+    return start;
 }
 
-bool BossSpiderLeg::Attach(Color color, const Vector3 &hitPoint, const BossColorPalette &palette,
-                           const BossSpiderParams &params, const BossEffectParams &effect) {
-    if (isHidden_) {
+int BossSpiderLeg::FindRunEnd(int index) const {
+    const Color color = chain_[static_cast<size_t>(index)].color;
+    int end = index;
+    const int last = static_cast<int>(chain_.size()) - 1;
+    while (end < last && chain_[static_cast<size_t>(end + 1)].color == color) {
+        ++end;
+    }
+    return end;
+}
+
+bool BossSpiderLeg::Attach(Color color, const Vector3 &hitPoint, int hitIndex,
+                           const BossColorPalette &palette, const BossSpiderParams &params,
+                           const BossEffectParams &effect) {
+    if (isHidden_ || chain_.empty()) {
         return false;
     }
     // 伸ばしすぎないよう上限を設ける（0以下なら無制限）
-    if (params.maxAttachPerLeg > 0 && static_cast<int>(attached_.size()) >= params.maxAttachPerLeg) {
+    const int added = static_cast<int>(chain_.size()) - baseChainCount_;
+    if (params.maxAttachPerLeg > 0 && added >= params.maxAttachPerLeg) {
         return false;
     }
 
@@ -358,58 +357,134 @@ bool BossSpiderLeg::Attach(Color color, const Vector3 &hitPoint, const BossColor
     BossSphere *sphere = freeAttached_.back();
     freeAttached_.pop_back();
 
-    // セルは識別用（脚の番号と、付け根から数えた並び順）
-    const int chainIndex = GetBaseSphereCount() + static_cast<int>(attached_.size());
-    sphere->Place(ShellCell{legIndex_, chainIndex}, footPosition_, color, palette.GetRgba(color));
+    // 当たった球のすぐ外側へ差し込む。先端に当たればこれまでどおり先へ伸び、
+    // 途中に当たればそこへ割り込んで、その先はまとめて外側へ押し出される。
+    // 膝の側は守るので、内側に当たっても最低限そこまでしか入らない
+    int insertAt = std::clamp(hitIndex + 1, upperSphereCount_ + 1, static_cast<int>(chain_.size()));
+
+    sphere->Place(ShellCell{legIndex_, insertAt}, footPosition_, color, palette.GetRgba(color));
     sphere->SetSphereRadius(params.legSphereRadius);
+    sphere->SetIsAlive(true);
     sphere->SetIsModelDraw(true);
-    // 着弾点から吸い寄せられて先端に生える
+    // 着弾点から吸い寄せられて生える
     sphere->BeginAttach(hitPoint, effect.attachTime, effect.attachStartScale);
 
-    attached_.push_back(AttachedSlot{sphere, color});
+    chain_.insert(chain_.begin() + insertAt, ChainSlot{sphere, color, true});
+    lastAttachIndex_ = insertAt;
+
     // 継ぎ足し量を実数で滑らかに寄せる。整数で切り替えると脚が一瞬で詰め直される
     BeginExtend(effect.attachTime);
     return true;
 }
 
-int BossSpiderLeg::TryEliminate(int minMatch, const BossEffectParams &effect) {
-    const int run = GetTipRunLength();
+int BossSpiderLeg::TryEliminate(int minMatch, const BossEffectParams &effect,
+                                const BossSpiderParams &params, int &outSevered) {
+    outSevered = 0;
+    if (lastAttachIndex_ < 0 || lastAttachIndex_ >= static_cast<int>(chain_.size())) {
+        return 0;
+    }
+
+    // 差し込んだ球を含む同色の並びを見る（消えるのはこの並びだけ）
+    const int start = FindRunStart(lastAttachIndex_);
+    const int end = FindRunEnd(lastAttachIndex_);
+    const int run = end - start + 1;
+    lastAttachIndex_ = -1;
     if (run < (std::max)(2, minMatch)) {
         return 0;
     }
 
-    // 先端から run 個ぶんを消す。くっついたぶんを使い切ったら、
-    // もともと脚だった球も先端側から消していく（膝より内側は残る）
-    for (int index = 0; index < run; ++index) {
-        BossSphere *sphere = nullptr;
-        bool fromAttachedPool = false;
-
-        if (!attached_.empty()) {
-            sphere = attached_.back().sphere;
-            attached_.pop_back();
-            fromAttachedPool = true;
-        } else if (activeSphereCount_ > upperSphereCount_ + 1) {
-            --activeSphereCount_;
-            ++removedBase_;
-            sphere = spheres_[static_cast<size_t>(activeSphereCount_)].get();
-        } else {
-            break; // これ以上は膝側なので消さない
-        }
-
-        // 消え切ったところで UpdateMotions が片付ける。ここで返すと
-        // 演出中の球が次の着弾で再利用されてしまう
-        sphere->BeginVanish(effect.vanishTime, effect.vanishDrift,
-                            effect.vanishSpread * static_cast<float>(index));
-        vanishing_.push_back(VanishSlot{sphere, fromAttachedPool});
+    // 消える並びより先にまだ球が残っていれば、そこから先は繋がりを失う。
+    // 消すのではなく「切り落として飛び散らせる」
+    const int chainEnd = static_cast<int>(chain_.size()) - 1;
+    for (int index = end + 1; index <= chainEnd; ++index) {
+        BeginSever(chain_[static_cast<size_t>(index)], index, params);
+        ++outSevered;
     }
 
-    // 消えたぶんだけ、脚も滑らかに縮む
+    // 消える並びは、これまでどおり消滅演出で消す
+    for (int index = start; index <= end; ++index) {
+        ChainSlot &slot = chain_[static_cast<size_t>(index)];
+        slot.sphere->BeginVanish(effect.vanishTime, effect.vanishDrift,
+                                 effect.vanishSpread * static_cast<float>(index - start));
+        vanishing_.push_back(VanishSlot{slot.sphere, slot.fromAttachedPool});
+    }
+
+    // 並びの手前までが残る脚になる
+    chain_.erase(chain_.begin() + start, chain_.end());
+
+    // 短くなったぶんだけ、脚も滑らかに縮む
     BeginExtend(effect.vanishTime);
     return run;
 }
 
+void BossSpiderLeg::BeginSever(const ChainSlot &slot, int index, const BossSpiderParams &params) {
+    const BossSpiderSeverParams &sever = params.sever;
+
+    SeveredPiece piece{};
+    piece.sphere = slot.sphere;
+    piece.fromAttachedPool = slot.fromAttachedPool;
+    piece.position = slot.sphere->GetRenderPosition();
+    piece.maxLife = (std::max)(0.1f, sever.life);
+    piece.life = piece.maxLife;
+
+    // 脚の伸びていた向きへ飛ばす。先の球ほど勢いよく飛ぶと、
+    // ちぎれた先が振り抜かれたように見える
+    Vector3 outward = piece.position - footPosition_;
+    outward.y = 0.0f;
+    if (outward.LengthSq() <= 0.0001f) {
+        outward = MakeHorizontalDirection(azimuth_);
+    } else {
+        outward = outward.Normalize();
+    }
+    const float order = static_cast<float>(index) * 0.15f;
+    piece.velocity = outward * (sever.speed + order) + Vector3{0.0f, sever.lift, 0.0f};
+    piece.velocity += Vector3{Random::Range(-sever.scatter, sever.scatter),
+                              Random::Range(0.0f, sever.scatter),
+                              Random::Range(-sever.scatter, sever.scatter)};
+
+    severed_.push_back(piece);
+}
+
+void BossSpiderLeg::UpdateSevered(float deltaTime, const BossSpiderParams &params) {
+    const BossSpiderSeverParams &sever = params.sever;
+    const float radius = params.legSphereRadius;
+
+    for (size_t index = 0; index < severed_.size();) {
+        SeveredPiece &piece = severed_[index];
+
+        piece.velocity.y -= sever.gravity * deltaTime;
+        piece.position += piece.velocity * deltaTime;
+
+        // 地面で跳ねてから転がって止まる
+        if (piece.position.y < radius) {
+            piece.position.y = radius;
+            piece.velocity.y = -piece.velocity.y * std::clamp(sever.bounce, 0.0f, 1.0f);
+            piece.velocity.x *= 0.7f;
+            piece.velocity.z *= 0.7f;
+        }
+        piece.sphere->SetLocalPosition(piece.position);
+
+        // 終わりぎわだけ縮めて消す（唐突に消えないように）
+        piece.life -= deltaTime;
+        const float fade = std::clamp(piece.life / (piece.maxLife * 0.35f), 0.0f, 1.0f);
+        piece.sphere->SetSphereRadius((std::max)(radius * 0.02f, radius * fade));
+
+        if (piece.life > 0.0f) {
+            ++index;
+            continue;
+        }
+        piece.sphere->Deactivate();
+        piece.sphere->SetSphereRadius(radius);
+        if (piece.fromAttachedPool) {
+            freeAttached_.push_back(piece.sphere);
+        }
+        severed_[index] = severed_.back();
+        severed_.pop_back();
+    }
+}
+
 void BossSpiderLeg::UpdateMotions(float deltaTime, const BossSpiderParams &params) {
-    for (AttachedSlot &slot : attached_) {
+    for (ChainSlot &slot : chain_) {
         slot.sphere->UpdateMotion(deltaTime, params.legSphereRadius);
     }
 
@@ -421,18 +496,20 @@ void BossSpiderLeg::UpdateMotions(float deltaTime, const BossSpiderParams &param
         }
         slot.sphere->Deactivate();
         // 継ぎ足し用の球だけをプールへ返す。もともと脚だった球は spheres_ に
-        // 残したままで、activeSphereCount_ の外にあるので並べ直しの対象にならない
+        // 残したままで、chain_ から外れているので並べ直しの対象にならない
         if (slot.fromAttachedPool) {
             freeAttached_.push_back(slot.sphere);
         }
         vanishing_[index] = vanishing_.back();
         vanishing_.pop_back();
     }
+
+    UpdateSevered(deltaTime, params);
 }
 
 bool BossSpiderLeg::Raycast(const Vector3 &start, const Vector3 &end, const BossSpiderParams &params,
-                            float &outDistance, Vector3 &outPoint) const {
-    if (isHidden_) {
+                            float &outDistance, Vector3 &outPoint, int &outIndex) const {
+    if (isHidden_ || chain_.empty()) {
         return false;
     }
 
@@ -446,33 +523,29 @@ bool BossSpiderLeg::Raycast(const Vector3 &start, const Vector3 &end, const Boss
 
     bool found = false;
     float nearest = segmentLength;
+    int nearestIndex = -1;
 
     // 脚の球はワールド座標そのままなので、線分と球の交差をそのまま解く
-    auto test = [&](const Vector3 &center) {
+    for (int index = 0; index < static_cast<int>(chain_.size()); ++index) {
+        const Vector3 center = chain_[static_cast<size_t>(index)].sphere->GetRenderPosition();
         const Vector3 toCenter = center - start;
         const float along = toCenter.Dot(direction);
         // 球の裏側から始まる線分も拾えるよう、半径ぶんの余裕を見る
         if (along < -radius || along > segmentLength + radius) {
-            return;
+            continue;
         }
         const float perpendicularSq = toCenter.LengthSq() - along * along;
         if (perpendicularSq > radius * radius) {
-            return;
+            continue;
         }
         const float back = std::sqrt((std::max)(0.0f, radius * radius - perpendicularSq));
         const float distance = (std::max)(0.0f, along - back);
-        if (distance > nearest) {
-            return;
+        if (found && distance > nearest) {
+            continue;
         }
         nearest = distance;
+        nearestIndex = index;
         found = true;
-    };
-
-    for (int index = 0; index < activeSphereCount_ && index < static_cast<int>(spheres_.size()); ++index) {
-        test(spheres_[static_cast<size_t>(index)]->GetRenderPosition());
-    }
-    for (const AttachedSlot &slot : attached_) {
-        test(slot.sphere->GetRenderPosition());
     }
 
     if (!found) {
@@ -480,29 +553,21 @@ bool BossSpiderLeg::Raycast(const Vector3 &start, const Vector3 &end, const Boss
     }
     outDistance = nearest;
     outPoint = start + direction * nearest;
+    outIndex = nearestIndex;
     return true;
 }
 
-
 bool BossSpiderLeg::TryGetTipPosition(Vector3 &out) const {
-    if (isHidden_) {
+    if (isHidden_ || chain_.empty()) {
         return false;
     }
-    // くっついた球があればその先端、無ければ基本の脚の足先
-    if (!attached_.empty()) {
-        out = attached_.back().sphere->GetRenderPosition();
-        return true;
-    }
-    if (activeSphereCount_ <= 0 || spheres_.empty()) {
-        return false;
-    }
-    out = spheres_[static_cast<size_t>(activeSphereCount_ - 1)]->GetRenderPosition();
+    out = chain_.back().sphere->GetRenderPosition();
     return true;
 }
 
 void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const BossSpiderParams &params,
                               float growth, float bend) {
-    if (spheres_.empty() || isHidden_ || upperSphereCount_ < 2 || lowerSphereCount_ < 2) {
+    if (chain_.empty() || isHidden_ || upperSphereCount_ < 2 || lowerSphereCount_ < 2) {
         return;
     }
 
@@ -525,13 +590,13 @@ void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const 
     const Vector3 foot = knee + lowerDirection * lowerLength;
 
     // 何個目まで生えたか。端数がその球の「生えかけ具合」になる
-    const float emerged = std::clamp(growth, 0.0f, 1.0f) * static_cast<float>(activeSphereCount_);
+    const int count = static_cast<int>(chain_.size());
+    const float emerged = std::clamp(growth, 0.0f, 1.0f) * static_cast<float>(count);
+
     // 変形中に「毎フレーム触る状態」を位置だけに絞る。
-    // 可視フラグの切り替えやスケールの上げ下げを毎フレーム行うと、
-    // 描画側の状態が毎フレーム揺れる（ちらつきの調査でここを疑っている）。
     // まだ生えていない球は胴（黒い球）の中に置いておけば、フラグを触らなくても見えない
-    for (int joint = 0; joint < activeSphereCount_; ++joint) {
-        BossSphere *sphere = spheres_[static_cast<size_t>(joint)].get();
+    for (int joint = 0; joint < count; ++joint) {
+        BossSphere *sphere = chain_[static_cast<size_t>(joint)].sphere;
 
         const float appear = std::clamp(emerged - static_cast<float>(joint), 0.0f, 1.0f);
         if (appear <= 0.0f) {
@@ -543,18 +608,6 @@ void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const 
         // 出はじめに飛ぶことがない
         const Vector3 slotPosition = PointAlongLeg(static_cast<float>(joint), hip, knee, foot);
         sphere->SetLocalPosition(Lerp(bodyPosition, slotPosition, appear));
-    }
-
-    // くっついた球は基本の脚の先へ、同じ折れ線を延長する形で並べる。
-    // 上腿の長さは変わらないので、関節（膝）の球はその場から動かない。
-    // いちばん先の球は「ひとつ内側の位置」から折れ線の端へ押し出されてくるので、
-    // 継ぎ足しが滑らかに進むあいだ、先端が伸びていくように見える
-    const float baseCount = static_cast<float>(GetBaseSphereCount());
-    const float tipIndex = baseCount - 1.0f + extension_;
-    for (int index = 0; index < static_cast<int>(attached_.size()); ++index) {
-        BossSphere *sphere = attached_[static_cast<size_t>(index)].sphere;
-        const float slot = (std::min)(baseCount + static_cast<float>(index), tipIndex);
-        sphere->SetLocalPosition(PointAlongLeg(slot, hip, knee, foot));
     }
 }
 
@@ -614,13 +667,14 @@ void BossSpiderLeg::Draw(const ViewProjection &viewProjection) {
     if (isHidden_) {
         return;
     }
-    for (int joint = 0; joint < activeSphereCount_ && joint < static_cast<int>(spheres_.size()); ++joint) {
-        spheres_[static_cast<size_t>(joint)]->Draw(viewProjection);
-    }
-    for (const AttachedSlot &slot : attached_) {
+    for (const ChainSlot &slot : chain_) {
         slot.sphere->Draw(viewProjection);
     }
     for (const VanishSlot &slot : vanishing_) {
         slot.sphere->Draw(viewProjection);
+    }
+    // 切り落とされて飛んでいる球（脚から外れても、消えるまでは見えている）
+    for (const SeveredPiece &piece : severed_) {
+        piece.sphere->Draw(viewProjection);
     }
 }
