@@ -4,6 +4,6 @@
 
 class PlayerComponentReaction {
 public:
-	void SquashStretch(const Hagine::Vector3& scale, float easeT, float time, float amplitude, float period);
+	Hagine::Vector3 SquashStretch(const Hagine::Vector3& scale, float easeT, float time, float amplitude, float period);
 };
 

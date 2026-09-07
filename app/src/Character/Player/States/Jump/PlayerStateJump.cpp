@@ -3,12 +3,27 @@
 #include "src/Character/Player/Core/PlayerContext.h"
 #include "src/Character/Player/Components/Jump/PlayerJumpComponent.h"
 #include "src/Character/Player/Components/Move/PlayerMoveComponent.h"
+#include "Utility/Debug/Param/GameParamHub.h"
+#include "Frame/Frame.h"
 
 void PlayerStateJump::Enter(Player& player, PlayerContext& context) {
-	
+	baseScale_ = player.GetWorldTransform()->scale_;
+	time_ = 0.0f;
 }
 
 void PlayerStateJump::Update(Player& player, PlayerContext& context) {
+	std::string paramOwnerLabel = "Player/Jump";
+	Hagine::GameParamHub* hub = Hagine::GameParamHub::GetInstance();
+
+	hub->Register(paramOwnerLabel, "Duration", &kDuration);
+	hub->Register(paramOwnerLabel, "Amplitude", &kAmplitude);
+	hub->Register(paramOwnerLabel, "Period", &kPeriod);
+
+	time_ += Hagine::Frame::DeltaTime();
+	if (time_ >= kDuration) { time_ = 0.0f; } // ループさせる
+
+	player.GetWorldTransform()->scale_ = context.reactionComponent_->SquashStretch(baseScale_, time_, kDuration, kAmplitude, kPeriod);
+
 	if (!context.jumpComponent_->IsJumping()) {
 		context.jumpComponent_->Jump(context, 8.0f);
 	}
@@ -21,4 +36,5 @@ void PlayerStateJump::Update(Player& player, PlayerContext& context) {
 }
 
 void PlayerStateJump::Exit(Player& player, PlayerContext& context) {
+	player.GetWorldTransform()->scale_ = baseScale_;
 }

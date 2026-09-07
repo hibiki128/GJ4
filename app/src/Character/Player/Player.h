@@ -7,6 +7,7 @@
 #include "Components/Move/PlayerMoveComponent.h"
 #include "Components/Jump/PlayerJumpComponent.h"
 #include "Components/Shoot/PlayerShootComponent.h"
+#include "Components/Reaction/PlayerComponentReaction.h"
 
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
@@ -33,6 +34,7 @@ private:
 	PlayerMoveComponent move_;
 	PlayerJumpComponent jump_;
 	PlayerShootComponent shoot_;
+	PlayerComponentReaction reaction_;
 
 	PlayerBulletManager bullets_;
 	PlayerWeapon weapon_;
