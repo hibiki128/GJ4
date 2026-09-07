@@ -48,7 +48,7 @@ void BossSpider::Init(const std::string objectName) {
     BaseObject::Init(objectName);
 
     // 胴は球体形態の中心と同じ、暗い球
-    CreateModel("boss.obj");
+    CreateModel("boss/boss.obj");
     SetTexture(kBossTexturePath);
     SetShouldSave(false);
 
