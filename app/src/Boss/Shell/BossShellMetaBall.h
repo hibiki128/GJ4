@@ -70,7 +70,8 @@ public:
 
     /// <summary>
     /// GPU 生成の本体。DrawSystem のコンピュートフェーズ（シャドウより前）から呼ぶ。
-    /// 色ごとに 密度場 → マーチングキューブス を走らせてメッシュを書き換える
+    /// 色ごとに 密度場 → マーチングキューブス を走らせてメッシュを書き換える。
+    /// 脈動（wobbleAmplitude>0）が無ければ、球が増減した色だけを作り直す
     /// </summary>
     /// <param name="deltaTime">経過時間（秒）。脈動の時間を進めるのに使う</param>
     void DispatchCompute(float deltaTime);
@@ -101,7 +102,7 @@ private:
         std::unique_ptr<Hagine::Object3d> obj3d{};      // 融合結果を描くモデル
         std::vector<Hagine::Vector3> localPositions{};  // その色の球の中心（ローカル）
         float sphereRadius = 0.0f;                      // 球1個の半径
-        bool dirty = false;                             // 次の Update で作り直すか（CPU生成のみ）
+        bool dirty = false;                             // 中身が変わったので作り直すか（GPU/CPU 共通）
         bool hasMesh = false;                           // 描けるメッシュがあるか
         Hagine::MetaBallBuildStats stats{};             // 直近の生成結果（CPU生成のみ）
     };
