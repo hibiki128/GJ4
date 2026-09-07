@@ -152,6 +152,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Data\BossColorPalette.cpp" />
     <ClCompile Include="src\Boss\Data\BossParameters.cpp" />
     <ClCompile Include="src\Boss\Debug\BossTestDriver.cpp" />
+    <ClCompile Include="src\Boss\Effect\BossWarningMarker.cpp" />
     <ClCompile Include="src\Boss\Debug\BossTestProjectile.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossIcosphere.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp" />
@@ -194,6 +195,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Data\BossEasing.h" />
     <ClInclude Include="src\Boss\Data\BossParameters.h" />
     <ClInclude Include="src\Boss\Debug\BossTestDriver.h" />
+    <ClInclude Include="src\Boss\Effect\BossWarningMarker.h" />
     <ClInclude Include="src\Boss\Debug\BossTestProjectile.h" />
     <ClInclude Include="src\Boss\Lattice\BossIcosphere.h" />
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h" />

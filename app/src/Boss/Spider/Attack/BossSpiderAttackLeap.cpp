@@ -2,6 +2,7 @@
 #include "MyMath.h"
 #include "Random.h"
 #include "src/Boss/Data/BossEasing.h"
+#include "camera/projection/ViewProjection.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Interface/ITargetLocator.h"
 #include <algorithm>
@@ -25,6 +26,7 @@ void BossSpiderAttackLeap::Start(const BossAttackContext &context) {
     standHeight_ = context.spider->GetStandHeight();
     hopIndex_ = 0;
     timer_ = 0.0f;
+    marker_.Ensure("BossSpiderLeap");
     phase_ = Phase::Crouch;
     phaseStart_ = context.spider->GetBodyPosition();
     PickLandingPoint(context);
@@ -55,6 +57,10 @@ void BossSpiderAttackLeap::PickLandingPoint(const BossAttackContext &context) {
     }
     landingPoint_ = Vector3{body.x + offset.x, 0.0f, body.z + offset.z};
     apexPosition_ = Vector3{landingPoint_.x, standHeight_ + pParams_->apexHeight, landingPoint_.z};
+
+    // 落ちてくる場所と範囲を地面に出す。塗りは着地に向けてここから広がる
+    hopElapsed_ = 0.0f;
+    marker_.Show(landingPoint_, pParams_->impactRadius);
 }
 
 void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
@@ -64,6 +70,12 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
     }
     BossSpider *spider = context.spider;
     timer_ += context.deltaTime;
+
+    // 着地予告の塗りを進める。外枠に追いついた瞬間が着地＝当たる瞬間
+    if (phase_ == Phase::Crouch || phase_ == Phase::Rise || phase_ == Phase::Fall) {
+        hopElapsed_ += context.deltaTime;
+        marker_.SetFillRatio(CalcFillRatio(hopElapsed_));
+    }
 
     switch (phase_) {
     case Phase::Crouch: {
@@ -108,6 +120,8 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
         if (progress >= 1.0f) {
             phase_ = Phase::Impact;
             timer_ = 0.0f;
+            // 着地。予告の塗りが外枠に追いついたところなので、ここで消す
+            marker_.Hide();
             spider->ReportHit(Vector3{landingPoint_.x, 0.0f, landingPoint_.z},
                               pParams_->impactRadius, pParams_->damage);
         }
@@ -157,6 +171,7 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
 }
 
 void BossSpiderAttackLeap::Cancel(const BossAttackContext &context) {
+    marker_.Hide();
     if (context.spider) {
         // 空中で止められても、脚と高さは立っている状態へ戻す
         context.spider->SetLegTuck(0.0f, pParams_->legFoldTime);
@@ -182,4 +197,15 @@ const char *BossSpiderAttackLeap::GetPhaseName() const {
     default:
         return "終了";
     }
+}
+
+float BossSpiderAttackLeap::CalcFillRatio(float elapsed) const {
+    // 沈み込み〜飛び上がり〜落下を1本の時間として見て、着地でちょうど1になるようにする
+    const float total =
+        (std::max)(0.01f, pParams_->crouchTime + pParams_->riseTime + pParams_->fallTime);
+    return (std::min)(elapsed / total, 1.0f);
+}
+
+void BossSpiderAttackLeap::Draw(const ViewProjection &viewProjection) {
+    marker_.Draw(viewProjection);
 }

@@ -761,6 +761,11 @@ void BossSpider::Draw(const ViewProjection &viewProjection) {
         legs_[static_cast<size_t>(index)]->Draw(viewProjection);
     }
 
+    // 攻撃中だけ出る表示物（着地予告など）
+    if (pCurrentAttack_) {
+        pCurrentAttack_->Draw(viewProjection);
+    }
+
     // 撃った弾
     for (SpiderBullet &bullet : bullets_) {
         if (bullet.active) {

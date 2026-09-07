@@ -82,9 +82,7 @@ void BossAttackSlam::Cancel(const BossAttackContext &context) {
 }
 
 void BossAttackSlam::Draw(const ViewProjection &viewProjection) {
-    if (marker_ && marker_->GetIsModelDraw()) {
-        marker_->Draw(viewProjection);
-    }
+    marker_.Draw(viewProjection);
 }
 
 const char *BossAttackSlam::GetPhaseName() const {
@@ -124,10 +122,12 @@ void BossAttackSlam::UpdateRise(const BossAttackContext &context) {
 void BossAttackSlam::UpdateAim(const BossAttackContext &context) {
     UpdateLandingPoint(context);
 
-    // 狙いの終盤ほど輪を小さく締めて、着弾の瞬間を読ませる
+    // 外枠は攻撃範囲そのままで出しておき、内側の塗りを着弾に向けて広げる。
+    // 塗りが外枠に追いついた瞬間が命中なので、狙い〜落下を通した進み具合を渡す
     const float duration = (std::max)(0.01f, scaledAimTime_);
     const float progress = (std::min)(timer_ / duration, 1.0f);
-    UpdateMarker(true, pParams_->impactRadius * (1.0f - 0.25f * progress));
+    UpdateMarker(true, pParams_->impactRadius);
+    UpdateFillRatio(CalcFillRatio(timer_));
 
     if (timer_ >= duration) {
         phase_ = Phase::Fall;
@@ -142,6 +142,9 @@ void BossAttackSlam::UpdateFall(const BossAttackContext &context) {
     const float progress = (std::min)(timer_ / duration, 1.0f);
 
     boss->SetBossPosition(ApplyEasing(EasingType::InQuad, phaseStart_, landingPoint_, progress, 1.0f));
+
+    // 落下中も塗りを広げ続け、着弾でちょうど外枠と同じ大きさになる
+    UpdateFillRatio(CalcFillRatio(scaledAimTime_ + timer_));
 
     if (timer_ >= duration) {
         boss->SetBossPosition(landingPoint_);
@@ -189,35 +192,24 @@ void BossAttackSlam::UpdateLandingPoint(const BossAttackContext &context) {
 }
 
 void BossAttackSlam::EnsureMarker() {
-    if (marker_) {
-        return;
-    }
-    marker_ = std::make_unique<BaseObject>();
-    marker_->Init("BossSlamMarker");
-    marker_->CreatePrimitiveModel(PrimitiveType::Ring);
-    marker_->SetShouldSave(false);
-    marker_->SetGizmoSelectable(false);
-    marker_->SetTexture(kBossTexturePath);
-    marker_->SetColor({1.0f, 0.35f, 0.25f, 1.0f});
-    marker_->GetLighting() = false;
-
-    // Ring は XY 平面に作られるので、X軸まわりに90度倒して地面へ寝かせる
-    marker_->GetWorldTransform()->quaternionRotation_ =
-        Quaternion::FromAxisAngle({1.0f, 0.0f, 0.0f}, std::numbers::pi_v<float> * 0.5f);
-    marker_->SetIsModelDraw(false);
+    marker_.Ensure("BossSlam");
 }
 
-void BossAttackSlam::UpdateMarker(bool visible, float scale) {
-    if (!marker_) {
-        return;
-    }
-    marker_->SetIsModelDraw(visible);
+void BossAttackSlam::UpdateMarker(bool visible, float radius) {
     if (!visible) {
+        marker_.Hide();
         return;
     }
+    // 外枠は攻撃範囲そのもの。着弾までの進み具合は UpdateFillRatio が入れる
+    marker_.Show(landingPoint_, radius);
+}
 
-    WorldTransform *transform = marker_->GetWorldTransform();
-    transform->translation_ = Vector3{landingPoint_.x, kMarkerHeight, landingPoint_.z};
-    transform->scale_ = Vector3{scale, scale, scale};
-    transform->UpdateMatrix();
+void BossAttackSlam::UpdateFillRatio(float ratio) {
+    marker_.SetFillRatio(ratio);
+}
+
+float BossAttackSlam::CalcFillRatio(float elapsed) const {
+    // 狙い〜落下を1本の時間として見て、着弾でちょうど1になるようにする
+    const float total = (std::max)(0.01f, scaledAimTime_ + pParams_->fallTime);
+    return (std::min)(elapsed / total, 1.0f);
 }
