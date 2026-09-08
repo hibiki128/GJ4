@@ -3,6 +3,7 @@
 #include "Random.h"
 #include "src/Boss/Data/BossEasing.h"
 #include "camera/projection/ViewProjection.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Interface/ITargetLocator.h"
 #include <algorithm>
@@ -86,6 +87,8 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
         spider->SetBodyPosition(position);
         spider->FaceTowards(landingPoint_);
         if (progress >= 1.0f) {
+            // 踏み切りで足元の土を蹴り上げる
+            BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::JumpDust, phaseStart_);
             phase_ = Phase::Rise;
             timer_ = 0.0f;
             phaseStart_ = spider->GetBodyPosition();
@@ -120,7 +123,8 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
         if (progress >= 1.0f) {
             phase_ = Phase::Impact;
             timer_ = 0.0f;
-            // 着地。予告の塗りが外枠に追いついたところなので、ここで消す
+            // 着地。踏み潰した土煙を出し、予告の塗りが外枠に追いついたところなので消す
+            BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::LandDust, landingPoint_);
             marker_.Hide();
             spider->ReportHit(Vector3{landingPoint_.x, 0.0f, landingPoint_.z},
                               pParams_->impactRadius, pParams_->damage);

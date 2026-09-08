@@ -1,0 +1,8 @@
+{
+    "blendMode": 1,
+    "groupName": "Spider_StepDust",
+    "maxParticleCount": 4096,
+    "modelFilePath": "",
+    "primitiveType": 1,
+    "textureName": "debug/circle2.png"
+}

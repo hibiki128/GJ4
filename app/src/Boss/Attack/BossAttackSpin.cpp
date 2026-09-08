@@ -1,5 +1,6 @@
 #include "BossAttackSpin.h"
 #include "src/Boss/Boss.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include "src/Interface/ITargetLocator.h"
 #include "Easing.h"
 #include "MyMath.h"
@@ -11,6 +12,9 @@ using namespace Hagine;
 namespace {
 /// <summary>予兆のこの割合を過ぎたら突進方向を固定する（残りは回避のための猶予）</summary>
 constexpr float kAimLockRatio = 0.7f;
+
+/// <summary>突進中に土煙を出す間隔（秒）。毎フレーム出すと濃すぎるので間引く</summary>
+constexpr float kDashDustInterval = 0.06f;
 } // namespace
 
 void BossAttackSpin::Start(const BossAttackContext &context) {
@@ -18,6 +22,7 @@ void BossAttackSpin::Start(const BossAttackContext &context) {
     timer_ = 0.0f;
     spinSpeed_ = 0.0f;
     hitApplied_ = false;
+    dustTimer_ = 0.0f;
 
     // 露出度が上がるほど予兆が短く、突進が速くなる。
     // 攻撃の途中で値が揺れないよう、開始時に確定させる
@@ -103,6 +108,13 @@ void BossAttackSpin::UpdateDash(const BossAttackContext &context) {
 
     const Vector3 position = boss->GetBossPosition() + dashDirection_ * (scaledDashSpeed_ * context.deltaTime);
     boss->SetBossPosition(position);
+
+    // 削るように土を巻き上げながら進む
+    dustTimer_ += context.deltaTime;
+    if (dustTimer_ >= kDashDustInterval) {
+        dustTimer_ -= kDashDustInterval;
+        BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::DashTrail, boss->GetBossPosition());
+    }
 
     // 接触判定（1回の突進につき1度だけ当てる）
     if (!hitApplied_) {
