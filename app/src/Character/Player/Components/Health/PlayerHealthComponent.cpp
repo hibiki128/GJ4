@@ -11,7 +11,7 @@ void PlayerHealthComponent::Init() {
 	hp_ = params_.maxHp;
 	invincibleTimer_ = 0.0f;
 	hitPending_ = false;
-	lastHitPoint_ = {0.0f, 0.0f, 0.0f};
+	lastDamage_ = DamageInfo{};
 }
 
 void PlayerHealthComponent::RegisterParams() {
@@ -44,7 +44,7 @@ bool PlayerHealthComponent::ApplyDamage(const DamageInfo& info) {
 
 	hp_ = std::max(hp_ - params_.damagePerHit, 0);
 	invincibleTimer_ = params_.invincibleTime;
-	lastHitPoint_ = info.hitPoint;
+	lastDamage_ = info;
 	hitPending_ = true;
 	return true;
 }
@@ -83,7 +83,7 @@ void PlayerHealthComponent::DrawImGui() {
 	if (ImGui::Button("1回ぶん被弾させる")) {
 		DamageInfo info{};
 		info.amount = static_cast<float>(params_.damagePerHit);
-		info.hitPoint = lastHitPoint_;
+		info.hitPoint = lastDamage_.hitPoint;
 		ApplyDamage(info);
 	}
 	ImGui::SameLine();

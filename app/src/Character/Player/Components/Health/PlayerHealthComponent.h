@@ -52,8 +52,10 @@ public:
 	bool IsInvincible() const { return invincibleTimer_ > 0.0f; }
 	// 無敵時間の残り（点滅などの演出に使う）
 	float GetInvincibleTimer() const { return invincibleTimer_; }
+	// 直近に受けたダメージ（被弾の通知に乗せて、演出側が着弾位置などを見るのに使う）
+	const DamageInfo& GetLastDamage() const { return lastDamage_; }
 	// 直近に被弾した位置（のけぞりやヒットエフェクトの向きに使う）
-	const Hagine::Vector3& GetLastHitPoint() const { return lastHitPoint_; }
+	const Hagine::Vector3& GetLastHitPoint() const { return lastDamage_.hitPoint; }
 
 	// 体力の状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
 	void DrawImGui();
@@ -66,5 +68,5 @@ private:
 	int hp_ = 0;
 	float invincibleTimer_ = 0.0f;     // 無敵の残り時間（秒）
 	bool hitPending_ = false;          // まだ拾われていない被弾があるか
-	Hagine::Vector3 lastHitPoint_{};   // 直近の被弾位置
+	DamageInfo lastDamage_{};          // 直近に受けたダメージ（着弾位置は演出が使う）
 };

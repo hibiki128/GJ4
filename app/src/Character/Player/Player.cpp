@@ -86,6 +86,11 @@ void Player::Update() {
 	health_.Update();
 	if (health_.ConsumeHit()) {
 		ChangeState("Damaged");
+		// 画面まわりの演出はシーンが受け持つ。ステートを切り替えた後に知らせるので、
+		// 通知を受けた側から見ればプレイヤーはもう被弾ステートに入っている
+		if (onDamaged_) {
+			onDamaged_(health_.GetLastDamage());
+		}
 	}
 
 	if (currentState_) {

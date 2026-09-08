@@ -42,6 +42,16 @@ public:
 		shoot_.SetTargetProvider(std::move(provider));
 	}
 
+	/// <summary>被弾した瞬間に呼ばれる関数の型</summary>
+	using DamagedCallback = std::function<void(const DamageInfo&)>;
+
+	/// <summary>
+	/// 被弾の通知先を渡す。プレイヤーはカメラも画面も知らないので、
+	/// 画面演出（カメラの衝撃・赤いマスク）の配線はシーンが受け持つ。
+	/// 呼ばれるのは体力が実際に減ったときだけ（無敵中の被弾では呼ばれない）
+	/// </summary>
+	void SetOnDamaged(DamagedCallback callback) { onDamaged_ = std::move(callback); }
+
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
 
@@ -104,6 +114,9 @@ private:
 	PlayerWeapon weapon_;
 
 	PlayerContext context_;
+
+	// 被弾の通知先（未配線でも被弾そのものは成立する）
+	DamagedCallback onDamaged_{};
 
 	// ぷにぷにの中心になるスケール（Init 時のスケールを基準にする）
 	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};

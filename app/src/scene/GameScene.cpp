@@ -43,6 +43,11 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+            // 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
+            // 演出の帯やポーズ画面が赤く染まらないようにする
+            if (damageVignette_) {
+                damageVignette_->Draw();
+            }
             // 撃破演出の黒帯は他のUIより手前に出す
             if (defeatDirector_) {
                 defeatDirector_->Draw();
@@ -109,6 +114,18 @@ void GameScene::Initialize()
 
 	// 倒れたプレイヤーは狙わせない（ボスの攻撃は ITargetLocator::IsTargetValid を見ている）
 	playerBridge_->SetValidGetter([pPlayer = player_.get()] { return !pPlayer->IsDead(); });
+
+	// 被弾の画面演出。プレイヤーはカメラも画面も知らないので、シーンがここで配る。
+	// プレイヤー自身の反動（少し後ろへ押される）は被弾ステートが受け持つ
+	damageVignette_ = std::make_unique<DamageVignette>();
+	damageVignette_->Init();
+	damageVignette_->RegisterParams();
+
+	player_->SetOnDamaged([this](const DamageInfo& info) {
+		(void)info;
+		followCamera_->AddImpact(1.0f);
+		damageVignette_->Play(1.0f);
+		});
 
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
 	bossSpider_ = std::make_unique<BossSpider>();
@@ -210,6 +227,9 @@ void GameScene::Update()
 
 	// ゲーム入力の更新
 	gameInput_->UpdateInputState();
+
+	// 被弾の赤いマスクを進める（ポーズ中は止まったままにしたいのでこの位置）
+	damageVignette_->Update(Frame::DeltaTime());
 
 	player_->CommandExecute(gameInput_->GetInputContext());
 

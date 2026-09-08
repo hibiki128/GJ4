@@ -19,6 +19,9 @@
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp">
       <Filter>src\Character\Player\States\Damaged</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\Damage\DamageVignette.cpp">
+      <Filter>src\UI\Damage</Filter>
+    </ClCompile>
     <ClCompile Include="src\pch.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -202,6 +205,9 @@
     <Filter Include="src\Character\Player">
       <UniqueIdentifier>{E3B27ACB-6BD6-079E-9FCD-1A3A2F94A98C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\UI\Damage">
+      <UniqueIdentifier>{f96cfb4b-f11c-44c2-94d5-0d98b5d4f502}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\UI\Pause">
       <UniqueIdentifier>{d27fd43a-eadb-4d09-bf1a-27ebf32ad691}</UniqueIdentifier>
     </Filter>
@@ -290,6 +296,9 @@
     </ClInclude>
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h">
       <Filter>src\Character\Player\States\Damaged</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Damage\DamageVignette.h">
+      <Filter>src\UI\Damage</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h">
       <Filter>src</Filter>
