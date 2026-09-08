@@ -40,16 +40,8 @@ public:
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
 
-	// 色マスタを受け取る（初期化時に一度だけ。この時点の選択色はそのまま反映される）
+	// 色マスタを受け取る（初期化時に一度だけ。モデルの色はここから引く）
 	void SetColorPalette(const BossColorPalette& palette) { color_.SetPalette(palette); }
-	// 選択中の色を伝える。モデルの色はここから滑らかに切り替わる
-	// immediate を true にすると補間せずその場で切り替える
-	void SetSelectedColor(Color color, bool immediate = false) { color_.SetSelectedColor(color, immediate); }
-	// 選択中の色
-	Color GetSelectedColor() const { return color_.GetSelectedColor(); }
-
-	// 射撃まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
-	void DrawGameplayImGui() { shoot_.DrawImGui(); }
 
 	/// ===================================================
 	/// IColorProvider
@@ -57,7 +49,15 @@ public:
 
 	// いま撃つ色。ボスは Player の型を知らず、この口だけを見て色一致を判定する
 	Color GetSelectedColor() const override { return shoot_.GetSelectedColor(); }
-	void SetSelectedColor(Color color) { shoot_.SetSelectedColor(color); }
+	// 選択色を変える。持ち主は射撃コンポーネントで、モデルの色は Update でそれを追いかける。
+	// immediate を true にするとモデルの色を補間せずその場で切り替える（初期化時用）
+	void SetSelectedColor(Color color, bool immediate = false) {
+		shoot_.SetSelectedColor(color);
+		color_.SetSelectedColor(color, immediate);
+	}
+
+	// 射撃まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
+	void DrawGameplayImGui() { shoot_.DrawImGui(); }
 
 private:
 	// ステートを格納

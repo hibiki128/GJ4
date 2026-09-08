@@ -88,17 +88,16 @@ void GameScene::Initialize()
 		return boss_.get();
 		};
 
-	// プレイヤーの見た目をボスと同じ色マスタへ繋ぐ。
-	// 初期色は補間せずその場で反映する（開始の一瞬だけ白いプレイヤーが見えないように）
+	// プレイヤーの見た目をボスと同じ色マスタへ繋ぐ
 	player_->SetColorPalette(boss_->GetPalette());
-	player_->SetSelectedColor(bossTestDriver_->GetSelectedColor(), true);
 
 	// プレイヤーの射撃をボスへ繋ぐ（ロックオンも着弾もこの窓口を通る）
 	player_->SetBossTargetProvider(activeBossTarget);
 
 	// プレイヤーが最初に選んでいる色を、ボスが使っている色にそろえる
 	if (!boss_->GetUsedColors().empty()) {
-		player_->SetSelectedColor(boss_->GetUsedColors().front());
+		// 開始の一瞬だけ既定色のプレイヤーが見えないよう、初期色は補間せず反映する
+		player_->SetSelectedColor(boss_->GetUsedColors().front(), true);
 	}
 
 	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる
@@ -117,9 +116,10 @@ void GameScene::Initialize()
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
 	defeatDirector_->Init();
 
-	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする
-	bossTestDriver_->SetSpider(bossSpider_.get());
-	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect());
+	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする。
+	// 撃つ相手の切り替えは activeBossTarget が受け持つので、ここは値をそろえるだけ
+	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect(),
+	                             boss_->GetParameters().LockOn());
 
 	pOffScreen_->LoadData("GameScenePostEffect");
 }
@@ -151,12 +151,6 @@ void GameScene::Update()
 	gameInput_->UpdateInputState();
 
 	player_->CommandExecute(gameInput_->GetInputContext());
-
-	// ボス検証用のデバッグ射撃（ボス本体の更新は BaseObjectManager が行う）
-	bossTestDriver_->Update(*GetViewProjection());
-
-	// 選択中の色をプレイヤーへ渡す。実際の色替えは Player 側で滑らかに補間される
-	player_->SetSelectedColor(bossTestDriver_->GetSelectedColor());
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();

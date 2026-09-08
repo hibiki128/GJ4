@@ -83,12 +83,13 @@ void Player::Update() {
 	reaction_.Update();
 	GetWorldTransform()->scale_ = reaction_.Apply(baseScale_);
 
-	// 選択中の色へモデルの色を寄せる。色の所有権はこのコンポーネントに集約してあるので、
-	// 色を書くのもここ1か所だけ
+	shoot_.Update(context_);
+
+	// 選択色を持っているのは射撃コンポーネント。見た目はそれを追いかけるだけ。
+	// モデルへ色を書くのもここ1か所だけにしてある
+	color_.SetSelectedColor(shoot_.GetSelectedColor());
 	color_.Update();
 	SetColor(color_.GetDisplayColor());
-
-	shoot_.Update(context_);
 
 	BaseObject::Update();
 }
