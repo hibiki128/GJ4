@@ -86,6 +86,11 @@ void GameScene::Initialize()
 	bossTestDriver_ = std::make_unique<BossTestDriver>();
 	bossTestDriver_->Init(boss_.get());
 
+	// プレイヤーの見た目をボスと同じ色マスタへ繋ぐ。
+	// 初期色は補間せずその場で反映する（開始の一瞬だけ白いプレイヤーが見えないように）
+	player_->SetColorPalette(boss_->GetPalette());
+	player_->SetSelectedColor(bossTestDriver_->GetSelectedColor(), true);
+
 	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる。
 	// プレイヤーに色の取得APIが実装されたら、2つ目のラムダを差し替えるだけで本接続になる
 	playerBridge_ = std::make_unique<FunctionalPlayerBridge>(
@@ -140,6 +145,9 @@ void GameScene::Update()
 
 	// ボス検証用のデバッグ射撃（ボス本体の更新は BaseObjectManager が行う）
 	bossTestDriver_->Update(*GetViewProjection());
+
+	// 選択中の色をプレイヤーへ渡す。実際の色替えは Player 側で滑らかに補間される
+	player_->SetSelectedColor(bossTestDriver_->GetSelectedColor());
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();

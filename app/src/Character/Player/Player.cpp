@@ -7,10 +7,17 @@
 #include "States/Jump/PlayerStateJump.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 
+namespace {
+// 色をそのまま出すための白テクスチャ。
+// 既定の uvChecker のままだと、選択色を掛けても格子模様が勝ってしまい何色か分からない
+constexpr const char* kPlayerTexturePath = "debug/white1x1.png";
+} // namespace
+
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
 	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
 	CreateModel("slime/slime.obj");
+	SetTexture(kPlayerTexturePath);
 	SetOffset({ 0.0f,-0.45f,0.0f });
 
 	// ステートを登録
@@ -43,6 +50,7 @@ void Player::Init(const std::string objectName) {
 	// 調整パラメータの登録は起動時に一度だけ。
 	// GameParamHub::Register は保存済みの値をこの時点で復元してくれる
 	reaction_.RegisterParams();
+	color_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
@@ -73,6 +81,11 @@ void Player::Update() {
 	// こうしておくと、ステートを跨いでも着地のぷにっが上書きされずに最後まで再生される
 	reaction_.Update();
 	GetWorldTransform()->scale_ = reaction_.Apply(baseScale_);
+
+	// 選択中の色へモデルの色を寄せる。色の所有権はこのコンポーネントに集約してあるので、
+	// 色を書くのもここ1か所だけ
+	color_.Update();
+	SetColor(color_.GetDisplayColor());
 
 	shoot_.Update(context_);
 

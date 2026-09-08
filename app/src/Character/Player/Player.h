@@ -8,6 +8,7 @@
 #include "Components/Jump/PlayerJumpComponent.h"
 #include "Components/Shoot/PlayerShootComponent.h"
 #include "Components/Reaction/PlayerComponentReaction.h"
+#include "Components/Color/PlayerColorComponent.h"
 
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
@@ -25,6 +26,14 @@ public:
 	void CommandExecute(const PlayerInput& input) { context_.input_ = input; };
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
+
+	// 色マスタを受け取る（初期化時に一度だけ。この時点の選択色はそのまま反映される）
+	void SetColorPalette(const BossColorPalette& palette) { color_.SetPalette(palette); }
+	// 選択中の色を伝える。モデルの色はここから滑らかに切り替わる
+	// immediate を true にすると補間せずその場で切り替える
+	void SetSelectedColor(Color color, bool immediate = false) { color_.SetSelectedColor(color, immediate); }
+	// 選択中の色
+	Color GetSelectedColor() const { return color_.GetSelectedColor(); }
 private:
 	// ステートを格納
 	std::unordered_map<std::string, std::unique_ptr<PlayerStateBase>> states_;
@@ -35,6 +44,7 @@ private:
 	PlayerJumpComponent jump_;
 	PlayerShootComponent shoot_;
 	PlayerComponentReaction reaction_;
+	PlayerColorComponent color_;
 
 	PlayerBulletManager bullets_;
 	PlayerWeapon weapon_;
