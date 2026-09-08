@@ -27,8 +27,10 @@ public:
 	/// <param name="baseName">弾の名前のもと（マネージャーのキーになるので他と被らない名前にする）</param>
 	void Init(const std::string& baseName);
 
-	// 待機中の弾を1発発射する（空きが無ければ何もしない）
-	void SpawnBullet(const PlayerBullet::Shot& shot);
+	/// <summary>待機中の弾を1発発射する</summary>
+	/// <param name="shot">今回の発射内容</param>
+	/// <returns>bool: 撃てれば true（プールに空きが無ければ false）</returns>
+	bool SpawnBullet(const PlayerBullet::Shot& shot);
 
 private:
 	// 同時に存在できる弾の数

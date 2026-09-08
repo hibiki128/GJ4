@@ -75,7 +75,8 @@ private:
                       const Hagine::Vector3& aimDirection);
 
     /// <summary>弾を1発撃つ（狙う先は確定済みの aimPoint_）</summary>
-    void FireBullet(PlayerContext& context, IBossTargetQuery* target);
+    /// <returns>bool: 弾が出れば true（プールに空きが無ければ false）</returns>
+    bool FireBullet(PlayerContext& context, IBossTargetQuery* target);
 
     /// <summary>照準線・着弾地点・弾が通る線を表示する（確認用）</summary>
     void DrawAimLine(const PlayerContext& context) const;

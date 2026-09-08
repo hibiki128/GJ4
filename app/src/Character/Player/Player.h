@@ -12,6 +12,7 @@
 #include "Components/Reaction/PlayerComponentReaction.h"
 #include "Components/Color/PlayerColorComponent.h"
 #include "Components/Health/PlayerHealthComponent.h"
+#include "Components/Ammo/PlayerAmmoComponent.h"
 
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
@@ -91,9 +92,22 @@ public:
 	/// <summary>体力の参照（HPゲージなど、表示側が最大値や割合を見るのに使う）</summary>
 	const PlayerHealthComponent& GetHealth() const { return health_; }
 
-	// 射撃・体力まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
+	/// <summary>残弾の参照（弾数ゲージなど、表示側が最大値や割合を見るのに使う）</summary>
+	const PlayerAmmoComponent& GetAmmo() const { return ammo_; }
+
+	/// <summary>
+	/// この1フレームだけ弾の回復倍率を要求する。乗っている間だけ効く床のような
+	/// 継続型のギミックが毎フレーム呼ぶ。プレイヤーはギミックの正体を知らなくてよい
+	/// </summary>
+	void RequestAmmoRegenScale(float scale) { ammo_.RequestRegenScale(scale); }
+
+	/// <summary>一定時間だけ効く弾の回復倍率を足す（拾って効く時限型のギミック用）</summary>
+	void AddAmmoRegenBoost(float scale, float duration) { ammo_.AddRegenBoost(scale, duration); }
+
+	// 射撃・体力・残弾まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
 	void DrawGameplayImGui() {
 		health_.DrawImGui();
+		ammo_.DrawImGui();
 		shoot_.DrawImGui();
 	}
 
@@ -109,6 +123,7 @@ private:
 	PlayerComponentReaction reaction_;
 	PlayerColorComponent color_;
 	PlayerHealthComponent health_;
+	PlayerAmmoComponent ammo_;
 
 	PlayerBulletManager bullets_;
 	PlayerWeapon weapon_;
