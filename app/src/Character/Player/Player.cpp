@@ -111,6 +111,13 @@ void Player::Update() {
 	SetColor(color_.GetDisplayColor());
 
 	BaseObject::Update();
+
+	// フィールドの外へは出さない。BaseObject::Update が速度を座標へ積分した後なので、
+	// このフレームの移動結果に対して効く。壁へ押し当てても外向きの速度が消えるだけで、
+	// 壁沿いの移動はそのまま残る
+	if (pFieldBounds_) {
+		pFieldBounds_->ClampToField(GetWorldTransform()->translation_, GetRigidBody().velocity);
+	}
 }
 
 void Player::Draw(const Hagine::ViewProjection& viewProjection) {

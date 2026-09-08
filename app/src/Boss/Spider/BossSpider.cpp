@@ -452,6 +452,13 @@ void BossSpider::Update() {
 
     // 攻撃中は攻撃が胴を動かす。攻撃していなければ相手へ歩いて寄る
     const Vector3 moveDirection = UpdateAttack(deltaTime);
+
+    // 歩きでも突進でも、胴はフィールドの外へ出さない。脚を並べるより前に収めるので、
+    // 足の置き場所も押し戻したあとの胴から決まる（脚だけ外へ残らない）
+    if (pFieldBounds_) {
+        pFieldBounds_->ClampToField(bodyPosition_);
+    }
+
     UpdateLegs(moveDirection, deltaTime);
 
     // 胴の高さと揺れを決めてから脚を並べる。逆にすると脚の付け根が1フレーム前の胴を

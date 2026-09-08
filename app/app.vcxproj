@@ -145,6 +145,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp" />
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
+    <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -199,6 +200,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h" />
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
+    <ClInclude Include="src\Field\Field.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
@@ -250,6 +252,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Interface\IBossTargetQuery.h" />
     <ClInclude Include="src\Interface\IColorProvider.h" />
     <ClInclude Include="src\Interface\IDamageable.h" />
+    <ClInclude Include="src\Interface\IFieldBounds.h" />
     <ClInclude Include="src\Interface\ITargetLocator.h" />
     <ClInclude Include="src\scene\TitleScene.h" />
   </ItemGroup>

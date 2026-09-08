@@ -4,6 +4,7 @@
 #include "src/Boss/Spider/BossSpiderLeg.h"
 #include "src/Boss/Attack/IBossAttack.h"
 #include "src/Interface/IBossTargetQuery.h"
+#include "src/Interface/IFieldBounds.h"
 #include "src/Interface/ITargetLocator.h"
 #include "object/base/BaseObject.h"
 #include <functional>
@@ -103,6 +104,12 @@ public:
 
     /// <summary>歩いて向かう相手を設定する（未設定ならその場で足踏みする）</summary>
     void SetTargetLocator(ITargetLocator *locator) { pTargetLocator_ = locator; }
+
+    /// <summary>
+    /// 動き回れる範囲を設定する（初期化時に一度だけ）。蜘蛛は Field の型を知らず、
+    /// 胴を動かしたあとに「範囲の外にいたら戻して」と頼むだけ
+    /// </summary>
+    void SetFieldBounds(const IFieldBounds *field) { pFieldBounds_ = field; }
 
     /// <summary>色パレットを差し替える（球体形態と同じ色にそろえるため）</summary>
     void SetPalette(const BossColorPalette &palette) { palette_ = palette; }
@@ -412,7 +419,8 @@ private:
     std::vector<std::unique_ptr<BossSphere>> bulletPool_{}; // 弾の球（所有・増やすだけ）
     std::vector<SpiderBullet> bullets_{};                   // 弾の状態（プールと同じ並び）
 
-    ITargetLocator *pTargetLocator_ = nullptr; // 歩いて向かう相手（非所有）
+    ITargetLocator *pTargetLocator_ = nullptr;      // 歩いて向かう相手（非所有）
+    const IFieldBounds *pFieldBounds_ = nullptr;    // 動き回れる範囲（未設定ならどこまでも歩ける・非所有）
 
     Hagine::Vector3 bodyPosition_{}; // 胴の位置（足の平均から高さを決める前の基準）
     float bodyYaw_ = 0.0f;           // 胴の向き（ラジアン）
