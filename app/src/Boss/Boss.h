@@ -278,6 +278,15 @@ public:
     /// <summary>この形態を描いているか</summary>
     bool IsFormVisible() const { return formVisible_; }
 
+    /// <summary>
+    /// 更新を止める／再開する（調整用）。止めているあいだも描画は続く
+    /// </summary>
+    /// <param name="paused">止めるなら true</param>
+    void SetPaused(bool paused) { isPaused_ = paused; }
+
+    /// <summary>更新を止めているか</summary>
+    bool IsPaused() const { return isPaused_; }
+
     /// <summary>見た目の外周半径（基本殻の球の表面まで）。接地高さや接触判定に使う</summary>
     float GetBodyRadius() const {
         return parameters_.Shell().shellRadius + cluster_.GetSphereRadius();
@@ -309,6 +318,12 @@ private:
     /// <summary>コア（本体の球）の大きさと接地高さを半径へ追従させる</summary>
     void ApplyCoreLayout();
 
+    /// <summary>
+    /// 「ボスの位置」「ボスが思っている相手の位置」「行動範囲」を線で出す。
+    /// 狙いがずれているとき、どこがずれているのかを目で確かめるためのもの
+    /// </summary>
+    void DrawTargetDebug();
+
     /// <summary>攻撃の文脈を作る</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     BossAttackContext MakeAttackContext(float deltaTime);
@@ -321,6 +336,7 @@ private:
     BossParameters parameters_{};   // ボスごとのデータ（JSON）
     bool coreHandedOver_ = false;   // コアを第2形態へ渡したか
     bool formVisible_ = true;       // この形態を描くか（第2形態が出ていれば false）
+    bool isPaused_ = false;         // 更新を止めているか（調整用）
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 
@@ -339,7 +355,8 @@ private:
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
     float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
-    bool drawGraphDebug_ = false; // 隣接グラフのデバッグ描画
+    bool drawGraphDebug_ = false;  // 隣接グラフのデバッグ描画
+    bool drawTargetDebug_ = false; // 「ボスが思っている相手の位置」のデバッグ描画
 
     // GameParamHub への登録用。オーナー名はボスIDが決まってから SetOwner で入れる。
     // 登録は名前と変数だけで済み、破棄時の解除もこれが面倒を見る

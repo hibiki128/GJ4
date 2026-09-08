@@ -2,6 +2,7 @@
 #include "BaseScene.h"
 #include "src/Boss/Boss.h"
 #include "src/Boss/Spider/BossSpider.h"
+#include "src/Boss/Effect/BossDefeatDirector.h"
 #include "src/Character/Player/Player.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
@@ -62,6 +63,11 @@ public:
     void UpdateFormChange();
 
     /// <summary>
+    /// 第2形態の撃破演出（黒帯とカメラ寄せ）を進める
+    /// </summary>
+    void UpdateDefeatDirection();
+
+    /// <summary>
     /// 照準（カメラの射線）をプレイヤーへ配る。
     /// プレイヤーはカメラを知らないので、カメラを動かした後にシーンから渡す
     /// </summary>
@@ -87,5 +93,7 @@ private:
     std::unique_ptr<FunctionalPlayerBridge> playerBridge_;
     // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
     std::unique_ptr<BossSpider> bossSpider_;
+std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）
+    bool isBossPaused_ = false;                          // 敵の更新を止めているか（調整用）
 	std::unique_ptr<FollowCamera> followCamera_;
 };

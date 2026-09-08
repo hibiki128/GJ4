@@ -157,6 +157,37 @@ struct BossSpiderWhirlParams {
     float recoverTime = 1.0f;   // 回転後の硬直
 };
 
+/// <summary>
+/// 第2形態を撃破したときの演出。
+/// 脚をすべて壊すとここが動き、上下の黒帯が閉じてカメラが寄り、
+/// コアがふらつきながら地面へ落ちる
+/// </summary>
+struct BossSpiderDefeatParams {
+    // --- コアの墜落 ---
+    float fallTime = 3.0f;    // 地面へ落ちきるまでの時間（秒）
+    float swayAmount = 0.9f;  // ふらつきの大きさ
+    float swaySpeed = 3.2f;   // ふらつきの速さ
+    float tiltAngle = 25.0f;  // ふらつきに合わせて傾く角度（度）
+    float restTime = 1.5f;    // 落ちたあと、はじけるまでの間（秒）
+
+    // --- 最後にはじけて消える ---
+    float burstScale = 1.25f; // ふくらむときの大きさ（通常を1とした倍率）
+    float burstTime = 0.45f;  // ふくらんでから消えきるまでの時間（秒）
+
+    // --- 画面演出 ---
+    float barTime = 0.8f;     // 上下の黒帯が閉じきるまでの時間（秒）
+    float barRatio = 0.14f;   // 黒帯の高さ（画面の高さに対する割合）
+    float focusTime = 1.6f;   // カメラが寄りきるまでの時間（秒）
+    float focusDistance = 9.0f; // 寄りきったときのコアからの距離
+    // 敵の正面からどれだけ横へずらすか（度）。0で真正面から向き合う
+    float focusYawOffset = 15.0f;
+    float focusHeight = 3.5f;   // 寄りきったときのカメラの高さ（コアからの差）
+    float lookHeight = 1.0f;    // 注視点をコアからどれだけ上へずらすか
+    float handheldAmount = 0.35f; // 手持ちのような揺れの大きさ
+    float handheldSpeed = 1.6f;   // 手持ちのような揺れの速さ
+    float returnTime = 1.2f;      // 演出のあと、カメラがプレイヤーへ戻るまでの時間（秒）
+};
+
 /// <summary>脚を切り落としたときの、飛び散り方</summary>
 struct BossSpiderSeverParams {
     float speed = 4.0f;    // 外向きに飛び出す速さ
@@ -170,6 +201,8 @@ struct BossSpiderSeverParams {
 /// <summary>蜘蛛の攻撃全体の設定</summary>
 struct BossSpiderAttackParams {
     float interval = 3.2f;     // 攻撃と攻撃の間隔（秒）
+    // 変形しきってから最初の攻撃までの間（秒）。演出の余韻を邪魔しないよう長めに取る
+    float firstDelay = 3.0f;
     float shootRange = 18.0f;  // これより遠ければ弾を撃つ（近ければ撃たない）
     float whirlChance = 0.2f;  // 回転接近が選ばれる確率（0〜1。稀に出す）
     BossSpiderLeapParams leap{};
@@ -212,6 +245,16 @@ struct BossSpiderParams {
     // --- 変形（球体形態のコアから生えてくる演出）---
     // 3つの動きは少しずつ重なって進む（浮き上がりきる前に脚が生え始め、
     // 生えきる前に関節が折れ始める）ので、合計はこれらの単純な和より短い
+    // 変形の前に、コアが一度ふらつきながら地面へ落ちる
+    float collapseTime = 1.6f;      // 落ちきるまでの時間（秒）
+    float collapseSway = 0.7f;      // 落ちるあいだのふらつきの大きさ
+    float collapseSwaySpeed = 3.0f; // ふらつきの速さ
+    float collapseRest = 0.6f;      // 落ちてから起き上がるまでの間（秒）
+
+    // 登場演出のカメラ。地面に据えてコアを見上げ続ける（座標は動かさない）
+    float introCameraDistance = 14.0f; // コアからの距離。変形で大きくなるぶん離しておく
+    float introCameraHeight = 0.6f;    // カメラの高さ（地面から）
+
     float riseTime = 1.4f;    // コアが立つ高さまで浮き上がる時間（秒）
     float growTime = 1.6f;    // 脚が真横へ生えきるまでの時間（秒）
     float growStagger = 0.3f; // 隣り合う脚の生え始めのずれ（0で一斉に生える）
@@ -233,13 +276,18 @@ struct BossSpiderParams {
 
     // --- 脚を切り落とすとき ---
     BossSpiderSeverParams sever{};
+
+    // --- 撃破演出 ---
+    BossSpiderDefeatParams defeat{};
 };
 
 /// <summary>
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
-    float arenaRadius = 25.0f;   // 初期位置を中心に、ボスが動ける範囲
+    // 初期位置を中心に、ボスが動ける範囲。床の広さ（±100）に届かないと、
+    // 相手が遠いほど攻撃が手前で止まり、範囲の縁を横滑りするだけになる
+    float arenaRadius = 100.0f;
     float idleSpinSpeed = 18.0f; // 待機中の自転速度（度/秒）。死角のパーツを見せるための緩やかな回転
 };
 

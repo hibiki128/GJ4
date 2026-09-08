@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <utility/scene/SceneManager.h>
@@ -42,6 +43,10 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+            // 撃破演出の黒帯は他のUIより手前に出す
+            if (defeatDirector_) {
+                defeatDirector_->Draw();
+            }
         });
 
     // ポーズ画面（スプライトより手前に出したいので後から登録する）
@@ -83,12 +88,16 @@ void GameScene::Initialize()
 		return boss_.get();
 		};
 
+	// プレイヤーの見た目をボスと同じ色マスタへ繋ぐ
+	player_->SetColorPalette(boss_->GetPalette());
+
 	// プレイヤーの射撃をボスへ繋ぐ（ロックオンも着弾もこの窓口を通る）
 	player_->SetBossTargetProvider(activeBossTarget);
 
 	// プレイヤーが最初に選んでいる色を、ボスが使っている色にそろえる
 	if (!boss_->GetUsedColors().empty()) {
-		player_->SetSelectedColor(boss_->GetUsedColors().front());
+		// 開始の一瞬だけ既定色のプレイヤーが見えないよう、初期色は補間せず反映する
+		player_->SetSelectedColor(boss_->GetUsedColors().front(), true);
 	}
 
 	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる
@@ -103,9 +112,14 @@ void GameScene::Initialize()
 	bossSpider_->Init("BossSpider");
 	bossSpider_->SetTargetLocator(playerBridge_.get());
 	pObjectManager_->RegisterExternal(bossSpider_.get());
-	// 蜘蛛にも球体形態と同じ連鎖・演出・ロックオンの設定をそろえる
+	// 撃破演出（黒帯とカメラ寄せ）
+	defeatDirector_ = std::make_unique<BossDefeatDirector>();
+	defeatDirector_->Init();
+
+	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする。
+	// 撃つ相手の切り替えは activeBossTarget が受け持つので、ここは値をそろえるだけ
 	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect(),
-		boss_->GetParameters().LockOn());
+	                             boss_->GetParameters().LockOn());
 
 	pOffScreen_->LoadData("GameScenePostEffect");
 }
@@ -186,6 +200,54 @@ void GameScene::UpdateFormChange()
 	// 蜘蛛が出ているあいだは球体形態を丸ごと消す（デバッグで出したときも同じ）。
 	// 両方描くと同じ場所に黒い球が2つ重なってちらつく
 	boss_->SetFormVisible(!bossSpider_->IsActive());
+
+	UpdateDefeatDirection();
+}
+
+void GameScene::UpdateDefeatDirection()
+{
+	/// ===================================================
+	/// 第2形態の演出（登場・撃破）で使う、黒帯とカメラ寄せ
+	/// ===================================================
+
+	const float deltaTime = Frame::DeltaTime();
+	const BossSpiderDefeatParams &params = bossSpider_->GetParameters().defeat;
+	const Vector3 corePosition = bossSpider_->GetBodyPosition();
+
+	// カメラをプレイヤーへ戻している最中
+	if (defeatDirector_->IsReturning()) {
+		if (defeatDirector_->UpdateReturn(deltaTime, followCamera_->GetViewProjection().translation_,
+		                                  player_->GetWorldPosition(), params)) {
+			followCamera_->Activate();
+		}
+		return;
+	}
+
+	// 撃破演出：最後まで出しっぱなし（この先はシーン遷移へ繋ぐ）
+	if (bossSpider_->IsDefeated()) {
+		if (!defeatDirector_->IsActive()) {
+			defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_);
+		}
+		defeatDirector_->Update(deltaTime, corePosition, bossSpider_->GetBodyYaw(), params);
+		return;
+	}
+
+	// 登場演出：崩れ落ちて起き上がるあいだだけ。カメラは座標を動かさず、
+	// 落ちたコアの高さに構えたまま、浮き上がるコアを見上げる
+	if (bossSpider_->IsIntroCinematic()) {
+		if (!defeatDirector_->IsActive()) {
+			const BossSpiderParams &spider = bossSpider_->GetParameters();
+			defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_, true,
+			                       spider.introCameraDistance, spider.introCameraHeight);
+		}
+		defeatDirector_->Update(deltaTime, corePosition, bossSpider_->GetBodyYaw(), params);
+		return;
+	}
+
+	// 演出が終わった（変形しきった・デバッグで戻した）ので、カメラを返しにいく
+	if (defeatDirector_->IsActive()) {
+		defeatDirector_->BeginReturn();
+	}
 }
 
 void GameScene::AddSceneSetting() {
@@ -214,6 +276,18 @@ void GameScene::AddObjectSetting()
 	if (player_) {
 		player_->DrawGameplayImGui();
 	}
+
+	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
+	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
+	if (ImGui::Checkbox("敵を一時停止", &isBossPaused_)) {
+		boss_->SetPaused(isBossPaused_);
+		bossSpider_->SetPaused(isBossPaused_);
+	}
+	if (isBossPaused_) {
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
+	}
+	ImGui::Separator();
 	if (boss_) {
 		boss_->DrawGameplayImGui();
 	}
@@ -241,5 +315,9 @@ void GameScene::ChangeScene() {
 	/// シーン切り替え
 	/// ===================================================
 
-	//pSceneManager_->NextSceneReservation();
+	// 第2形態の撃破演出が終わる（コアがはじけて消える）と、ここが true になる。
+	// 遷移先のシーンが用意できたら pSceneManager_->NextSceneReservation() をここへ足す
+	if (bossSpider_ && bossSpider_->IsDefeatFinished()) {
+		return;
+	}
 }

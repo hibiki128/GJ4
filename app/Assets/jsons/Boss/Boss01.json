@@ -31,7 +31,7 @@
         }
     },
     "battle": {
-        "arenaRadius": 25.0,
+        "arenaRadius": 100.0,
         "idleSpinSpeed": 18.0
     },
     "chain": {
@@ -140,6 +140,24 @@
         "bodyHeight": 4.099999904632568,
         "bodyRadius": 2.450000047683716,
         "bodySway": 0.11999999731779099,
+        "defeat": {
+            "barRatio": 0.14000000059604645,
+            "barTime": 0.800000011920929,
+            "burstScale": 1.25,
+            "burstTime": 0.44999998807907104,
+            "fallTime": 4.5,
+            "focusDistance": 9.0,
+            "focusHeight": 3.5,
+            "focusTime": 1.600000023841858,
+            "focusYawOffset": 15.0,
+            "handheldAmount": 0.0,
+            "handheldSpeed": 1.600000023841858,
+            "lookHeight": 1.0,
+            "restTime": 1.5,
+            "swayAmount": 1.2999999523162842,
+            "swaySpeed": 3.200000047683716,
+            "tiltAngle": 25.0
+        },
         "footRadius": 5.0,
         "growStagger": 0.30000001192092896,
         "growTime": 1.600000023841858,

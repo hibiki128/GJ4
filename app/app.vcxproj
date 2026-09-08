@@ -141,6 +141,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\scene\GameOverScene.cpp" />
     <ClCompile Include="src\scene\ClearScene.cpp" />
     <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
+    <ClCompile Include="src\Character\Player\Components\Color\PlayerColorComponent.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -153,6 +154,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Boss.cpp" />
     <ClCompile Include="src\Boss\Data\BossColorPalette.cpp" />
     <ClCompile Include="src\Boss\Data\BossParameters.cpp" />
+    <ClCompile Include="src\Boss\Effect\BossDefeatDirector.cpp" />
+    <ClCompile Include="src\Boss\Effect\BossWarningMarker.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossIcosphere.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp" />
     <ClCompile Include="src\Boss\Shell\BossShellMetaBall.cpp" />
@@ -188,6 +191,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\scene\GameOverScene.h" />
     <ClInclude Include="src\scene\ClearScene.h" />
     <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
+    <ClInclude Include="src\Character\Player\Components\Color\PlayerColorComponent.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
@@ -199,6 +203,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Data\BossColorPalette.h" />
     <ClInclude Include="src\Boss\Data\BossEasing.h" />
     <ClInclude Include="src\Boss\Data\BossParameters.h" />
+    <ClInclude Include="src\Boss\Effect\BossDefeatDirector.h" />
+    <ClInclude Include="src\Boss\Effect\BossWarningMarker.h" />
     <ClInclude Include="src\Boss\Lattice\BossIcosphere.h" />
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h" />
     <ClInclude Include="src\Boss\Shell\BossShellMetaBall.h" />

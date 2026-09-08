@@ -73,11 +73,33 @@ public:
     /// <summary>変形が始まっているか（出現していれば true）</summary>
     bool IsActive() const { return phase_ != Phase::Hidden; }
 
+    /// <summary>登場の演出中か（黒帯とカメラ寄せを出す合図）</summary>
+    bool IsIntroCinematic() const { return phase_ == Phase::Collapse || phase_ == Phase::Transform; }
+
     /// <summary>変形を終えて戦闘できる状態か</summary>
     bool IsBattleReady() const { return phase_ == Phase::Active; }
 
+    /// <summary>撃破演出中か（黒帯とカメラ寄せを出す合図）</summary>
+    bool IsDefeated() const { return phase_ == Phase::Defeated; }
+
+    /// <summary>撃破演出が終わったか（コアが落ちきって間も置いた）</summary>
+    bool IsDefeatFinished() const { return isDefeatFinished_; }
+
+    /// <summary>まだ残っている脚の本数（0で撃破）</summary>
+    int GetAliveLegCount() const;
+
+    /// <summary>撃破演出を始める（脚が全部無くなったとき・デバッグボタン）</summary>
+    void BeginDefeat();
+
     /// <summary>いまの段階の名前（デバッグUI用）</summary>
     const char *GetPhaseName() const;
+
+    /// <summary>更新を止める／再開する（調整用）。止めているあいだも描画は続く</summary>
+    /// <param name="paused">止めるなら true</param>
+    void SetPaused(bool paused) { isPaused_ = paused; }
+
+    /// <summary>更新を止めているか</summary>
+    bool IsPaused() const { return isPaused_; }
 
     /// <summary>歩いて向かう相手を設定する（未設定ならその場で足踏みする）</summary>
     void SetTargetLocator(ITargetLocator *locator) { pTargetLocator_ = locator; }
@@ -261,6 +283,14 @@ private:
     /// <param name="deltaTime">経過時間（秒）</param>
     void UpdateTransform(float deltaTime);
 
+    /// <summary>撃破演出（ふらつきながら地面へ落ちる）を1フレーム進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateDefeat(float deltaTime);
+
+    /// <summary>変形の前ぶり（ふらつきながら地面へ落ちる）を1フレーム進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateCollapse(float deltaTime);
+
     /// <summary>飛んでいる弾1発ぶん</summary>
     struct SpiderBullet {
         BossSphere *sphere = nullptr;  // 見た目（bulletPool_ が所有）
@@ -317,8 +347,10 @@ private:
     /// <summary>球体形態から蜘蛛になるまでの段階</summary>
     enum class Phase {
         Hidden,    // 未出現
+        Collapse,  // 変形の前ぶり（コアがふらつきながら地面へ落ちる）
         Transform, // 変形中（浮き上がり・脚が生える・関節が折れる が重なって進む）
         Active,    // 変形完了（歩き回る）
+        Defeated,  // 撃破（ふらつきながらコアが地面へ落ちる）
     };
 
     BossSpiderParams parameters_{}; // 見た目と歩行のパラメータ
@@ -375,6 +407,12 @@ private:
     float legBendTarget_ = 1.0f;     // 目標の折り具合
     float legBendTimer_ = 0.0f;      // 経過時間（秒）
     float legBendDuration_ = 0.5f;   // かける時間（秒）
+
+    float defeatTime_ = 0.0f;        // 撃破演出の経過時間（秒）
+    float defeatStartHeight_ = 0.0f; // 落ち始めたときのコアの高さ
+    float collapseTime_ = 0.0f;      // 変形前ぶりの経過時間（秒）
+    bool isDefeatFinished_ = false;  // 撃破演出が終わったか
+    bool isPaused_ = false;          // 更新を止めているか（調整用）
     std::string legNamePrefix_;      // 脚の球の名前の接頭辞
     std::string bossId_ = "Boss01";  // パラメータの読み書き先（球体形態と同じファイル）
 };

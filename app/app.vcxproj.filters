@@ -10,6 +10,9 @@
     <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp">
       <Filter>src\Character\Player\Components\Reaction</Filter>
     </ClCompile>
+    <ClCompile Include="src\Character\Player\Components\Color\PlayerColorComponent.cpp">
+      <Filter>src\Character\Player\Components\Color</Filter>
+    </ClCompile>
     <ClCompile Include="src\pch.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -214,6 +217,9 @@
     <Filter Include="src\Character\Player\Components\Reaction">
       <UniqueIdentifier>{f7505688-5cc0-42c8-be12-6f985211b392}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Character\Player\Components\Color">
+      <UniqueIdentifier>{6b2f1d84-0c3e-4b7a-9e51-2d8a4f6c1b07}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Character\Player\Components\Shoot">
       <UniqueIdentifier>{F2BA291B-3678-0030-0635-50DEC898D537}</UniqueIdentifier>
     </Filter>
@@ -254,6 +260,9 @@
     </ClInclude>
     <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h">
       <Filter>src\Character\Player\Components\Reaction</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character\Player\Components\Color\PlayerColorComponent.h">
+      <Filter>src\Character\Player\Components\Color</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h">
       <Filter>src</Filter>

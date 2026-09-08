@@ -165,6 +165,32 @@ void BossShellMetaBall::DispatchCompute(float deltaTime) {
     }
     elapsedTime_ += deltaTime;
 
+    // 脈動しない設定なら、球が増減した色だけ作り直せばよい。
+    // GPUは2フレーム並行で走る（DirectXCommon::PostDraw が2つ前の完了しか待たない）ので、
+    // 毎フレーム書き直すと、まだ前フレームの描画が読んでいる頂点バッファを
+    // 次フレームのコンピュートが上書きしてしまい、殻がちらつく
+    const bool alwaysRebuild = (params_.wobbleAmplitude > 0.0f);
+
+    bool needsDispatch = false;
+    for (const ColorMesh &mesh : meshes_) {
+        if (!mesh.obj3d) {
+            continue;
+        }
+        // 球が無い色も一度は走らせる（前フレームの殻を消すため）。
+        // 完全に空のまま2回目以降は、消し済みなので走らせなくてよい
+        if (mesh.localPositions.empty() && !mesh.hasMesh) {
+            continue;
+        }
+        if (alwaysRebuild || mesh.dirty) {
+            needsDispatch = true;
+            break;
+        }
+    }
+    // 積むものが無いならコンピュートのリストも開かない
+    if (!needsDispatch) {
+        return;
+    }
+
     DirectXCommon *dxCommon = DirectXCommon::GetInstance();
     ID3D12GraphicsCommandList *pCommandList = dxCommon->GetComputeCommandList().Get();
     if (!pCommandList) {
@@ -182,11 +208,13 @@ void BossShellMetaBall::DispatchCompute(float deltaTime) {
         if (!mesh.obj3d) {
             continue;
         }
-        // 球が無い色も一度は走らせる（前フレームの殻を消すため）。
-        // 完全に空のまま2回目以降は、消し済みなので走らせなくてよい
         if (mesh.localPositions.empty() && !mesh.hasMesh) {
             continue;
         }
+        if (!alwaysRebuild && !mesh.dirty) {
+            continue; // 中身が変わっていない色は、前に作ったメッシュをそのまま描く
+        }
+        mesh.dirty = false;
 
         gpuParams.voxelSize = (std::max)(mesh.sphereRadius * params_.voxelRatio, 0.001f);
         gpuField_.SetBalls(mesh.localPositions, mesh.sphereRadius * params_.influenceScale);

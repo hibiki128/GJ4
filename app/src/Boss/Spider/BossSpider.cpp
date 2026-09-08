@@ -24,6 +24,9 @@ constexpr float kGrowStartRatio = 0.55f;
 /// <summary>脚が何割生えたところで関節が折れ始めるか</summary>
 constexpr float kBendStartRatio = 0.70f;
 
+/// <summary>撃破の最後、ふくらみに使う割合（残りはしぼんで消えるのに使う）</summary>
+constexpr float kBurstSwellRatio = 0.3f;
+
 } // namespace
 
 #ifdef USE_IMGUI
@@ -48,7 +51,7 @@ void BossSpider::Init(const std::string objectName) {
     BaseObject::Init(objectName);
 
     // 胴は球体形態の中心と同じ、暗い球
-    CreateModel("boss.obj");
+    CreateModel("boss/boss.obj");
     SetTexture(kBossTexturePath);
     SetShouldSave(false);
 
@@ -136,7 +139,8 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
     // 立ったときの高さは、置いた足の高さから決める（足の球が地面に乗る）
     standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
 
-    phase_ = Phase::Transform;
+    phase_ = Phase::Collapse;
+    collapseTime_ = 0.0f;
     transformTime_ = 0.0f;
     SetIsAlive(true);
     SetIsModelDraw(true);
@@ -173,10 +177,14 @@ void BossSpider::Hide() {
 
 const char *BossSpider::GetPhaseName() const {
     switch (phase_) {
+    case Phase::Collapse:
+        return "崩れ落ちている";
     case Phase::Transform:
         return "変形中";
     case Phase::Active:
         return "戦闘中";
+    case Phase::Defeated:
+        return isDefeatFinished_ ? "撃破（演出おわり）" : "撃破演出中";
     default:
         return "未出現";
     }
@@ -185,6 +193,7 @@ const char *BossSpider::GetPhaseName() const {
 void BossSpider::SkipTransform() {
     phase_ = Phase::Active;
     transformTime_ = 0.0f;
+    attackCoolDown_ = (std::max)(0.0f, parameters_.attack.firstDelay);
     bodyPosition_.y = standHeight_;
     transform_->translation_ = bodyPosition_;
     transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
@@ -204,6 +213,43 @@ float BossSpider::CalcBendStartTime() const {
 
 float BossSpider::CalcTransformDuration() const {
     return CalcBendStartTime() + parameters_.landTime;
+}
+
+
+void BossSpider::UpdateCollapse(float deltaTime) {
+    collapseTime_ += deltaTime;
+
+    // 殻を失ったコアが、支えを無くしてふらつきながら地面へ落ちる。
+    // ここで一度「終わった」ように見せてから起き上がるので、変形が引き立つ
+    const float duration = (std::max)(0.01f, parameters_.collapseTime);
+    const float progress = std::clamp(collapseTime_ / duration, 0.0f, 1.0f);
+    const float groundHeight = parameters_.bodyRadius;
+    bodyPosition_.y = ApplyEasing(EasingType::InQuad, startHeight_, groundHeight, progress, 1.0f);
+
+    // ふらつきは落ちるにつれて収まる
+    const float decay = 1.0f - progress;
+    const float sway = std::sin(collapseTime_ * parameters_.collapseSwaySpeed) * parameters_.collapseSway * decay;
+    const Vector3 right{std::cos(bodyYaw_ + std::numbers::pi_v<float> * 0.5f), 0.0f,
+                        std::sin(bodyYaw_ + std::numbers::pi_v<float> * 0.5f)};
+
+    transform_->translation_ = bodyPosition_ + right * sway;
+    transform_->quaternionRotation_ =
+        Quaternion::FromAxisAngle(kWorldUp, bodyYaw_) *
+        Quaternion::FromAxisAngle(Vector3{0.0f, 0.0f, 1.0f}, sway * 0.35f);
+    transform_->scale_ = Vector3{startRadius_, startRadius_, startRadius_};
+    transform_->UpdateMatrix();
+
+    // 脚はまだ胴の中。1本も出さない
+    PlaceLegs(bodyPosition_, 0.0f, 0.0f);
+
+    if (collapseTime_ < duration + parameters_.collapseRest) {
+        return;
+    }
+
+    // 落ちた場所から起き上がる。ここから先はいつもの変形
+    startHeight_ = bodyPosition_.y;
+    phase_ = Phase::Transform;
+    transformTime_ = 0.0f;
 }
 
 void BossSpider::UpdateTransform(float deltaTime) {
@@ -242,21 +288,154 @@ void BossSpider::UpdateTransform(float deltaTime) {
     if (transformTime_ >= CalcTransformDuration()) {
         phase_ = Phase::Active;
         transformTime_ = 0.0f;
+        // 変形の余韻を邪魔しないよう、最初の攻撃までは間を置く
+        attackCoolDown_ = (std::max)(0.0f, parameters_.attack.firstDelay);
     }
+}
+
+
+int BossSpider::GetAliveLegCount() const {
+    int alive = 0;
+    for (int index = 0; index < activeLegCount_; ++index) {
+        // 球が1つも残っていない脚は無くなったものとして数えない
+        if (legs_[static_cast<size_t>(index)]->GetSphereCount() > 0) {
+            ++alive;
+        }
+    }
+    return alive;
+}
+
+void BossSpider::BeginDefeat() {
+    if (phase_ == Phase::Defeated) {
+        return;
+    }
+    // 進行中の攻撃は打ち切る（撃破後に攻撃が続くと締まらない）
+    if (pCurrentAttack_) {
+        BossAttackContext context{};
+        context.spider = this;
+        context.target = pTargetLocator_;
+        pCurrentAttack_->Cancel(context);
+        pCurrentAttack_ = nullptr;
+    }
+    for (SpiderBullet &bullet : bullets_) {
+        bullet.active = false;
+        bullet.sphere->Deactivate();
+    }
+
+    // 脚が残っていれば、ここで丸ごと切り落とす。
+    // ImGui から始めたときも、実際に脚を壊し切ったときと同じ絵になる
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->SeverAll(parameters_);
+    }
+
+    phase_ = Phase::Defeated;
+    defeatTime_ = 0.0f;
+    defeatStartHeight_ = bodyPosition_.y;
+    isDefeatFinished_ = false;
+
+    // 前回の演出で消えたままになっていることがあるので、必ず出し直す
+    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+    transform_->UpdateMatrix();
+    SetIsModelDraw(true);
+}
+
+void BossSpider::UpdateDefeat(float deltaTime) {
+    const BossSpiderDefeatParams &defeat = parameters_.defeat;
+    defeatTime_ += deltaTime;
+
+    // 支えを失ってふらつきながら落ちる。落ち始めはゆっくりで、
+    // 最後は重さに負けて一気に地面へ落ちる
+    const float fallProgress = std::clamp(defeatTime_ / (std::max)(0.01f, defeat.fallTime), 0.0f, 1.0f);
+    const float groundHeight = parameters_.bodyRadius;
+    const float height = ApplyEasing(EasingType::InQuad, defeatStartHeight_, groundHeight, fallProgress, 1.0f);
+
+    // ふらつきは落ちるにつれて収まる（地面に着いたら止まる）
+    const float swayDecay = 1.0f - fallProgress;
+    const float sway = std::sin(defeatTime_ * defeat.swaySpeed) * defeat.swayAmount * swayDecay;
+    const float swaySide = std::cos(defeatTime_ * defeat.swaySpeed * 0.7f) * defeat.swayAmount * swayDecay;
+
+    const Vector3 right{std::cos(bodyYaw_ + std::numbers::pi_v<float> * 0.5f), 0.0f,
+                        std::sin(bodyYaw_ + std::numbers::pi_v<float> * 0.5f)};
+    const Vector3 forward{std::cos(bodyYaw_), 0.0f, std::sin(bodyYaw_)};
+
+    bodyPosition_.y = height;
+    const Vector3 renderPosition = bodyPosition_ + right * sway + forward * swaySide;
+
+    transform_->translation_ = renderPosition;
+    // ふらつきに合わせて傾く。倒れ込んでいくように見せる
+    const float tilt = defeat.tiltAngle * (std::numbers::pi_v<float> / 180.0f);
+    transform_->quaternionRotation_ =
+        Quaternion::FromAxisAngle(kWorldUp, bodyYaw_) *
+        Quaternion::FromAxisAngle(Vector3{0.0f, 0.0f, 1.0f}, sway * tilt) *
+        Quaternion::FromAxisAngle(Vector3{1.0f, 0.0f, 0.0f}, swaySide * tilt);
+    transform_->UpdateMatrix();
+
+    // 残っている脚も一緒に落ちる（胴について回るだけ）
+    PlaceLegs(renderPosition, 1.0f, legBend_);
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->UpdateMotions(deltaTime, parameters_);
+    }
+
+    // --- 落ちて間を置いたあと、ひとふくらみしてから消える ---
+    const float burstStart = defeat.fallTime + defeat.restTime;
+    if (defeatTime_ < burstStart) {
+        return;
+    }
+
+    const float burstDuration = (std::max)(0.01f, defeat.burstTime);
+    const float burstProgress = std::clamp((defeatTime_ - burstStart) / burstDuration, 0.0f, 1.0f);
+
+    // 前半で素早くふくらみ（OutQuad）、後半でためてから一気にしぼむ（InCubic）。
+    // 完全な0スケールは行列が潰れて法線が壊れるので、ごく小さい値で止めてから消す
+    float scale = 0.0f;
+    if (burstProgress < kBurstSwellRatio) {
+        scale = ApplyEasing(EasingType::OutQuad, 1.0f, defeat.burstScale,
+                            burstProgress / kBurstSwellRatio, 1.0f);
+    } else {
+        scale = ApplyEasing(EasingType::InCubic, defeat.burstScale, 0.0f,
+                            (burstProgress - kBurstSwellRatio) / (1.0f - kBurstSwellRatio), 1.0f);
+    }
+    const float radius = (std::max)(parameters_.bodyRadius * 0.001f, parameters_.bodyRadius * scale);
+    transform_->scale_ = Vector3{radius, radius, radius};
+    transform_->UpdateMatrix();
+
+    if (burstProgress < 1.0f) {
+        return;
+    }
+
+    // 消えきった。ここがシーン遷移の起点になる
+    SetIsModelDraw(false);
+    isDefeatFinished_ = true;
 }
 
 void BossSpider::Update() {
     BaseObject::Update();
 
-    if (phase_ == Phase::Hidden) {
+    if (phase_ == Phase::Hidden || isPaused_) {
         return;
     }
 
     const float deltaTime = Frame::DeltaTime();
 
+    if (phase_ == Phase::Defeated) {
+        UpdateDefeat(deltaTime);
+        return;
+    }
+
+    if (phase_ == Phase::Collapse) {
+        UpdateCollapse(deltaTime);
+        return;
+    }
+
     // 変形が終わるまでは歩かない
     if (phase_ != Phase::Active) {
         UpdateTransform(deltaTime);
+        return;
+    }
+
+    // 脚をすべて壊されたら撃破
+    if (GetAliveLegCount() <= 0) {
+        BeginDefeat();
         return;
     }
 
@@ -761,6 +940,11 @@ void BossSpider::Draw(const ViewProjection &viewProjection) {
         legs_[static_cast<size_t>(index)]->Draw(viewProjection);
     }
 
+    // 攻撃中だけ出る表示物（着地予告など）
+    if (pCurrentAttack_) {
+        pCurrentAttack_->Draw(viewProjection);
+    }
+
     // 撃った弾
     for (SpiderBullet &bullet : bullets_) {
         if (bullet.active) {
@@ -872,6 +1056,15 @@ void BossSpider::DrawGameplayImGui() {
 
     ImGui::SeparatorText("変形（球体形態のコアから生える）");
     ImGui::TextDisabled("合計 %.2f 秒（3つの動きが重なるので単純な和より短い）", CalcTransformDuration());
+    ImGui::DragFloat("崩れ落ちる時間", &parameters_.collapseTime, 0.05f, 0.05f, 10.0f);
+    HelpMarker("変形の前ぶりです。殻を失ったコアがふらつきながら地面へ落ちます");
+    ImGui::DragFloat("崩れるときのふらつき", &parameters_.collapseSway, 0.05f, 0.0f, 5.0f);
+    ImGui::DragFloat("ふらつきの速さ", &parameters_.collapseSwaySpeed, 0.05f, 0.0f, 20.0f);
+    ImGui::DragFloat("落ちてから起き上がるまで", &parameters_.collapseRest, 0.05f, 0.0f, 5.0f);
+    ImGui::DragFloat("登場カメラの距離", &parameters_.introCameraDistance, 0.1f, 1.0f, 60.0f);
+    HelpMarker("変形でコアが大きくなるので、通常の寄りより離しておきます");
+    ImGui::DragFloat("登場カメラの高さ", &parameters_.introCameraHeight, 0.05f, 0.2f, 20.0f);
+    HelpMarker("地面からの高さです。低いほど見上げる画になります（座標は演出中ずっと動きません）");
     ImGui::DragFloat("浮き上がる時間", &parameters_.riseTime, 0.05f, 0.05f, 10.0f);
     HelpMarker("コアが「立つ高さ」まで上がるまでの時間です。上がりきったら下がりません。"
                "脚が生えているあいだに下ろすと、浮き上がりの巻き戻しに見えてしまうためです");
@@ -938,6 +1131,8 @@ void BossSpider::DrawGameplayImGui() {
         }
     }
     ImGui::DragFloat("攻撃の間隔", &attack.interval, 0.05f, 0.1f, 20.0f);
+    ImGui::DragFloat("最初の攻撃までの間", &attack.firstDelay, 0.1f, 0.0f, 30.0f);
+    HelpMarker("変形しきってから1回目の攻撃までの間です。登場演出の余韻を邪魔しないよう長めに取ります");
     ImGui::DragFloat("弾を撃つ距離", &attack.shootRange, 0.5f, 1.0f, 100.0f);
     HelpMarker("相手がこれより遠ければ弾を撃ちます。近ければ跳ねまわります");
     ImGui::SliderFloat("回転接近の確率", &attack.whirlChance, 0.0f, 1.0f);
@@ -1015,6 +1210,53 @@ void BossSpider::DrawGameplayImGui() {
         ImGui::DragFloat("回転後の硬直", &attack.whirl.recoverTime, 0.05f, 0.0f, 5.0f);
         ImGui::TreePop();
     }
+
+
+    ImGui::SeparatorText("撃破演出");
+    BossSpiderDefeatParams &defeat = parameters_.defeat;
+    ImGui::Text("残っている脚: %d / %d", GetAliveLegCount(), activeLegCount_);
+    if (ImGui::Button("撃破演出を始める")) {
+        BeginDefeat();
+    }
+    HelpMarker("脚をすべて壊すのと同じ扱いで、撃破演出をその場で始めます");
+    ImGui::SameLine();
+    if (ImGui::Button("戦闘中に戻す")) {
+        // 撃破で脚を切り落としているので、戻すときは組み直す
+        phase_ = Phase::Active;
+        isDefeatFinished_ = false;
+        bodyPosition_.y = standHeight_;
+        transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+        transform_->UpdateMatrix();
+        SetIsModelDraw(true);
+        RebuildLegs();
+        ReplantFeet();
+    }
+
+    ImGui::DragFloat("落ちきるまでの時間", &defeat.fallTime, 0.05f, 0.1f, 20.0f);
+    ImGui::DragFloat("ふらつきの大きさ", &defeat.swayAmount, 0.05f, 0.0f, 6.0f);
+    ImGui::DragFloat("ふらつきの速さ", &defeat.swaySpeed, 0.05f, 0.0f, 20.0f);
+    ImGui::DragFloat("ふらつきで傾く角度", &defeat.tiltAngle, 0.5f, 0.0f, 90.0f);
+    HelpMarker("落ちるにつれてふらつきは収まり、地面に着くと止まります");
+    ImGui::DragFloat("落ちてからはじけるまでの間", &defeat.restTime, 0.05f, 0.0f, 10.0f);
+    ImGui::DragFloat("ふくらむ大きさ", &defeat.burstScale, 0.01f, 1.0f, 4.0f);
+    ImGui::DragFloat("はじけて消える時間", &defeat.burstTime, 0.01f, 0.05f, 5.0f);
+    HelpMarker("素早くふくらんでから、ためて一気にしぼみます。消えきったところで撃破フラグが立ちます");
+    ImGui::Text("撃破フラグ（シーン遷移の起点）: %s", isDefeatFinished_ ? "立っている" : "まだ");
+
+    ImGui::SeparatorText("撃破演出（画面）");
+    ImGui::DragFloat("黒帯が閉じる時間", &defeat.barTime, 0.05f, 0.05f, 10.0f);
+    ImGui::SliderFloat("黒帯の高さ", &defeat.barRatio, 0.0f, 0.5f);
+    HelpMarker("画面の高さに対する割合です。上下それぞれこの高さぶん出ます");
+    ImGui::DragFloat("カメラが寄る時間", &defeat.focusTime, 0.05f, 0.05f, 15.0f);
+    ImGui::DragFloat("寄ったときの距離", &defeat.focusDistance, 0.1f, 1.0f, 60.0f);
+    ImGui::DragFloat("正面からのずらし角", &defeat.focusYawOffset, 1.0f, -180.0f, 180.0f);
+    HelpMarker("敵の正面に回り込んで向き合います。0で真正面、ずらすと斜めからの画になります");
+    ImGui::DragFloat("寄ったときの高さ", &defeat.focusHeight, 0.1f, -20.0f, 40.0f);
+    ImGui::DragFloat("注視点の高さ", &defeat.lookHeight, 0.1f, -10.0f, 20.0f);
+    ImGui::DragFloat("手持ち揺れの大きさ", &defeat.handheldAmount, 0.01f, 0.0f, 3.0f);
+    ImGui::DragFloat("手持ち揺れの速さ", &defeat.handheldSpeed, 0.05f, 0.0f, 10.0f);
+    ImGui::DragFloat("カメラが戻る時間", &defeat.returnTime, 0.05f, 0.05f, 10.0f);
+    HelpMarker("登場演出のあと、黒帯が開いてカメラがプレイヤーへ戻るまでの時間です");
 
     ImGui::SeparatorText("保存");
     ImGui::TextDisabled("保存先: Assets/jsons/Boss/%s.json の \"spider\"", bossId_.c_str());

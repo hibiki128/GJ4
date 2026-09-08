@@ -1,9 +1,8 @@
 #pragma once
 #include "src/Boss/Attack/IBossAttack.h"
 #include "src/Boss/Data/BossParameters.h"
-#include "object/base/BaseObject.h"
+#include "src/Boss/Effect/BossWarningMarker.h"
 #include "type/Vector3.h"
-#include <memory>
 
 /// <summary>
 /// 攻撃2: 飛び上がり→頭上落下（複数回）。
@@ -67,7 +66,15 @@ private:
     /// <summary>着弾予告の輪の表示を更新する</summary>
     /// <param name="visible">表示するか</param>
     /// <param name="scale">輪の半径</param>
-    void UpdateMarker(bool visible, float scale);
+    void UpdateMarker(bool visible, float radius);
+
+    /// <summary>塗りの広がり具合を入れる（1で外枠と同じ＝命中の瞬間）</summary>
+    /// <param name="ratio">進み具合（0〜1）</param>
+    void UpdateFillRatio(float ratio);
+
+    /// <summary>狙い始めからの経過時間を、着弾までの進み具合へ直す</summary>
+    /// <param name="elapsed">狙い始めからの経過時間（秒）</param>
+    float CalcFillRatio(float elapsed) const;
 
     /// ===================================================
     /// private variables
@@ -87,5 +94,5 @@ private:
     Hagine::Vector3 phaseStart_{};   // 現在段階の開始位置
     Hagine::Vector3 apexPosition_{}; // 上空での位置
 
-    std::unique_ptr<Hagine::BaseObject> marker_; // 着弾予告の輪
+    BossWarningMarker marker_; // 着弾予告（範囲の外枠＋命中タイミングの塗り）
 };

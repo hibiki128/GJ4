@@ -1,6 +1,7 @@
 #pragma once
 #include "src/Boss/Attack/IBossAttack.h"
 #include "src/Boss/Data/BossParameters.h"
+#include "src/Boss/Effect/BossWarningMarker.h"
 #include "type/Vector3.h"
 
 /// <summary>
@@ -22,6 +23,7 @@ public:
     void Update(const BossAttackContext &context) override;
     bool IsFinished() const override { return phase_ == Phase::Finished; }
     void Cancel(const BossAttackContext &context) override;
+    void Draw(const Hagine::ViewProjection &viewProjection) override;
     const char *GetPhaseName() const override;
 
 private:
@@ -42,6 +44,10 @@ private:
     /// <summary>次の着地点を決める（相手の付近へ散らす）</summary>
     void PickLandingPoint(const BossAttackContext &context);
 
+    /// <summary>沈み込み〜落下を1本の時間として見た、着地までの進み具合</summary>
+    /// <param name="elapsed">沈み込みを始めてからの経過時間（秒）</param>
+    float CalcFillRatio(float elapsed) const;
+
     /// ===================================================
     /// private variables
     /// ===================================================
@@ -55,4 +61,6 @@ private:
     Hagine::Vector3 landingPoint_{}; // 着地点（地面の高さ）
     Hagine::Vector3 apexPosition_{}; // 着地点の真上（飛び上がりの終点）
     float standHeight_ = 0.0f;       // 立っているときの胴の高さ
+    float hopElapsed_ = 0.0f;        // 1回の跳躍を始めてからの経過時間（予告の塗りに使う）
+    BossWarningMarker marker_;       // 着地予告（範囲の外枠＋着地タイミングの塗り）
 };
