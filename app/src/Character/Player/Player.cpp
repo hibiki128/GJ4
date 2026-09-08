@@ -5,11 +5,13 @@
 #include "States/Dash/PlayerStateDash.h"
 #include "States/Dodge/PlayerStateDodge.h"
 #include "States/Jump/PlayerStateJump.h"
+#include "Utility/Debug/Param/GameParamHub.h"
 
 void Player::Init(const std::string objectName) {
 	BaseObject::Init(objectName);
 	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
 	CreateModel("slime/slime.obj");
+	SetOffset({ 0.0f,-0.45f,0.0f });
 
 	// ステートを登録
 	states_["Idle"] = std::make_unique<PlayerStateIdle>();
@@ -18,8 +20,6 @@ void Player::Init(const std::string objectName) {
 	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
 	currentState_ = states_["Idle"].get();
-	// 初期ステートの初期化
-	currentState_->Enter(*this, context_);
 
 	// 弾のプールを生成してオブジェクトマネージャーに登録する
 	// （以降、弾の更新と描画はオブジェクトマネージャーが行う）
@@ -34,6 +34,21 @@ void Player::Init(const std::string objectName) {
 	context_.reactionComponent_ = &reaction_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
+
+	// ぷにぷにの基準スケールを控えておく（以降 scale_ はここを中心に揺れる）。
+	// scale_ は毎フレーム上書きするので、大きさの調整はデバッグUIのこちらから行う
+	baseScale_ = GetWorldTransform()->scale_;
+	Hagine::GameParamHub::GetInstance()->Register("Player", "BaseScale", &baseScale_, {0.01f, 0.05f, 5.0f});
+
+	// 調整パラメータの登録は起動時に一度だけ。
+	// GameParamHub::Register は保存済みの値をこの時点で復元してくれる
+	reaction_.RegisterParams();
+	for (auto& [stateName, state] : states_) {
+		state->RegisterParams();
+	}
+
+	// 初期ステートの初期化（コンポーネントを context_ へ繋いだ後に呼ぶこと）
+	currentState_->Enter(*this, context_);
 
 	// 接地判定はコライダーの衝突で決める（当たる相手は床だけなので、当たった＝床に乗っている）
 	// OnCollision は BaseObject の押し出しが使うので、こちらは Enter と Exit を使う
@@ -53,6 +68,11 @@ void Player::Update() {
 	if (currentState_) {
 		currentState_->Update(*this, context_);
 	}
+
+	// スケールへの反映はここ1か所だけ。
+	// こうしておくと、ステートを跨いでも着地のぷにっが上書きされずに最後まで再生される
+	reaction_.Update();
+	GetWorldTransform()->scale_ = reaction_.Apply(baseScale_);
 
 	shoot_.Update(context_);
 

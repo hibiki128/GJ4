@@ -17,10 +17,11 @@
     "isModelDraw": true,
     "isRainbow": false,
     "isWireframe": false,
-    "material_0_enableNormalMap": false,
+    "material_0_enableNormalMap": true,
     "material_0_enableProceduralNormal": false,
-    "material_0_normalMapPath": "",
-    "material_0_normalStrength": 1.0,
+    "material_0_enableToon": true,
+    "material_0_normalMapPath": "NormalMap/hex_normal_2048.png",
+    "material_0_normalStrength": 8.0,
     "material_0_proceduralScale": 3.0,
     "material_0_uvPosition": {
         "x": 0.0,
@@ -28,8 +29,8 @@
     },
     "material_0_uvRotate": 0.0,
     "material_0_uvSize": {
-        "x": 1.0,
-        "y": 1.0
+        "x": 3.0,
+        "y": 3.0
     },
     "modelName": "",
     "objectName": "plane",
@@ -61,7 +62,7 @@
     "textureName_0": "Field/Floor.png",
     "translation": {
         "x": 0.0,
-        "y": -3.0,
+        "y": 0.0,
         "z": 0.0
     }
 }
