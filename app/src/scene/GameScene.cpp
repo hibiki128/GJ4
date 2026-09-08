@@ -103,11 +103,39 @@ void GameScene::Initialize()
 		[pPlayer = player_.get()] { return pPlayer->GetSelectedColor(); });
 	boss_->SetPlayerBridge(playerBridge_.get());
 
+	// 攻撃の当て先。Player が IDamageable を実装しているので、ボス側は Player の型を
+	// 知らないまま（IDamageable* として）ダメージを渡せる
+	boss_->SetTargetDamageSink(player_.get());
+
+	// 倒れたプレイヤーは狙わせない（ボスの攻撃は ITargetLocator::IsTargetValid を見ている）
+	playerBridge_->SetValidGetter([pPlayer = player_.get()] { return !pPlayer->IsDead(); });
+
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
 	bossSpider_ = std::make_unique<BossSpider>();
 	bossSpider_->SetPalette(boss_->GetPalette());
 	bossSpider_->Init("BossSpider");
 	bossSpider_->SetTargetLocator(playerBridge_.get());
+
+	// 蜘蛛は「当たり判定の中心・半径・ダメージ」を知らせてくるだけで、当てるかどうかは
+	// 受け側の仕事（BossSpider::SetHitCallback）。プレイヤーの当たり半径は、球体形態の
+	// 攻撃が見ているものと同じ playerBridge_ から引いて、形態で判定がぶれないようにする
+	bossSpider_->SetHitCallback([this](const Vector3& center, float radius, float damage) {
+		if (!playerBridge_->IsTargetValid()) {
+			return;
+		}
+
+		const float reach = radius + playerBridge_->GetTargetRadius();
+		const Vector3 difference = player_->GetWorldPosition() - center;
+		if (difference.LengthSq() > reach * reach) {
+			return;
+		}
+
+		DamageInfo info{};
+		info.amount = damage;
+		info.hitPoint = center;
+		player_->ApplyDamage(info);
+		});
+
 	pObjectManager_->RegisterExternal(bossSpider_.get());
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
@@ -350,6 +378,13 @@ void GameScene::ChangeScene() {
 	/// ===================================================
 	/// シーン切り替え
 	/// ===================================================
+
+	// プレイヤーのHPが0になった。ダウン演出を挟んでからゲームオーバーへ繋ぐならここ
+	// （被弾ステートはプレイヤーを倒れたまま留めるので、遷移の間合いはここで決められる）
+	if (player_ && player_->IsDead()) {
+		//pSceneManager_->NextSceneReservation("GAMEOVER");
+		return;
+	}
 
 	// 第2形態の撃破演出が終わる（コアがはじけて消える）と、ここが true になる。
 	// 遷移先のシーンが用意できたら pSceneManager_->NextSceneReservation() をここへ足す

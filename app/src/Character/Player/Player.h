@@ -2,6 +2,7 @@
 #include "Object/Base/BaseObject.h"
 #include "src/Input/GameInput.h"
 #include "src/Interface/IColorProvider.h"
+#include "src/Interface/IDamageable.h"
 
 #include "States/Base/PlayerStateBase.h"
 #include "Core/PlayerContext.h"
@@ -10,11 +11,12 @@
 #include "Components/Shoot/PlayerShootComponent.h"
 #include "Components/Reaction/PlayerComponentReaction.h"
 #include "Components/Color/PlayerColorComponent.h"
+#include "Components/Health/PlayerHealthComponent.h"
 
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 
-class Player : public Hagine::BaseObject, public IColorProvider {
+class Player : public Hagine::BaseObject, public IColorProvider, public IDamageable {
 public:
 	Player() = default;
 	~Player() = default;
@@ -59,8 +61,31 @@ public:
 		color_.SetSelectedColor(color, immediate);
 	}
 
-	// 射撃まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
-	void DrawGameplayImGui() { shoot_.DrawImGui(); }
+	/// ===================================================
+	/// IDamageable
+	/// ===================================================
+
+	/// <summary>
+	/// ボスの攻撃を受け取る。呼ばれるのは相手（ボス）の更新の途中なので、
+	/// ここでは体力を減らすだけにして、演出とステートの切り替えは自分の Update まで持ち越す。
+	/// こうしておけば、ボスとプレイヤーのどちらが先に更新されても結果が変わらない
+	/// </summary>
+	void ApplyDamage(const DamageInfo& info) override { health_.ApplyDamage(info); }
+
+	/// <summary>残りHP（IDamageable は float で扱うので変換して返す）</summary>
+	float GetHp() const override { return static_cast<float>(health_.GetHp()); }
+
+	/// <summary>倒れたか（HPが0）</summary>
+	bool IsDead() const override { return health_.IsDead(); }
+
+	/// <summary>体力の参照（HPゲージなど、表示側が最大値や割合を見るのに使う）</summary>
+	const PlayerHealthComponent& GetHealth() const { return health_; }
+
+	// 射撃・体力まわりの状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
+	void DrawGameplayImGui() {
+		health_.DrawImGui();
+		shoot_.DrawImGui();
+	}
 
 private:
 	// ステートを格納
@@ -73,6 +98,7 @@ private:
 	PlayerShootComponent shoot_;
 	PlayerComponentReaction reaction_;
 	PlayerColorComponent color_;
+	PlayerHealthComponent health_;
 
 	PlayerBulletManager bullets_;
 	PlayerWeapon weapon_;

@@ -142,6 +142,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\scene\ClearScene.cpp" />
     <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
     <ClCompile Include="src\Character\Player\Components\Color\PlayerColorComponent.cpp" />
+    <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp" />
+    <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -192,6 +194,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\scene\ClearScene.h" />
     <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
     <ClInclude Include="src\Character\Player\Components\Color\PlayerColorComponent.h" />
+    <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h" />
+    <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
