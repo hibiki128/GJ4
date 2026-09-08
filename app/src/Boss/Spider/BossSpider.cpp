@@ -811,24 +811,10 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
     }
 
     // まず飛んでいる弾を見る。同じ色を当てられた弾は消える
-    for (SpiderBullet &bullet : bullets_) {
-        if (!bullet.active || bullet.color != color) {
-            continue; // 色が違う弾はすり抜ける（当てても消えない）
-        }
-        const Vector3 segment = worldEnd - worldStart;
-        const float segmentLength = segment.Length();
-        if (segmentLength <= 0.0001f) {
-            continue;
-        }
-        const Vector3 direction = segment / segmentLength;
-        const Vector3 toCenter = bullet.position - worldStart;
-        const float along = toCenter.Dot(direction);
-        if (along < -bullet.radius || along > segmentLength + bullet.radius) {
-            continue;
-        }
-        if (toCenter.LengthSq() - along * along > bullet.radius * bullet.radius) {
-            continue;
-        }
+    int bulletIndex = -1;
+    Vector3 bulletPoint{};
+    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, bulletPoint)) {
+        SpiderBullet &bullet = bullets_[static_cast<size_t>(bulletIndex)];
         bullet.active = false;
         bullet.sphere->Deactivate();
         result.hit = true;
@@ -841,24 +827,8 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
     // いちばん手前で当たった脚を選ぶ
     int hitLeg = -1;
     int hitIndex = -1;
-    float nearest = 0.0f;
     Vector3 hitPoint{};
-    for (int index = 0; index < activeLegCount_; ++index) {
-        float distance = 0.0f;
-        Vector3 point{};
-        int sphereIndex = -1;
-        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point,
-                                                        sphereIndex)) {
-            continue;
-        }
-        if (hitLeg < 0 || distance < nearest) {
-            hitLeg = index;
-            hitIndex = sphereIndex;
-            nearest = distance;
-            hitPoint = point;
-        }
-    }
-    if (hitLeg < 0) {
+    if (!FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, hitPoint)) {
         return result;
     }
 
@@ -881,6 +851,85 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
                              chain_.staggerPerPart * static_cast<float>(destroyed - chain_.minMatch);
     }
     return result;
+}
+
+bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
+                              Vector3 &outPoint) {
+    if (phase_ != Phase::Active) {
+        return false;
+    }
+
+    // 当たる順番も RaycastAttach とそろえる（飛翔弾が手前を塞いでいれば照準もそこで止まる）
+    int bulletIndex = -1;
+    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, outPoint)) {
+        return true;
+    }
+
+    int hitLeg = -1;
+    int hitIndex = -1;
+    return FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, outPoint);
+}
+
+bool BossSpider::FindBulletHit(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
+                               int &outBulletIndex, Vector3 &outPoint) const {
+    const Vector3 segment = worldEnd - worldStart;
+    const float segmentLength = segment.Length();
+    if (segmentLength <= 0.0001f) {
+        return false;
+    }
+    const Vector3 direction = segment / segmentLength;
+
+    for (size_t index = 0; index < bullets_.size(); ++index) {
+        const SpiderBullet &bullet = bullets_[index];
+        if (!bullet.active || bullet.color != color) {
+            continue; // 色が違う弾はすり抜ける（当てても消えない）
+        }
+        const Vector3 toCenter = bullet.position - worldStart;
+        const float along = toCenter.Dot(direction);
+        if (along < -bullet.radius || along > segmentLength + bullet.radius) {
+            continue;
+        }
+        if (toCenter.LengthSq() - along * along > bullet.radius * bullet.radius) {
+            continue;
+        }
+
+        outBulletIndex = static_cast<int>(index);
+        outPoint = bullet.position;
+        return true;
+    }
+    return false;
+}
+
+bool BossSpider::FindLegHit(const Vector3 &worldStart, const Vector3 &worldEnd, int &outLegIndex,
+                            int &outSphereIndex, Vector3 &outPoint) const {
+    int hitLeg = -1;
+    int hitIndex = -1;
+    float nearest = 0.0f;
+    Vector3 hitPoint{};
+
+    for (int index = 0; index < activeLegCount_; ++index) {
+        float distance = 0.0f;
+        Vector3 point{};
+        int sphereIndex = -1;
+        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point,
+                                                        sphereIndex)) {
+            continue;
+        }
+        if (hitLeg < 0 || distance < nearest) {
+            hitLeg = index;
+            hitIndex = sphereIndex;
+            nearest = distance;
+            hitPoint = point;
+        }
+    }
+    if (hitLeg < 0) {
+        return false;
+    }
+
+    outLegIndex = hitLeg;
+    outSphereIndex = hitIndex;
+    outPoint = hitPoint;
+    return true;
 }
 
 bool BossSpider::FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) {

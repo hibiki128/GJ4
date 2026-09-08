@@ -88,6 +88,20 @@ public:
                                           const Hagine::Vector3 &worldEnd, Color color) = 0;
 
     /// <summary>
+    /// 線分が最初に当たる点を返すだけの問い合わせ（付着・消去などの副作用は起こさない）。
+    /// 照準（画面中心の射線）から着弾地点を求めるのに使う。
+    /// RaycastAttach と同じ形状を見るので、「照準では当たる表示なのに弾は素通りする」ズレが出ない。
+    /// エンジンのワールド座標取得が非constのため、この関数も非constで宣言している
+    /// </summary>
+    /// <param name="worldStart">線分の始点（ワールド）</param>
+    /// <param name="worldEnd">線分の終点（ワールド）</param>
+    /// <param name="color">撃とうとしている色（色によってすり抜ける相手がいるので着弾と同じ色を渡す）</param>
+    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <returns>bool: 当たれば true</returns>
+    virtual bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                              Color color, Hagine::Vector3 &outPoint) = 0;
+
+    /// <summary>
     /// 格子セルにある球の現在のワールド座標を取得する（飛翔中の弾が対象を追尾するのに使う）
     /// </summary>
     /// <param name="cell">対象の格子セル</param>

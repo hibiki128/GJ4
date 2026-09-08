@@ -137,6 +137,18 @@ public:
     BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart,
                                   const Hagine::Vector3 &worldEnd, Color color) override;
 
+    /// <summary>
+    /// 線分が最初に当たる点を返すだけの問い合わせ（付着も消去もしない）。
+    /// 照準の射線から着弾地点を求めるのに使う
+    /// </summary>
+    /// <param name="worldStart">線分の始点（ワールド）</param>
+    /// <param name="worldEnd">線分の終点（ワールド）</param>
+    /// <param name="color">撃とうとしている色（色違いの飛翔弾はすり抜ける）</param>
+    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
+                      Hagine::Vector3 &outPoint) override;
+
     /// <summary>ソフトロックオンの対象（脚の球）を探す</summary>
     /// <param name="request">問い合わせ内容</param>
     /// <param name="out">見つかった対象</param>
@@ -317,6 +329,24 @@ private:
     /// <summary>飛んでいる弾を進める</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     void UpdateBullets(float deltaTime);
+
+    /// <summary>
+    /// 線分に当たっている飛翔弾を探す（同じ色のものだけが当たる）。
+    /// 消す処理は呼び出し側が行うので、ここでは添字を返すだけにしてある
+    /// </summary>
+    /// <param name="outBulletIndex">当たった弾の添字（bullets_ の並び）</param>
+    /// <param name="outPoint">当たった弾の位置</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool FindBulletHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
+                       int &outBulletIndex, Hagine::Vector3 &outPoint) const;
+
+    /// <summary>線分がいちばん手前で当たった脚を探す（脚は色に関係なく弾を止める）</summary>
+    /// <param name="outLegIndex">当たった脚の番号</param>
+    /// <param name="outSphereIndex">当たった球の並び順（付け根から数えた番号）</param>
+    /// <param name="outPoint">着弾位置</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool FindLegHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, int &outLegIndex,
+                    int &outSphereIndex, Hagine::Vector3 &outPoint) const;
 
     /// <summary>相手までの水平距離（相手がいなければ負の値）</summary>
     float CalcTargetDistance() const;

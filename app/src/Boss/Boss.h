@@ -82,6 +82,7 @@ public:
 
     bool FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) override;
     BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color) override;
+    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color, Hagine::Vector3 &outPoint) override;
     bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
 
     /// <summary>ロックオンの許容範囲（ボスデータの値をそのまま返す）</summary>
