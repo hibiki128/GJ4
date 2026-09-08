@@ -125,14 +125,34 @@ public:
     /// <param name="out">ワールド座標</param>
     bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
 
+    /// <summary>ロックオンの許容範囲（球体形態と同じ値をシーンから受け取っている）</summary>
+    LockOnRange GetLockOnRange() const override {
+        return LockOnRange{lockOn_.maxAngleDegrees, lockOn_.maxDistance};
+    }
+
     /// <summary>
-    /// 連鎖と演出の設定を渡す（球体形態と同じ値をそろえるため、シーンから配線する）
+    /// 脚には強調表示の仕組みが無いので何もしない。
+    /// 撃つ側は相手が球体形態か蜘蛛かを気にせず呼べる
+    /// </summary>
+    void SetLockOnHighlight(const ShellCell &, bool) override {}
+
+    /// <summary>色の表示RGBAを取得する</summary>
+    Hagine::Vector4 GetColorRgba(Color color) const override { return palette_.GetRgba(color); }
+
+    /// <summary>この蜘蛛が使っている色</summary>
+    const std::vector<Color> &GetUsedColors() const override { return palette_.GetUsedColors(); }
+
+    /// <summary>
+    /// 連鎖・演出・ロックオンの設定を渡す（球体形態と同じ値をそろえるため、シーンから配線する）
     /// </summary>
     /// <param name="chain">連鎖マッチの設定</param>
     /// <param name="effect">吸着・消滅の演出設定</param>
-    void SetBattleParams(const BossChainParams &chain, const BossEffectParams &effect) {
+    /// <param name="lockOn">ソフトロックオンの設定</param>
+    void SetBattleParams(const BossChainParams &chain, const BossEffectParams &effect,
+                         const BossLockOnParams &lockOn) {
         chain_ = chain;
         effect_ = effect;
+        lockOn_ = lockOn;
     }
 
 
@@ -312,6 +332,7 @@ private:
 
     BossChainParams chain_{};   // 連鎖マッチの設定（球体形態と共通）
     BossEffectParams effect_{};  // 吸着・消滅の演出設定
+    BossLockOnParams lockOn_{}; // ソフトロックオンの設定（球体形態と共通）
 
 
     // --- 攻撃 ---

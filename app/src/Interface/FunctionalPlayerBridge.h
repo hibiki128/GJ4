@@ -11,8 +11,7 @@
 /// 配線はシーン側で行う:
 ///   bridge = std::make_unique&lt;FunctionalPlayerBridge&gt;(
 ///       [p = player_.get()] { return p-&gt;GetWorldPosition(); },
-///       [this] { return debugColor_; });
-/// プレイヤー側に色APIが生えたら、2つ目のラムダを差し替えるだけで本接続になる。
+///       [p = player_.get()] { return p-&gt;GetSelectedColor(); });
 /// </summary>
 class FunctionalPlayerBridge final : public ITargetLocator, public IColorProvider {
 public:

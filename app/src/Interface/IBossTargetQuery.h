@@ -2,6 +2,18 @@
 #include "src/Boss/Lattice/BossSphereLattice.h"
 #include "src/Character/ColorStruct.h"
 #include "type/Vector3.h"
+#include "type/Vector4.h"
+#include <vector>
+
+/// <summary>
+/// ソフトロックオンの許容範囲。
+/// 値はボス側のデータ（jsons/Boss/&lt;bossId&gt;.json）が持っているので、
+/// 撃つ側は GetLockOnRange() で聞いてから問い合わせを組み立てる
+/// </summary>
+struct LockOnRange {
+    float maxAngleDegrees = 20.0f; // 照準からの許容角度
+    float maxDistance = 60.0f;     // 有効距離
+};
 
 /// <summary>
 /// ソフトロックオンの問い合わせ内容
@@ -45,6 +57,10 @@ struct BulletHitResult {
 /// <summary>
 /// 「撃つ側」から見たボスの窓口。ボスが実装する。
 /// プレイヤーの射撃処理はこのインターフェース越しにだけボスへ触る。
+///
+/// ロックオンの範囲・色・強調表示までここに集めてあるので、撃つ側は
+/// ボスの具象クラス（Boss / BossSpider）を include せずに射撃一式を組み立てられる。
+/// 撃つ相手が球体形態から蜘蛛へ変わっても、差し替えるのはこのポインタだけで済む。
 /// </summary>
 class IBossTargetQuery {
 public:
@@ -78,4 +94,31 @@ public:
     /// <param name="out">ワールド座標</param>
     /// <returns>bool: その球がまだ存在すれば true</returns>
     virtual bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) = 0;
+
+    /// <summary>
+    /// ソフトロックオンの許容範囲を取得する（撃つ側が LockOnRequest を組み立てるのに使う）
+    /// </summary>
+    /// <returns>LockOnRange: 許容角度と有効距離</returns>
+    virtual LockOnRange GetLockOnRange() const = 0;
+
+    /// <summary>
+    /// ロックオン中の球を強調表示する（valid=false で解除）。
+    /// 強調表示を持たない形態は何もしない
+    /// </summary>
+    /// <param name="cell">対象の格子セル</param>
+    /// <param name="valid">対象が有効か</param>
+    virtual void SetLockOnHighlight(const ShellCell &cell, bool valid) = 0;
+
+    /// <summary>
+    /// 色の表示RGBAを取得する（撃つ側が弾の色をボスの見た目に合わせるのに使う）
+    /// </summary>
+    /// <param name="color">色</param>
+    /// <returns>Vector4: 表示色</returns>
+    virtual Hagine::Vector4 GetColorRgba(Color color) const = 0;
+
+    /// <summary>
+    /// この相手が使っている色（撃つ側が選べる色を絞るのに使う）
+    /// </summary>
+    /// <returns>使用色のサブセット</returns>
+    virtual const std::vector<Color> &GetUsedColors() const = 0;
 };

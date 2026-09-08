@@ -84,6 +84,21 @@ public:
     BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color) override;
     bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
 
+    /// <summary>ロックオンの許容範囲（ボスデータの値をそのまま返す）</summary>
+    LockOnRange GetLockOnRange() const override {
+        const BossLockOnParams &lockOn = parameters_.LockOn();
+        return LockOnRange{lockOn.maxAngleDegrees, lockOn.maxDistance};
+    }
+
+    /// <summary>ロックオン中の球を強調表示する（valid=false で解除）</summary>
+    void SetLockOnHighlight(const ShellCell &cell, bool valid) override { cluster_.SetHighlightedCell(cell, valid); }
+
+    /// <summary>色の表示RGBAを取得する</summary>
+    Hagine::Vector4 GetColorRgba(Color color) const override { return palette_.GetRgba(color); }
+
+    /// <summary>このボスが使っている色</summary>
+    const std::vector<Color> &GetUsedColors() const override { return palette_.GetUsedColors(); }
+
     /// ===================================================
     /// 連携（シーンから配線する）
     /// ===================================================
@@ -132,9 +147,6 @@ public:
     const BossParameters &GetParameters() const { return parameters_; }
     const BossColorPalette &GetPalette() const { return palette_; }
     BossSphereCluster &GetCluster() { return cluster_; }
-
-    /// <summary>ロックオン中の球を強調表示する（valid=false で解除）</summary>
-    void SetLockOnHighlight(const ShellCell &cell, bool valid) { cluster_.SetHighlightedCell(cell, valid); }
 
     /// <summary>読み込むボスデータのID（jsons/Boss/[id].json）。Init より前に呼ぶこと</summary>
     void SetBossId(const std::string &bossId) { bossId_ = bossId; }

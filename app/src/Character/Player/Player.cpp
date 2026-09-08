@@ -43,6 +43,7 @@ void Player::Init(const std::string objectName) {
 	// 調整パラメータの登録は起動時に一度だけ。
 	// GameParamHub::Register は保存済みの値をこの時点で復元してくれる
 	reaction_.RegisterParams();
+	shoot_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
