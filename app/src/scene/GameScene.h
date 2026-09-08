@@ -6,6 +6,7 @@
 #include "src/Character/Player/Player.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
+#include "src/UI/Damage/DamageVignette.h"
 
 /// <summary>
 /// ゲームシーン
@@ -96,4 +97,6 @@ private:
 std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）
     bool isBossPaused_ = false;                          // 敵の更新を止めているか（調整用）
 	std::unique_ptr<FollowCamera> followCamera_;
+	// 被弾したときに画面のふちを赤く染めるマスク
+	std::unique_ptr<DamageVignette> damageVignette_;
 };

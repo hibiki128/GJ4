@@ -5,6 +5,7 @@
 #include "States/Dash/PlayerStateDash.h"
 #include "States/Dodge/PlayerStateDodge.h"
 #include "States/Jump/PlayerStateJump.h"
+#include "States/Damaged/PlayerStateDamaged.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 
 namespace {
@@ -26,6 +27,7 @@ void Player::Init(const std::string objectName) {
 	states_["Dash"] = std::make_unique<PlayerStateDash>();
 	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
+	states_["Damaged"] = std::make_unique<PlayerStateDamaged>();
 	currentState_ = states_["Idle"].get();
 
 	// 弾のプールを生成してオブジェクトマネージャーに登録する
@@ -39,6 +41,7 @@ void Player::Init(const std::string objectName) {
 	context_.jumpComponent_ = &jump_;
 	context_.shootComponent_ = &shoot_;
 	context_.reactionComponent_ = &reaction_;
+	context_.healthComponent_ = &health_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
 
@@ -52,9 +55,13 @@ void Player::Init(const std::string objectName) {
 	reaction_.RegisterParams();
 	color_.RegisterParams();
 	shoot_.RegisterParams();
+	health_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
+
+	// HPを満タンにするのは最大HPが復元された後（Register が保存済みの値を書き戻すため）
+	health_.Init();
 
 	// 初期ステートの初期化（コンポーネントを context_ へ繋いだ後に呼ぶこと）
 	currentState_->Enter(*this, context_);
@@ -72,6 +79,18 @@ void Player::Update() {
 	// 1フレームで床をすり抜けてしまう。10FPS 相当より遅いフレームは進めずに捨てる
 	if (Hagine::Frame::DeltaTime() > 0.1f) {
 		return;
+	}
+
+	// 被弾はボスの更新の途中で届くので、拾うのは自分の更新の頭でまとめて行う。
+	// ここ1か所からしか被弾ステートへ入らないので、更新の順番で挙動が変わらない
+	health_.Update();
+	if (health_.ConsumeHit()) {
+		ChangeState("Damaged");
+		// 画面まわりの演出はシーンが受け持つ。ステートを切り替えた後に知らせるので、
+		// 通知を受けた側から見ればプレイヤーはもう被弾ステートに入っている
+		if (onDamaged_) {
+			onDamaged_(health_.GetLastDamage());
+		}
 	}
 
 	if (currentState_) {

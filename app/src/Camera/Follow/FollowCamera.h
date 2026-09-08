@@ -154,6 +154,13 @@ public:
 	/// </summary>
 	void SnapToTarget();
 
+	/// <summary>
+	/// 被弾などの衝撃をカメラへ加える（後ろへ弾かれてから戻り、収まるまで小さく揺れる）。
+	/// 注視点や距離そのものは動かさないので、揺れが収まればいつもの構図へ自然に戻る
+	/// </summary>
+	/// <param name="strength">強さの倍率（1.0 で調整値どおり）</param>
+	void AddImpact(float strength = 1.0f);
+
 	/// <summary>ヨー角(左右の向き・ラジアン)を取得</summary>
 	float GetYaw() const { return yaw_; }
 
@@ -240,6 +247,13 @@ private:
 	/// <summary>注視点・向き・距離からカメラの位置と注視点を決める</summary>
 	void ApplyToCamera();
 
+	/// <summary>
+	/// 被弾の衝撃ぶんの、後ろへ引く量と揺れを求める（衝撃が無ければ両方 0）
+	/// </summary>
+	/// <param name="outPullBack">カメラ距離へ足す量</param>
+	/// <param name="outShake">カメラ位置へ足すズレ</param>
+	void CalcImpact(float& outPullBack, Hagine::Vector3& outShake) const;
+
 	/// <summary>調整用のデバッグ線を出す（仕様書 §22）</summary>
 	void DrawDebugLines(const Hagine::Vector3& playerTarget, const CameraFrameTarget& frame) const;
 
@@ -274,6 +288,10 @@ private:
 	Hagine::Vector3 targetVelocity_{}; // SmoothDamp が持ち越す注視点の速度
 	float distanceVelocity_ = 0.0f;    // SmoothDamp が持ち越す距離の速度
 	bool hasState_ = false;            // 一度も更新していないなら理想値へ瞬間移動させる
+
+	// 被弾の衝撃（AddImpact で入り、時間で収まる）
+	float impactTimer_ = 0.0f;    // 残り時間(秒)。0 なら衝撃は効いていない
+	float impactStrength_ = 0.0f; // いま効いている強さの倍率
 
 	// ここから下は ImGui で調整する値（Save / Load の対象）
 
@@ -312,6 +330,12 @@ private:
 	float collisionMargin_ = 0.15f;  // 当たった位置からさらに手前へ寄せる余裕
 	float minCollisionDistance_ = 1.0f; // これ以上は寄らない（顔の中に入らないように）
 	float groundHeight_ = 0.0f;      // 地面の高さ。これ＋余裕より下へはカメラを下ろさない
+
+	// --- 被弾の衝撃（AddImpact で加わる） ---
+	float impactDuration_ = 0.35f;    // 衝撃が収まりきるまでの時間(秒)
+	float impactPullBack_ = 1.6f;     // 当たった瞬間に後ろへ引かれる距離
+	float impactShakeAmount_ = 0.25f; // 揺れの大きさ
+	float impactShakeSpeed_ = 38.0f;  // 揺れの速さ（大きいほど細かく震える）
 
 	// --- レンズ（仕様書 §10） ---
 	float fovDegrees_ = 60.0f;

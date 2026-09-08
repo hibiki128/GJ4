@@ -185,6 +185,12 @@ void FollowCamera::RegisterTuningParameters(const std::string& cameraName)
 	params_.Register("自動補正:最大に補正する角度(度)", &autoAlignFullDegrees_, { 1.0f, 0.0f, 180.0f });
 	params_.Register("自動補正:速さ(度/秒)", &autoAlignSpeedDegrees_, { 1.0f, 0.0f, 360.0f });
 
+	// --- 被弾の衝撃（AddImpact）---
+	params_.Register("衝撃:収まるまでの時間(秒)", &impactDuration_, { 0.01f, 0.01f, 2.0f });
+	params_.Register("衝撃:後ろへ引く距離", &impactPullBack_, { 0.05f, 0.0f, 10.0f });
+	params_.Register("衝撃:揺れの大きさ", &impactShakeAmount_, { 0.01f, 0.0f, 2.0f });
+	params_.Register("衝撃:揺れの速さ", &impactShakeSpeed_, { 0.5f, 0.0f, 120.0f });
+
 	// --- カメラ衝突（仕様書 §15）---
 	params_.Register("衝突:処理する", &collisionEnabled_);
 	params_.Register("衝突:カメラの太さ", &collisionRadius_, { 0.01f, 0.0f, 2.0f });
@@ -206,6 +212,17 @@ void FollowCamera::Update(const CameraInput& input)
 
 	// スムージングはフレームレートに左右されないよう経過時間で進める
 	const float deltaTime = Frame::DeltaTime();
+
+	// 被弾の衝撃を収めていく（構図そのものは動かさないので、収まれば元の絵に戻る）
+	if (impactTimer_ > 0.0f)
+	{
+		impactTimer_ -= deltaTime;
+		if (impactTimer_ <= 0.0f)
+		{
+			impactTimer_ = 0.0f;
+			impactStrength_ = 0.0f;
+		}
+	}
 
 	// 1〜4. プレイヤーとボスの注視点を集める（仕様書 §20）
 	const Vector3 playerTarget = CalcPlayerTarget();
@@ -473,7 +490,14 @@ void FollowCamera::ApplyToCamera()
 
 	// Forward を求めて、注視点からその逆方向へ距離ぶん下がった所がカメラ位置（仕様書 §3）
 	const Vector3 forward = CalcForward(yaw_, pitch_);
-	const Vector3 desiredPosition = target_ - forward * distance_;
+
+	// 被弾の衝撃は「距離への上乗せ」と「位置のズレ」として足す。
+	// 注視点は動かさないので、揺れているあいだも画面の中心はプレイヤーに残る
+	float impactPullBack = 0.0f;
+	Vector3 impactShake{};
+	CalcImpact(impactPullBack, impactShake);
+
+	const Vector3 desiredPosition = target_ - forward * (distance_ + impactPullBack) + impactShake;
 
 	// 壁や地面にめり込むなら手前へ寄せる（仕様書 §15）
 	const Vector3 position = ResolveCameraCollision(target_, desiredPosition);
@@ -481,6 +505,46 @@ void FollowCamera::ApplyToCamera()
 	// 位置を決めて注視点を向く（行列の計算はカメラ側が行う）
 	pCamera_->SetPosition(position);
 	pCamera_->SetTarget(target_);
+}
+
+void FollowCamera::AddImpact(float strength)
+{
+	if (strength <= 0.0f)
+	{
+		return;
+	}
+
+	// 収まりかけているところへ次の被弾が来ても弱くならないよう、強いほうを採る。
+	// 時間は必ず入れ直すので、連続で被弾すれば揺れは続く
+	impactStrength_ = (std::max)(impactStrength_, strength);
+	impactTimer_ = impactDuration_;
+}
+
+void FollowCamera::CalcImpact(float& outPullBack, Vector3& outShake) const
+{
+	outPullBack = 0.0f;
+	outShake = Vector3{};
+
+	if (impactTimer_ <= 0.0f || impactStrength_ <= 0.0f)
+	{
+		return;
+	}
+
+	const float duration = (std::max)(0.01f, impactDuration_);
+	const float remain = std::clamp(impactTimer_ / duration, 0.0f, 1.0f);
+	// 当たった瞬間が一番強く、後半ほど素早く収まる（二乗ぶんだけ余韻を短くする）
+	const float scale = impactStrength_ * remain * remain;
+
+	outPullBack = impactPullBack_ * scale;
+
+	// 3軸で周期をずらして、規則的な往復に見えないようにする
+	const float elapsed = duration - impactTimer_;
+	const float amplitude = impactShakeAmount_ * scale;
+	outShake = Vector3{
+		std::sin(elapsed * impactShakeSpeed_) * amplitude,
+		std::sin(elapsed * impactShakeSpeed_ * 1.3f + 1.7f) * amplitude * 0.7f,
+		std::cos(elapsed * impactShakeSpeed_ * 0.9f) * amplitude * 0.5f,
+	};
 }
 
 void FollowCamera::DrawDebugLines(const Vector3& playerTarget, const CameraFrameTarget& frame) const
@@ -749,6 +813,11 @@ void FollowCamera::Save()
 	data.Save("autoAlignFullDegrees", autoAlignFullDegrees_);
 	data.Save("autoAlignSpeedDegrees", autoAlignSpeedDegrees_);
 
+	data.Save("impactDuration", impactDuration_);
+	data.Save("impactPullBack", impactPullBack_);
+	data.Save("impactShakeAmount", impactShakeAmount_);
+	data.Save("impactShakeSpeed", impactShakeSpeed_);
+
 	data.Save("collisionEnabled", collisionEnabled_);
 	data.Save("collisionRadius", collisionRadius_);
 	data.Save("collisionMargin", collisionMargin_);
@@ -794,6 +863,11 @@ void FollowCamera::Load()
 	autoAlignDeadDegrees_ = data.Load("autoAlignDeadDegrees", autoAlignDeadDegrees_);
 	autoAlignFullDegrees_ = data.Load("autoAlignFullDegrees", autoAlignFullDegrees_);
 	autoAlignSpeedDegrees_ = data.Load("autoAlignSpeedDegrees", autoAlignSpeedDegrees_);
+
+	impactDuration_ = data.Load("impactDuration", impactDuration_);
+	impactPullBack_ = data.Load("impactPullBack", impactPullBack_);
+	impactShakeAmount_ = data.Load("impactShakeAmount", impactShakeAmount_);
+	impactShakeSpeed_ = data.Load("impactShakeSpeed", impactShakeSpeed_);
 
 	collisionEnabled_ = data.Load("collisionEnabled", collisionEnabled_);
 	collisionRadius_ = data.Load("collisionRadius", collisionRadius_);
