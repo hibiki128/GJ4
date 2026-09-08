@@ -244,6 +244,18 @@ void GameScene::AddObjectSetting()
 	/// ===================================================
 	// ボス関連のUIはここ（メニューの 表示 > ウィンドウ > オブジェクト設定 (インスペクタ)）へ出す。
 	// オブジェクトを選択しなくても触れるよう、固有の項目だけを直接描いている
+
+	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
+	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
+	if (ImGui::Checkbox("敵を一時停止", &isBossPaused_)) {
+		boss_->SetPaused(isBossPaused_);
+		bossSpider_->SetPaused(isBossPaused_);
+	}
+	if (isBossPaused_) {
+		ImGui::SameLine();
+		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
+	}
+	ImGui::Separator();
 	if (boss_) {
 		boss_->DrawGameplayImGui();
 	}

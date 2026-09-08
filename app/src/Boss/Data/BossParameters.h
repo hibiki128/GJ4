@@ -285,7 +285,9 @@ struct BossSpiderParams {
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
-    float arenaRadius = 25.0f;   // 初期位置を中心に、ボスが動ける範囲
+    // 初期位置を中心に、ボスが動ける範囲。床の広さ（±100）に届かないと、
+    // 相手が遠いほど攻撃が手前で止まり、範囲の縁を横滑りするだけになる
+    float arenaRadius = 100.0f;
     float idleSpinSpeed = 18.0f; // 待機中の自転速度（度/秒）。死角のパーツを見せるための緩やかな回転
 };
 

@@ -91,5 +91,6 @@ private:
     // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
     std::unique_ptr<BossSpider> bossSpider_;
 std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）
+    bool isBossPaused_ = false;                          // 敵の更新を止めているか（調整用）
 	std::unique_ptr<FollowCamera> followCamera_;
 };

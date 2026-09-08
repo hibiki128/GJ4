@@ -69,6 +69,13 @@ void Boss::Init(const std::string objectName) {
 void Boss::Update() {
     BaseObject::Update();
 
+    if (isPaused_) {
+        // 止めているあいだも、殻の見た目だけは作り直しておく
+        // （ImGui で殻の設定をいじったとき、その場で反映されるように）
+        cluster_.Update();
+        return;
+    }
+
     const float deltaTime = Frame::DeltaTime();
 
     if (staggerTimer_ > 0.0f) {
@@ -102,6 +109,10 @@ void Boss::Update() {
     if (drawGraphDebug_) {
         // 線はフレーム単位で積み上げるので、描画フェーズではなく更新中に積む
         cluster_.DebugDraw();
+    }
+
+    if (drawTargetDebug_) {
+        DrawTargetDebug();
     }
 }
 
@@ -606,6 +617,35 @@ void Boss::DrawGameplayImGui() {
     ImGui::SameLine();
     ImGui::TextDisabled("攻撃の当て先: %s", pTargetDamageSink_ ? "接続済み" : "未接続（通知のみ）");
 
+
+    // 攻撃が「相手を狙えているか」を数字で出す。
+    // 位置が動かない・向きが変わらない場合、まずここを見れば切り分けられる
+    const Vector3 bossPosition = transform_->translation_;
+    ImGui::Text("ボスの位置: (%.2f, %.2f, %.2f)", bossPosition.x, bossPosition.y, bossPosition.z);
+    if (pTargetLocator_ && pTargetLocator_->IsTargetValid()) {
+        const Vector3 targetPosition = pTargetLocator_->GetTargetPosition();
+        Vector3 toTarget = targetPosition - bossPosition;
+        toTarget.y = 0.0f;
+        ImGui::Text("相手の位置: (%.2f, %.2f, %.2f)", targetPosition.x, targetPosition.y, targetPosition.z);
+        ImGui::Text("相手までの距離: %.2f ／ 向き (%.2f, %.2f)", toTarget.Length(),
+                    toTarget.LengthSq() > 0.0001f ? toTarget.Normalize().x : 0.0f,
+                    toTarget.LengthSq() > 0.0001f ? toTarget.Normalize().z : 0.0f);
+    } else {
+        ImGui::TextColored(ImVec4{1.0f, 0.4f, 0.3f, 1.0f}, "相手が未接続（攻撃が狙いを付けられません）");
+    }
+    ImGui::Text("行動範囲: 中心 (%.2f, %.2f) 半径 %.2f", homePosition_.x, homePosition_.z,
+                parameters_.Battle().arenaRadius);
+    {
+        Vector3 fromHome{bossPosition.x - homePosition_.x, 0.0f, bossPosition.z - homePosition_.z};
+        const float distance = fromHome.Length();
+        ImGui::SameLine();
+        if (distance >= parameters_.Battle().arenaRadius - 0.01f) {
+            ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "（範囲の端で止まっています）");
+        } else {
+            ImGui::TextDisabled("（中心から %.2f）", distance);
+        }
+    }
+
     ImGui::SeparatorText("色残量");
     for (Color color : palette_.GetUsedColors()) {
         const Vector4 rgba = palette_.GetRgba(color);
@@ -680,6 +720,8 @@ void Boss::DrawGameplayImGui() {
 
     ImGui::SeparatorText("デバッグ");
     ImGui::Checkbox("隣接グラフを描画", &drawGraphDebug_);
+    ImGui::Checkbox("狙いを描画", &drawTargetDebug_);
+    ImGui::TextDisabled("  青=ボスの位置 / 赤=ボスが思っている相手の位置 / 橙=その真下 / 緑の円=行動範囲");
     if (ImGui::Button("ボスをリセット")) {
         ResetBoss();
         ImGuiNotification::Post("ボスをリセットしました", {0.4f, 0.8f, 1.0f, 1.0f});
@@ -690,4 +732,30 @@ void Boss::DrawGameplayImGui() {
         ImGuiNotification::Post("ボスデータを保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
     }
 #endif // USE_IMGUI
+}
+
+void Boss::DrawTargetDebug() {
+    LineRenderer *lineRenderer = LineRenderer::GetInstance();
+
+    // ボスが立っている場所（攻撃の計算で使っている位置そのもの）
+    const Vector3 bossPosition = GetBossPosition();
+    lineRenderer->AddSphere(bossPosition, 1.0f, Vector4{0.3f, 0.8f, 1.0f, 1.0f});
+
+    if (!pTargetLocator_ || !pTargetLocator_->IsTargetValid()) {
+        return;
+    }
+
+    // ボスが「相手はここにいる」と思っている場所。
+    // 実際のプレイヤーとここがずれていれば、位置の受け取り方が原因になる
+    const Vector3 targetPosition = pTargetLocator_->GetTargetPosition();
+    lineRenderer->AddSphere(targetPosition, 1.0f, Vector4{1.0f, 0.3f, 0.3f, 1.0f});
+    lineRenderer->AddSphere(Vector3{targetPosition.x, 0.0f, targetPosition.z}, 0.5f,
+                            Vector4{1.0f, 0.6f, 0.2f, 1.0f});
+    lineRenderer->AddLine(bossPosition, targetPosition, Vector4{1.0f, 0.8f, 0.3f, 1.0f});
+
+    // 行動範囲（この円の外へは出られない）
+    lineRenderer->AddCircle(Vector3{homePosition_.x, 0.05f, homePosition_.z},
+                            Vector3{parameters_.Battle().arenaRadius, 0.0f, 0.0f},
+                            Vector3{0.0f, 0.0f, parameters_.Battle().arenaRadius},
+                            Vector4{0.4f, 1.0f, 0.4f, 1.0f}, 48);
 }

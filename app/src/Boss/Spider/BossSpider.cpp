@@ -411,7 +411,7 @@ void BossSpider::UpdateDefeat(float deltaTime) {
 void BossSpider::Update() {
     BaseObject::Update();
 
-    if (phase_ == Phase::Hidden) {
+    if (phase_ == Phase::Hidden || isPaused_) {
         return;
     }
 

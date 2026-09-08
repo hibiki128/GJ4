@@ -35,7 +35,12 @@ void BossAttackSlam::Start(const BossAttackContext &context) {
         landingPoint_ = phaseStart_;
     }
     EnsureMarker();
-    UpdateMarker(false, 1.0f);
+
+    // 動き出した時点で落下地点を決めてしまう。以降は追わないので、
+    // 相手は「予告が出た場所から離れる」だけで確実に避けられる
+    UpdateLandingPoint(context);
+    UpdateMarker(true, pParams_ ? pParams_->impactRadius : 1.0f);
+    UpdateFillRatio(0.0f);
 }
 
 void BossAttackSlam::Update(const BossAttackContext &context) {
@@ -104,6 +109,9 @@ const char *BossAttackSlam::GetPhaseName() const {
 
 void BossAttackSlam::UpdateRise(const BossAttackContext &context) {
     Boss *boss = context.boss;
+
+    // 飛び上がっているあいだも、決まった落下地点の予告を出し続ける
+    UpdateFillRatio(CalcFillRatio(timer_));
     const float duration = (std::max)(0.01f, pParams_->riseTime);
     const float progress = (std::min)(timer_ / duration, 1.0f);
 
@@ -120,14 +128,12 @@ void BossAttackSlam::UpdateRise(const BossAttackContext &context) {
 }
 
 void BossAttackSlam::UpdateAim(const BossAttackContext &context) {
-    UpdateLandingPoint(context);
 
-    // 外枠は攻撃範囲そのままで出しておき、内側の塗りを着弾に向けて広げる。
-    // 塗りが外枠に追いついた瞬間が命中なので、狙い〜落下を通した進み具合を渡す
+
+    // 落下地点は動き出しで決まっているのでもう動かさない。
+    // 予告の塗りだけを着弾に向けて広げる
     const float duration = (std::max)(0.01f, scaledAimTime_);
-    const float progress = (std::min)(timer_ / duration, 1.0f);
-    UpdateMarker(true, pParams_->impactRadius);
-    UpdateFillRatio(CalcFillRatio(timer_));
+    UpdateFillRatio(CalcFillRatio(pParams_->riseTime + timer_));
 
     if (timer_ >= duration) {
         phase_ = Phase::Fall;
@@ -144,7 +150,7 @@ void BossAttackSlam::UpdateFall(const BossAttackContext &context) {
     boss->SetBossPosition(ApplyEasing(EasingType::InQuad, phaseStart_, landingPoint_, progress, 1.0f));
 
     // 落下中も塗りを広げ続け、着弾でちょうど外枠と同じ大きさになる
-    UpdateFillRatio(CalcFillRatio(scaledAimTime_ + timer_));
+    UpdateFillRatio(CalcFillRatio(pParams_->riseTime + scaledAimTime_ + timer_));
 
     if (timer_ >= duration) {
         boss->SetBossPosition(landingPoint_);
@@ -169,7 +175,11 @@ void BossAttackSlam::UpdateImpact(const BossAttackContext &context) {
     phaseStart_ = context.boss->GetBossPosition();
 
     if (slamIndex_ < slamCount_) {
-        phase_ = Phase::Rise; // まだ回数が残っていれば再度飛び上がる
+        // 次の跳躍も、動き出しの時点で落下地点を決める
+        phase_ = Phase::Rise;
+        UpdateLandingPoint(context);
+        UpdateMarker(true, pParams_->impactRadius);
+        UpdateFillRatio(0.0f);
     } else {
         phase_ = Phase::Recover;
     }

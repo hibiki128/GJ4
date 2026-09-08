@@ -94,6 +94,13 @@ public:
     /// <summary>いまの段階の名前（デバッグUI用）</summary>
     const char *GetPhaseName() const;
 
+    /// <summary>更新を止める／再開する（調整用）。止めているあいだも描画は続く</summary>
+    /// <param name="paused">止めるなら true</param>
+    void SetPaused(bool paused) { isPaused_ = paused; }
+
+    /// <summary>更新を止めているか</summary>
+    bool IsPaused() const { return isPaused_; }
+
     /// <summary>歩いて向かう相手を設定する（未設定ならその場で足踏みする）</summary>
     void SetTargetLocator(ITargetLocator *locator) { pTargetLocator_ = locator; }
 
@@ -384,6 +391,7 @@ private:
     float defeatStartHeight_ = 0.0f; // 落ち始めたときのコアの高さ
     float collapseTime_ = 0.0f;      // 変形前ぶりの経過時間（秒）
     bool isDefeatFinished_ = false;  // 撃破演出が終わったか
+    bool isPaused_ = false;          // 更新を止めているか（調整用）
     std::string legNamePrefix_;      // 脚の球の名前の接頭辞
     std::string bossId_ = "Boss01";  // パラメータの読み書き先（球体形態と同じファイル）
 };

@@ -31,7 +31,7 @@
         }
     },
     "battle": {
-        "arenaRadius": 25.0,
+        "arenaRadius": 100.0,
         "idleSpinSpeed": 18.0
     },
     "chain": {
