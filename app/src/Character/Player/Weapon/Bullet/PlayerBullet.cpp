@@ -1,10 +1,39 @@
 #include "PlayerBullet.h"
 #include "Frame/Frame.h"
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace {
 // 色をそのまま出したいので白テクスチャを貼る（色は SetColor 側で決める）
 constexpr const char* kBulletTexturePath = "debug/white1x1.png";
+
+/// <summary>
+/// from から to の向きへ、最大 maxDegrees だけ回した向きを返す。
+/// 割合だけの補正は的が近いほど強く効いてしまうので、曲がれる角度に上限をつけて
+/// 「弱いホーミング」の効き方を距離によらず一定に保つ
+/// </summary>
+Hagine::Vector3 LimitTurn(const Hagine::Vector3& from, const Hagine::Vector3& to, float maxDegrees) {
+	if (maxDegrees <= 0.0f) {
+		return from;
+	}
+
+	const float cosAngle = std::clamp(from.Dot(to), -1.0f, 1.0f);
+	const float angle = std::acos(cosAngle);
+	const float maxAngle = maxDegrees * (std::numbers::pi_v<float> / 180.0f);
+	if (angle <= maxAngle) {
+		return to; // 上限より小さい曲がりなので、そのまま向けてよい
+	}
+
+	// from に直交する成分を軸にして、maxAngle ぶんだけ回した向きを直接作る
+	Hagine::Vector3 orthogonal = to - from * cosAngle;
+	if (orthogonal.LengthSq() <= 0.0001f) {
+		return from; // ほぼ真後ろ。回す向きが決まらないので曲げない
+	}
+	orthogonal = orthogonal.Normalize();
+
+	return (from * std::cos(maxAngle) + orthogonal * std::sin(maxAngle)).Normalize();
+}
 } // namespace
 
 void PlayerBullet::Init(const std::string objectName) {
@@ -29,6 +58,7 @@ void PlayerBullet::Fire(const Shot& shot) {
 	speed_ = shot.speed;
 	lifeTime_ = shot.lifeTime;
 	correctionRate_ = shot.correctionRate;
+	maxTurnDegreesPerSecond_ = shot.maxTurnDegreesPerSecond;
 	targetPositionGetter_ = shot.targetPositionGetter;
 	hitTester_ = shot.hitTester;
 
@@ -84,11 +114,21 @@ void PlayerBullet::ApplyTrajectoryCorrection(float deltaTime) {
 	}
 
 	const Hagine::Vector3 desired = toTarget.Normalize();
+
+	// 追う先を通り過ぎたら補正をやめる。
+	// 狙う先が動かない一点なので、これが無いと外した弾がUターンして戻ってくる
+	if (desired.Dot(direction_) <= 0.0f) {
+		targetPositionGetter_ = nullptr;
+		return;
+	}
+
 	const float rate = std::clamp(correctionRate_ * deltaTime, 0.0f, 1.0f);
 	const Hagine::Vector3 blended = direction_ + (desired - direction_) * rate;
-	if (blended.LengthSq() > 0.0001f) {
-		direction_ = blended.Normalize();
+	if (blended.LengthSq() <= 0.0001f) {
+		return;
 	}
+
+	direction_ = LimitTurn(direction_, blended.Normalize(), maxTurnDegreesPerSecond_ * deltaTime);
 }
 
 void PlayerBullet::Draw(const Hagine::ViewProjection& viewProjection) {
@@ -98,6 +138,7 @@ void PlayerBullet::Draw(const Hagine::ViewProjection& viewProjection) {
 void PlayerBullet::Deactivate() {
 	isActive_ = false;
 	speed_ = 0.0f;
+	maxTurnDegreesPerSecond_ = 0.0f;
 
 	// 撃った相手を掴んだままにしない（相手が消えても弾が握り続けてしまう）
 	targetPositionGetter_ = nullptr;

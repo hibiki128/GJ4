@@ -480,19 +480,11 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
                                                  Color color, const BossChainParams &chain,
                                                  const BossColorPalette &palette) {
     BulletHitResult result{};
-    if (occupied_.empty()) {
-        return result;
-    }
-
-    // ワールド→ローカルの変換は着弾判定1回につき逆行列1回だけ（球の数には比例しない）
-    const Matrix4x4 shellMatrix = MakeShellMatrix();
-    const Matrix4x4 inverseMatrix = Inverse(shellMatrix);
-    const Vector3 localStart = Transformation(worldStart, inverseMatrix);
-    const Vector3 localEnd = Transformation(worldEnd, inverseMatrix);
 
     ShellCell hitCell{};
     Vector3 localHitPoint{};
-    if (!RaycastLocal(localStart, localEnd, hitCell, localHitPoint)) {
+    Matrix4x4 shellMatrix{};
+    if (!RaycastWorld(worldStart, worldEnd, hitCell, localHitPoint, shellMatrix)) {
         return result; // 穴を通り抜けた（球が無いセルはレイが素通りする）
     }
 
@@ -526,6 +518,35 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
     // まとめて消したほど長く怯む（HPは持たず、殻を削り切ることが撃破条件）
     result.staggerTime = chain.staggerBase + chain.staggerPerPart * static_cast<float>(overMatch);
     return result;
+}
+
+bool BossSphereCluster::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd,
+                                     Vector3 &outPoint) {
+    ShellCell hitCell{};
+    Vector3 localHitPoint{};
+    Matrix4x4 shellMatrix{};
+    if (!RaycastWorld(worldStart, worldEnd, hitCell, localHitPoint, shellMatrix)) {
+        return false;
+    }
+
+    outPoint = Transformation(localHitPoint, shellMatrix);
+    return true;
+}
+
+bool BossSphereCluster::RaycastWorld(const Vector3 &worldStart, const Vector3 &worldEnd,
+                                     ShellCell &outCell, Vector3 &outLocalHitPoint,
+                                     Matrix4x4 &outShellMatrix) {
+    if (occupied_.empty()) {
+        return false;
+    }
+
+    // ワールド→ローカルの変換は判定1回につき逆行列1回だけ（球の数には比例しない）
+    outShellMatrix = MakeShellMatrix();
+    const Matrix4x4 inverseMatrix = Inverse(outShellMatrix);
+    const Vector3 localStart = Transformation(worldStart, inverseMatrix);
+    const Vector3 localEnd = Transformation(worldEnd, inverseMatrix);
+
+    return RaycastLocal(localStart, localEnd, outCell, outLocalHitPoint);
 }
 
 std::vector<ShellCell> BossSphereCluster::CollectSameColorCluster(const ShellCell &start) const {

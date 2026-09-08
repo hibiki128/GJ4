@@ -373,6 +373,17 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
     return result;
 }
 
+bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, Vector3 &outPoint) {
+    // 当たり判定を持たない間は照準も素通りさせる（RaycastAttach と同じ条件にそろえる）
+    if (IsAppearing()) {
+        return false;
+    }
+
+    // 殻の球は色に関係なく弾を止めるので、色は見ない
+    (void)color;
+    return cluster_.RaycastPoint(worldStart, worldEnd, outPoint);
+}
+
 bool Boss::TryGetTargetPosition(const ShellCell &cell, Vector3 &out) {
     return cluster_.TryGetCellWorldPosition(cell, out);
 }

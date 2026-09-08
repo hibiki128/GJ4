@@ -17,7 +17,7 @@ public:
         Hagine::Vector3 direction = {0.0f, 0.0f, 1.0f};
         Hagine::Vector4 rgba = {1.0f, 1.0f, 1.0f, 1.0f};
 
-        // 追尾先。空ならロックオンなしで真っ直ぐ飛ぶ
+        // 追尾先。空なら補正なしで真っ直ぐ飛ぶ
         PlayerBullet::TargetPositionGetter targetPositionGetter{};
         // 着弾の問い合わせ先。空なら寿命が尽きるまで飛び続ける
         PlayerBullet::HitTester hitTester{};
@@ -25,11 +25,14 @@ public:
 
     /// <summary>弾の飛び方の調整値（デバッグUIから触る）</summary>
     struct Params {
-        float fireInterval = 0.18f;   // 連射間隔（秒）
-        float speed = 45.0f;          // 弾速（単位/秒）
-        float lifeTime = 3.0f;        // 弾の寿命（秒）
-        float correctionRate = 12.0f; // 軌道補正の強さ（1秒あたりの補正割合）
-        float radius = 0.3f;          // 弾の半径
+        float fireInterval = 0.18f;  // 連射間隔（秒）
+        float speed = 45.0f;         // 弾速（単位/秒）
+        float lifeTime = 3.0f;       // 弾の寿命（秒）
+        float correctionRate = 2.0f; // 軌道補正の強さ（1秒あたりの補正割合）
+        // 1秒あたりに曲がってよい角度の上限。
+        // 狙う先は発射時に確定した一点なので、補正はマズルとカメラの視差を詰めるだけで足りる
+        float maxTurnDegreesPerSecond = 60.0f;
+        float radius = 0.3f; // 弾の半径
     };
 
     /// <summary>待機中の弾を1発撃つ（空きが無ければ何も起きない）</summary>

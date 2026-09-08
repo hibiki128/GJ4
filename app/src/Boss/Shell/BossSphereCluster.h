@@ -133,6 +133,17 @@ public:
                                   Color color, const BossChainParams &chain,
                                   const BossColorPalette &palette);
 
+    /// <summary>
+    /// 線分が最初に当たった球との交点を返すだけの問い合わせ（付着も消去もしない）。
+    /// 照準の射線から着弾地点を求めるのに使う。RaycastAttach と同じ判定を通るので結果が食い違わない
+    /// </summary>
+    /// <param name="worldStart">線分の始点（ワールド）</param>
+    /// <param name="worldEnd">線分の終点（ワールド）</param>
+    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                      Hagine::Vector3 &outPoint);
+
     /// ===================================================
     /// 問い合わせ
     /// ===================================================
@@ -210,6 +221,14 @@ private:
     /// <summary>線分と占有球の交差を調べ、最も手前の球を返す</summary>
     bool RaycastLocal(const Hagine::Vector3 &localStart, const Hagine::Vector3 &localEnd,
                       ShellCell &outCell, Hagine::Vector3 &outHitPoint) const;
+
+    /// <summary>
+    /// ワールドの線分をローカルへ移して最初に当たった球を探す（RaycastAttach / RaycastPoint の共通部）。
+    /// 呼び出し側が交点をワールドへ戻したり球を置いたりできるよう、殻の行列も返す
+    /// </summary>
+    bool RaycastWorld(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                      ShellCell &outCell, Hagine::Vector3 &outLocalHitPoint,
+                      Hagine::Matrix4x4 &outShellMatrix);
 
     /// <summary>当たった球の隣接から、着弾点に最も近い空きセルを選ぶ</summary>
     bool FindSnapCell(const ShellCell &hitCell, const Hagine::Vector3 &localHitPoint,
