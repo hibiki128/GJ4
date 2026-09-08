@@ -42,6 +42,7 @@ void Player::Init(const std::string objectName) {
 	context_.shootComponent_ = &shoot_;
 	context_.reactionComponent_ = &reaction_;
 	context_.healthComponent_ = &health_;
+	context_.ammoComponent_ = &ammo_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
 
@@ -56,12 +57,16 @@ void Player::Init(const std::string objectName) {
 	color_.RegisterParams();
 	shoot_.RegisterParams();
 	health_.RegisterParams();
+	ammo_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
 
 	// HPを満タンにするのは最大HPが復元された後（Register が保存済みの値を書き戻すため）
 	health_.Init();
+
+	// 弾を満タンにするのも最大弾数が復元された後（HPと同じ理由）
+	ammo_.Init();
 
 	// 初期ステートの初期化（コンポーネントを context_ へ繋いだ後に呼ぶこと）
 	currentState_->Enter(*this, context_);
@@ -102,6 +107,9 @@ void Player::Update() {
 	reaction_.Update();
 	GetWorldTransform()->scale_ = reaction_.Apply(baseScale_);
 
+	// 残弾の回復は撃つより先に進める。こうしておくと、回復して1発ぶん貯まったフレームに
+	// そのまま撃てる。回復倍率を要求するギミックは、この Update までに呼んでおけば同じフレームで効く
+	ammo_.Update();
 	shoot_.Update(context_);
 
 	// 選択色を持っているのは射撃コンポーネント。見た目はそれを追いかけるだけ。

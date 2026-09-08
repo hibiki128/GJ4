@@ -8,6 +8,7 @@ class PlayerJumpComponent;
 class PlayerShootComponent;
 class PlayerComponentReaction;
 class PlayerHealthComponent;
+class PlayerAmmoComponent;
 class PlayerBulletManager;
 
 class PlayerContext {
@@ -18,6 +19,7 @@ public:
 	PlayerShootComponent* shootComponent_ = nullptr;
 	PlayerComponentReaction* reactionComponent_ = nullptr;
 	PlayerHealthComponent* healthComponent_ = nullptr;
+	PlayerAmmoComponent* ammoComponent_ = nullptr;
 	PlayerBulletManager* bullets = nullptr;
 	PlayerInput input_;
 

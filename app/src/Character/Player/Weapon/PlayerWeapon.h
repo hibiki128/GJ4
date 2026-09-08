@@ -35,10 +35,11 @@ public:
         float radius = 0.3f; // 弾の半径
     };
 
-    /// <summary>待機中の弾を1発撃つ（空きが無ければ何も起きない）</summary>
+    /// <summary>待機中の弾を1発撃つ</summary>
     /// <param name="bullets">弾のプール</param>
     /// <param name="request">今回の発射内容</param>
-    void Fire(PlayerBulletManager& bullets, const FireRequest& request);
+    /// <returns>bool: 撃てれば true（プールに空きが無ければ false）</returns>
+    bool Fire(PlayerBulletManager& bullets, const FireRequest& request);
 
     float GetFireInterval() const { return params_.fireInterval; }
 

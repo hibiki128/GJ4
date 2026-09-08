@@ -1,7 +1,7 @@
 #include "PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 
-void PlayerWeapon::Fire(PlayerBulletManager& bullets, const FireRequest& request) {
+bool PlayerWeapon::Fire(PlayerBulletManager& bullets, const FireRequest& request) {
 	PlayerBullet::Shot shot{};
 	shot.position = request.origin;
 	shot.direction = request.direction;
@@ -14,5 +14,5 @@ void PlayerWeapon::Fire(PlayerBulletManager& bullets, const FireRequest& request
 	shot.targetPositionGetter = request.targetPositionGetter;
 	shot.hitTester = request.hitTester;
 
-	bullets.SpawnBullet(shot);
+	return bullets.SpawnBullet(shot);
 }

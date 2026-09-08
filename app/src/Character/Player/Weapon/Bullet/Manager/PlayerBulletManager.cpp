@@ -20,7 +20,7 @@ void PlayerBulletManager::Init(const std::string& baseName) {
 	}
 }
 
-void PlayerBulletManager::SpawnBullet(const PlayerBullet::Shot& shot) {
+bool PlayerBulletManager::SpawnBullet(const PlayerBullet::Shot& shot) {
 	// 待機中の弾を探して撃つ
 	for (auto& bullet : bullets_) {
 		if (bullet->IsActive()) {
@@ -28,8 +28,10 @@ void PlayerBulletManager::SpawnBullet(const PlayerBullet::Shot& shot) {
 		}
 
 		bullet->Fire(shot);
-		return;
+		return true;
 	}
 
-	// 空きが無い場合は発射しない（弾数の上限）
+	// 空きが無い場合は発射しない（同時に飛べる弾の上限）。
+	// 撃った側は残弾を戻せるよう、撃てなかったことを戻り値で知る
+	return false;
 }

@@ -16,6 +16,9 @@
     <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp">
       <Filter>src\Character\Player\Components\Health</Filter>
     </ClCompile>
+    <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp">
+      <Filter>src\Character\Player\Components\Ammo</Filter>
+    </ClCompile>
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp">
       <Filter>src\Character\Player\States\Damaged</Filter>
     </ClCompile>
@@ -302,6 +305,9 @@
     </ClInclude>
     <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h">
       <Filter>src\Character\Player\Components\Health</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h">
+      <Filter>src\Character\Player\Components\Ammo</Filter>
     </ClInclude>
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h">
       <Filter>src\Character\Player\States\Damaged</Filter>
