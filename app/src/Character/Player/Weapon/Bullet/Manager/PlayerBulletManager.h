@@ -28,7 +28,7 @@ public:
 	void Init(const std::string& baseName);
 
 	// 待機中の弾を1発発射する（空きが無ければ何もしない）
-	void SpawnBullet(const Hagine::Vector3& position, const Hagine::Vector3& direction, float speed);
+	void SpawnBullet(const PlayerBullet::Shot& shot);
 
 private:
 	// 同時に存在できる弾の数

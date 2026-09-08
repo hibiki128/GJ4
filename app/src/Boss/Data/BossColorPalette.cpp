@@ -37,11 +37,7 @@ Hagine::Vector4 BossColorPalette::GetRgba(Color color) const {
 }
 
 const char *BossColorPalette::GetIdText(Color color) {
-    const int index = ToIndex(color);
-    if (index < 0 || index >= kGameColorCount) {
-        return "UNKNOWN";
-    }
-    return kColorIds[index];
+    return GetColorIdText(color);
 }
 
 bool BossColorPalette::TryParse(const std::string &id, Color &out) {
@@ -59,8 +55,5 @@ bool BossColorPalette::TryParse(const std::string &id, Color &out) {
 }
 
 Color BossColorPalette::FromIndex(int index) {
-    if (index < 0 || index >= kGameColorCount) {
-        return Color::RED;
-    }
-    return static_cast<Color>(index);
+    return FromColorIndex(index);
 }

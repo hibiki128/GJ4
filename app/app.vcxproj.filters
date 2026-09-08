@@ -38,12 +38,6 @@
     <ClCompile Include="src\Boss\Data\BossParameters.cpp">
       <Filter>src\Boss\Data</Filter>
     </ClCompile>
-    <ClCompile Include="src\Boss\Debug\BossTestDriver.cpp">
-      <Filter>src\Boss\Debug</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Boss\Debug\BossTestProjectile.cpp">
-      <Filter>src\Boss\Debug</Filter>
-    </ClCompile>
     <ClCompile Include="src\Boss\Lattice\BossIcosphere.cpp">
       <Filter>src\Boss\Lattice</Filter>
     </ClCompile>
@@ -172,9 +166,6 @@
     <Filter Include="src\Boss\Data">
       <UniqueIdentifier>{873FDF63-78E4-1579-8072-E49C9C2EEE23}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\Boss\Debug">
-      <UniqueIdentifier>{1B2E20DD-275A-0752-A58B-81CF4A00FEA8}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src\Boss\Lattice">
       <UniqueIdentifier>{DCBAE898-4951-9975-5DD9-3387CA387111}</UniqueIdentifier>
     </Filter>
@@ -296,12 +287,6 @@
     </ClInclude>
     <ClInclude Include="src\Boss\Data\BossParameters.h">
       <Filter>src\Boss\Data</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Boss\Debug\BossTestDriver.h">
-      <Filter>src\Boss\Debug</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Boss\Debug\BossTestProjectile.h">
-      <Filter>src\Boss\Debug</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Lattice\BossIcosphere.h">
       <Filter>src\Boss\Lattice</Filter>
