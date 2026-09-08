@@ -32,6 +32,9 @@ public:
 		context_.aimDirection_ = direction;
 	}
 
+	// 移動の基準になるカメラの向きを渡す（射線と同じくシーン側から毎フレーム）
+	void SetCameraYaw(float yaw) { context_.cameraYaw_ = yaw; }
+
 	// 撃つ相手の提供元を渡す（形態の切り替えはシーン側が判断する）
 	void SetBossTargetProvider(PlayerShootComponent::TargetProvider provider) {
 		shoot_.SetTargetProvider(std::move(provider));
