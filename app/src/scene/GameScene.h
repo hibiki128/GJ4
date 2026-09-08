@@ -1,7 +1,6 @@
 #pragma once
 #include "BaseScene.h"
 #include "src/Boss/Boss.h"
-#include "src/Boss/Debug/BossTestDriver.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Boss/Effect/BossDefeatDirector.h"
 #include "src/Character/Player/Player.h"
@@ -69,6 +68,12 @@ public:
     void UpdateDefeatDirection();
 
     /// <summary>
+    /// 照準（カメラの射線）をプレイヤーへ配る。
+    /// プレイヤーはカメラを知らないので、カメラを動かした後にシーンから渡す
+    /// </summary>
+    void UpdateAim();
+
+    /// <summary>
     /// カメラの更新
     /// </summary>
     void CameraUpdate();
@@ -86,8 +91,6 @@ private:
     std::unique_ptr<Boss> boss_;
     // プレイヤーの具象クラスへボスを依存させないためのアダプタ
     std::unique_ptr<FunctionalPlayerBridge> playerBridge_;
-    // 連鎖マッチ検証用のデバッグ射撃（プレイヤーの射撃実装が入るまでの代役）
-    std::unique_ptr<BossTestDriver> bossTestDriver_;
     // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
     std::unique_ptr<BossSpider> bossSpider_;
 std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）

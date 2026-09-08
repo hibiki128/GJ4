@@ -51,6 +51,7 @@ void Player::Init(const std::string objectName) {
 	// GameParamHub::Register は保存済みの値をこの時点で復元してくれる
 	reaction_.RegisterParams();
 	color_.RegisterParams();
+	shoot_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}

@@ -20,14 +20,14 @@ void PlayerBulletManager::Init(const std::string& baseName) {
 	}
 }
 
-void PlayerBulletManager::SpawnBullet(const Hagine::Vector3& position, const Hagine::Vector3& direction, float speed) {
+void PlayerBulletManager::SpawnBullet(const PlayerBullet::Shot& shot) {
 	// 待機中の弾を探して撃つ
 	for (auto& bullet : bullets_) {
 		if (bullet->IsActive()) {
 			continue;
 		}
 
-		bullet->Fire(position, direction, speed);
+		bullet->Fire(shot);
 		return;
 	}
 

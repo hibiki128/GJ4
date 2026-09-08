@@ -5,9 +5,6 @@
 #include <string>
 #include <vector>
 
-/// <summary>ゲームで扱う色の総数（ColorStruct.h の Color と対応）</summary>
-inline constexpr int kGameColorCount = 4;
-
 /// <summary>
 /// 色のマスターデータ（4色固定）と、ボスごとの使用色サブセット（2〜4色）を保持する。
 /// 色そのものに固有効果は持たせない。表示色と識別子だけを扱う。
@@ -44,7 +41,7 @@ public:
     static bool TryParse(const std::string &id, Color &out);
 
     /// <summary>色を配列添字へ変換する</summary>
-    static int ToIndex(Color color) { return static_cast<int>(color); }
+    static int ToIndex(Color color) { return ToColorIndex(color); }
 
     /// <summary>配列添字を色へ変換する</summary>
     static Color FromIndex(int index);

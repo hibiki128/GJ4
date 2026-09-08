@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include <frame/Frame.h>
+#include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
@@ -26,10 +27,6 @@ void GameScene::Initialize()
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
 			pObjectManager_->Draw(vp);
-			// デバッグ射撃の弾はマネージャに登録していないのでここで描く
-			if (bossTestDriver_) {
-				bossTestDriver_->Draw(vp);
-			}
 		});
 
 	// ボスの殻（メタボール）をGPUで作り直す。
@@ -82,20 +79,32 @@ void GameScene::Initialize()
 	boss_->Init("Boss");
 	pObjectManager_->RegisterExternal(boss_.get());
 
-	// 連鎖マッチ検証用のデバッグ射撃
-	bossTestDriver_ = std::make_unique<BossTestDriver>();
-	bossTestDriver_->Init(boss_.get());
+	// 撃つ相手は「変形が終わっていれば蜘蛛、そうでなければ球体形態」。
+	// 撃つ側はボスの具象クラスを知らず、この判断はシーンが受け持つ
+	auto activeBossTarget = [this]() -> IBossTargetQuery* {
+		if (bossSpider_ && bossSpider_->IsBattleReady()) {
+			return bossSpider_.get();
+		}
+		return boss_.get();
+		};
 
 	// プレイヤーの見た目をボスと同じ色マスタへ繋ぐ。
 	// 初期色は補間せずその場で反映する（開始の一瞬だけ白いプレイヤーが見えないように）
 	player_->SetColorPalette(boss_->GetPalette());
 	player_->SetSelectedColor(bossTestDriver_->GetSelectedColor(), true);
 
-	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる。
-	// プレイヤーに色の取得APIが実装されたら、2つ目のラムダを差し替えるだけで本接続になる
+	// プレイヤーの射撃をボスへ繋ぐ（ロックオンも着弾もこの窓口を通る）
+	player_->SetBossTargetProvider(activeBossTarget);
+
+	// プレイヤーが最初に選んでいる色を、ボスが使っている色にそろえる
+	if (!boss_->GetUsedColors().empty()) {
+		player_->SetSelectedColor(boss_->GetUsedColors().front());
+	}
+
+	// プレイヤー連携の配線。ボス側は Player の型を知らず、この2つのラムダ越しにだけ触れる
 	playerBridge_ = std::make_unique<FunctionalPlayerBridge>(
 		[pPlayer = player_.get()] { return pPlayer->GetWorldPosition(); },
-		[pDriver = bossTestDriver_.get()] { return pDriver->GetSelectedColor(); });
+		[pPlayer = player_.get()] { return pPlayer->GetSelectedColor(); });
 	boss_->SetPlayerBridge(playerBridge_.get());
 
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
@@ -152,11 +161,29 @@ void GameScene::Update()
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();
 
-	
 	followCamera_->Update();
 
 	CameraUpdate();
 
+	// 射線はカメラから作る。カメラを動かした後に配り直すので、
+	// プレイヤーは「いま見ている向き」へ撃てる
+	UpdateAim();
+}
+
+void GameScene::UpdateAim()
+{
+	/// ===================================================
+	/// 照準（カメラの射線）をプレイヤーへ配る
+	/// ===================================================
+
+	// プレイヤーはカメラを知らないので、シーンが毎フレーム射線を渡す。
+	// 起点をカメラから少し前に出すのは、弾がカメラの手前で当たらないようにするため
+	const ViewProjection& viewProjection = *GetViewProjection();
+	const Matrix4x4 rotateMatrix = MakeRotateXYZMatrix(viewProjection.eulerRotation_);
+	const Vector3 aimDirection = TransformNormal(kWorldForward, rotateMatrix).Normalize();
+	const Vector3 aimOrigin = viewProjection.translation_ + aimDirection * 1.0f;
+
+	player_->SetAim(aimOrigin, aimDirection);
 }
 
 void GameScene::UpdateFormChange()
@@ -250,8 +277,11 @@ void GameScene::AddObjectSetting()
 	/// ===================================================
 	/// オブジェクト設定（デバッグ）
 	/// ===================================================
-	// ボス関連のUIはここ（メニューの 表示 > ウィンドウ > オブジェクト設定 (インスペクタ)）へ出す。
+	// ゲームプレイ関連のUIはここ（メニューの 表示 > ウィンドウ > オブジェクト設定 (インスペクタ)）へ出す。
 	// オブジェクトを選択しなくても触れるよう、固有の項目だけを直接描いている
+	if (player_) {
+		player_->DrawGameplayImGui();
+	}
 
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
 	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
@@ -269,9 +299,6 @@ void GameScene::AddObjectSetting()
 	}
 	if (bossSpider_) {
 		bossSpider_->DrawGameplayImGui();
-	}
-	if (bossTestDriver_) {
-		bossTestDriver_->DrawImGui();
 	}
 }
 void GameScene::AddParticleSetting()
