@@ -24,6 +24,10 @@ public:
 	Hagine::Vector3 aimOrigin_ = {0.0f, 0.0f, 0.0f};
 	Hagine::Vector3 aimDirection_ = {0.0f, 0.0f, 1.0f};
 
+	// 移動の基準になるカメラの向き(ヨー角・ラジアン)。射線と同じくシーンが毎フレーム入れる。
+	// 0 のままでもワールド軸そのままで動けるようにしてある
+	float cameraYaw_ = 0.0f;
+
 	// 重力と速度は BaseObject のリジッドボディに任せる（Player が自分のものを渡す）
 	Hagine::BaseObject::RigidBodyParams* rigidBody_ = nullptr;
 	// 床のコライダーに触れている間 true（コライダーの衝突コールバックで更新される）

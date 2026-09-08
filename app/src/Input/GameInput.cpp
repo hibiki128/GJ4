@@ -105,4 +105,32 @@ void GameInput::UpdateInputState() {
 			}
 		}
 	}
+
+	// 視点操作の入力（カメラへ渡す）
+	UpdateCameraInput();
+}
+
+void GameInput::UpdateCameraInput() {
+	auto input = Hagine::Input::GetInstance();
+	auto gamePad = input->GetGamePad();
+
+	// 倒していないフレームは 0。カメラ側は「今フレームどれだけ視点を動かしたいか」だけを受け取る
+	cameraContext_.look = Hagine::Vector2{ 0.0f, 0.0f };
+
+	if (gamePad->IsConnected()) {
+		// 右スティックで視点変更。デッドゾーンと感度は GamePad 側で処理済みなのでそのまま渡す
+		cameraContext_.look.x = gamePad->GetRightStickX();
+		cameraContext_.look.y = gamePad->GetRightStickY();
+	} else {
+		// 矢印キーで視点変更。キーには倒し具合が無いので、押している間は最大まで倒したものとして扱う
+		if (input->PushKey(DIK_LEFT)) {
+			cameraContext_.look.x -= 1.0f;
+		} if (input->PushKey(DIK_RIGHT)) {
+			cameraContext_.look.x += 1.0f;
+		} if (input->PushKey(DIK_DOWN)) {
+			cameraContext_.look.y -= 1.0f;
+		} if (input->PushKey(DIK_UP)) {
+			cameraContext_.look.y += 1.0f;
+		}
+	}
 }

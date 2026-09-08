@@ -11,6 +11,13 @@ struct PlayerInput {
 	int selectColorIndex = -1;
 };
 
+// カメラ（視点）操作の入力
+struct CameraInput {
+	// 視点を動かす量(-1〜1)。x が左右、y が上下（上に倒すと上を向く）。
+	// キーボードは押している間 ±1、ゲームパッドは倒し具合がそのまま入る
+	Hagine::Vector2 look;
+};
+
 class GameInput {
 public:
 	GameInput() = default;
@@ -19,8 +26,14 @@ public:
 	void UpdateInputState();
 	// コンテキストを取得
 	const PlayerInput& GetInputContext() const { return context_; };
+	// カメラ用のコンテキストを取得
+	const CameraInput& GetCameraContext() const { return cameraContext_; };
+private:
+	// 視点操作の入力を取り込む
+	void UpdateCameraInput();
 private:
 	// コンテキストを保持
 	PlayerInput context_{};
+	// カメラ用のコンテキストを保持
+	CameraInput cameraContext_{};
 };
-

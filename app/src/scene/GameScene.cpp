@@ -64,9 +64,6 @@ void GameScene::Initialize()
 	followCamera_->Init();
 	followCamera_->SetTarget(player_->GetWorldTransform());
 
-	// 初期化した時点から追従カメラで描画されるようにする
-	followCamera_->Activate();
-
 	pObjectManager_->RegisterExternal(player_.get());
 
 	// ボスの生成初期化（更新は BaseObjectManager が行う）
@@ -107,6 +104,42 @@ void GameScene::Initialize()
 	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect(),
 		boss_->GetParameters().LockOn());
 
+	// ボス戦カメラの配線。カメラはボスの具象クラスを知らないので、
+	// 「今どの形態が出ているか」の判断は撃つ相手と同じくシーンが受け持つ
+	followCamera_->SetFrameTargetProvider([this]() -> CameraFrameTarget {
+		CameraFrameTarget frame{};
+		if (bossSpider_ && bossSpider_->IsActive()) {
+			// 蜘蛛は脚が大きく広がるので、脚の届く範囲を「収めたい大きさ」にする
+			frame.position = bossSpider_->GetBodyPosition();
+			frame.radius = bossSpider_->GetFootReach();
+			frame.valid = true;
+		} else if (boss_) {
+			frame.position = boss_->GetBossPosition();
+			frame.radius = boss_->GetBodyRadius();
+			frame.valid = true;
+		}
+		return frame;
+		});
+
+	// カメラ衝突で当てる相手。プレイヤー・ボス・弾に当てたくないので、
+	// シーンに置いた地形だけを名前で拾う（壁を足したらこの配列に名前を追加する）
+	followCamera_->SetObstacleProvider([this]() {
+		static const char* kObstacleNames[] = { "plane" };
+		std::vector<BaseObject*> obstacles;
+		for (const char* name : kObstacleNames) {
+			if (BaseObject* pObject = pObjectManager_->GetObjectByName(name)) {
+				obstacles.push_back(pObject);
+			}
+		}
+		return obstacles;
+		});
+
+	// ボス戦なので、最初からプレイヤーとボスの両方を画面へ収める構図で始める
+	followCamera_->SetMode(CameraMode::BossBattle);
+
+	// 初期化した時点から追従カメラで描画されるようにする（ボスの配線後なので構図が合っている）
+	followCamera_->Activate();
+
 	pOffScreen_->LoadData("GameScenePostEffect");
 }
 
@@ -141,7 +174,10 @@ void GameScene::Update()
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();
 
-	followCamera_->Update();
+	followCamera_->Update(gameInput_->GetCameraContext());
+
+	// 移動の基準もカメラから作る。視点を回すと、奥へ倒したときに進む向きも一緒に回る
+	player_->SetCameraYaw(followCamera_->GetYaw());
 
 	CameraUpdate();
 
