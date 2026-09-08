@@ -66,6 +66,7 @@ private:
     Hagine::Vector3 dashDirection_{0.0f, 0.0f, 1.0f};    // 突進方向（水平・正規化済み）
     float spinSpeed_ = 0.0f;                             // 現在の自転速度（度/秒）
     bool hitApplied_ = false;                            // この突進で既に当てたか
+    float dustTimer_ = 0.0f;                             // 土煙を出す間隔の計測
 
     // 露出度から決まる値。1回の攻撃の途中で変わらないよう開始時に確定させる
     float scaledTelegraphTime_ = 1.2f; // 予兆時間（露出度が上がるほど短い）

@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -112,6 +113,10 @@ void GameScene::Initialize()
 	bossSpider_->Init("BossSpider");
 	bossSpider_->SetTargetLocator(playerBridge_.get());
 	pObjectManager_->RegisterExternal(bossSpider_.get());
+
+	// ボスまわりの土煙（見た目は Assets/jsons/ParticleCS 以下）
+	BossParticles::GetInstance()->Init();
+
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
 	defeatDirector_->Init();
@@ -300,6 +305,9 @@ void GameScene::AddParticleSetting()
 	/// ===================================================
 	/// パーティクル設定（デバッグ）
 	/// ===================================================
+	// ボスの土煙まとめ。中身はエンジンのGPUパーティクルなので、
+	// ここで見た目を作って保存すれば Assets/jsons/ParticleCS 以下へ残る
+	BossParticles::GetInstance()->DrawImGui();
 }
 
 void GameScene::CameraUpdate()

@@ -2,6 +2,7 @@
 #include "Easing.h"
 #include "MyMath.h"
 #include "Random.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackLeap.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackShoot.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackWhirl.h"
@@ -403,9 +404,15 @@ void BossSpider::UpdateDefeat(float deltaTime) {
         return;
     }
 
+    if (isDefeatFinished_) {
+        return;
+    }
+
     // 消えきった。ここがシーン遷移の起点になる
     SetIsModelDraw(false);
     isDefeatFinished_ = true;
+    // しぼみ切るのに合わせて破片を散らす。消える瞬間がはじけたように見える
+    BossParticles::GetInstance()->Burst(BossParticles::Id::DefeatBurst, renderPosition);
 }
 
 void BossSpider::Update() {

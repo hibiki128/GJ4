@@ -4,6 +4,7 @@
 #include "Random.h"
 #include "camera/projection/ViewProjection.h"
 #include "object/base/BaseObject.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -264,6 +265,8 @@ void BossSpiderLeg::Update(const Vector3 &bodyPosition, float bodyYaw, const Vec
         if (progress >= 1.0f) {
             footPosition_ = stepTo_;
             isStepping_ = false;
+            // 踏み下ろした足元に小さく砂ぼこりを立てる
+            BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::StepDust, footPosition_);
         }
     } else {
         // 接地中の足はワールドに貼り付いたまま。胴が離れすぎたら踏み替える
