@@ -10,6 +10,7 @@ void PlayerWeapon::Fire(PlayerBulletManager& bullets, const FireRequest& request
 	shot.speed = params_.speed;
 	shot.lifeTime = params_.lifeTime;
 	shot.correctionRate = params_.correctionRate;
+	shot.maxTurnDegreesPerSecond = params_.maxTurnDegreesPerSecond;
 	shot.targetPositionGetter = request.targetPositionGetter;
 	shot.hitTester = request.hitTester;
 

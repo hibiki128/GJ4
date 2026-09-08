@@ -14,7 +14,7 @@
 /// </summary>
 class PlayerBullet : public Hagine::BaseObject {
 public:
-	/// <summary>ロックオン対象の現在位置を取得する関数（対象が消えたら false を返す）</summary>
+	/// <summary>追尾先の現在位置を取得する関数（追う先が無くなったら false を返す）</summary>
 	using TargetPositionGetter = std::function<bool(Hagine::Vector3&)>;
 
 	/// <summary>
@@ -31,12 +31,13 @@ public:
 		Hagine::Vector3 position = {0.0f, 0.0f, 0.0f};
 		Hagine::Vector3 direction = {0.0f, 0.0f, 1.0f}; // 初速の向き（正規化されていなくてよい）
 		Hagine::Vector4 rgba = {1.0f, 1.0f, 1.0f, 1.0f}; // 表示色
-		float radius = 0.3f;          // 弾の半径（見た目の大きさ）
-		float speed = 45.0f;          // 速度（単位/秒）
-		float lifeTime = 3.0f;        // 寿命（秒）
-		float correctionRate = 12.0f; // 軌道補正の強さ（1秒あたりの補正割合）
+		float radius = 0.3f;         // 弾の半径（見た目の大きさ）
+		float speed = 45.0f;         // 速度（単位/秒）
+		float lifeTime = 3.0f;       // 寿命（秒）
+		float correctionRate = 2.0f; // 軌道補正の強さ（1秒あたりの補正割合）
+		float maxTurnDegreesPerSecond = 60.0f; // 1秒あたりに曲がってよい角度の上限
 
-		// 追尾先。空ならロックオンなしで真っ直ぐ飛ぶ
+		// 追尾先。空なら補正なしで真っ直ぐ飛ぶ
 		TargetPositionGetter targetPositionGetter{};
 		// 着弾の問い合わせ先。空なら寿命が尽きるまで飛び続ける
 		HitTester hitTester{};
@@ -67,7 +68,8 @@ private:
 	void Deactivate();
 
 	/// <summary>
-	/// ロックオン対象へ向きを寄せる（対象を見失ったら以降は真っ直ぐ飛ぶ）
+	/// 追尾先へ向きを寄せる。
+	/// 追う先を見失ったとき、および通り過ぎたときは以降まっすぐ飛ぶ
 	/// </summary>
 	void ApplyTrajectoryCorrection(float deltaTime);
 
@@ -75,6 +77,7 @@ private:
 	float speed_ = 0.0f;
 	float lifeTime_ = 0.0f;
 	float correctionRate_ = 0.0f;
+	float maxTurnDegreesPerSecond_ = 0.0f;
 	bool isActive_ = false;
 
 	TargetPositionGetter targetPositionGetter_{};
