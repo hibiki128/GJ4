@@ -68,9 +68,15 @@ void GameScene::Initialize()
 	// ゲーム入力の生成
 	gameInput_ = std::make_unique<GameInput>();
 
+	// 戦う場所の外周。プレイヤーもボスもここへ配線して、円柱の内側から出ないようにする。
+	// 中身はエンジンの円柱コライダー1本で、見た目は線だけ（大きさは ゲームパラメータ > Field）
+	field_ = std::make_unique<Field>();
+	field_->Init();
+
 	// プレイヤーの生成初期化
 	player_ = std::make_unique<Player>();
     player_->Init("Player");
+	player_->SetFieldBounds(field_.get());
 
 	followCamera_->Init();
 	followCamera_->SetTarget(player_->GetWorldTransform());
@@ -80,6 +86,7 @@ void GameScene::Initialize()
 	// ボスの生成初期化（更新は BaseObjectManager が行う）
 	boss_ = std::make_unique<Boss>();
 	boss_->Init("Boss");
+	boss_->SetFieldBounds(field_.get());
 	pObjectManager_->RegisterExternal(boss_.get());
 
 	// 撃つ相手は「変形が終わっていれば蜘蛛、そうでなければ球体形態」。
@@ -133,6 +140,7 @@ void GameScene::Initialize()
 	bossSpider_->SetPalette(boss_->GetPalette());
 	bossSpider_->Init("BossSpider");
 	bossSpider_->SetTargetLocator(playerBridge_.get());
+	bossSpider_->SetFieldBounds(field_.get());
 
 	// 蜘蛛は「当たり判定の中心・半径・ダメージ」を知らせてくるだけで、当てるかどうかは
 	// 受け側の仕事（BossSpider::SetHitCallback）。プレイヤーの当たり半径は、球体形態の
@@ -223,6 +231,10 @@ void GameScene::Update()
 
 	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
 	PauseMenu::GetInstance()->Update();
+
+	// 外周の線はフレーム単位で積み直されるので、ポーズ中でも毎フレーム積む。
+	// 止めているあいだも範囲を見ながら大きさを詰められる
+	field_->DrawLine();
 
 	// ポーズ中はゲーム側の更新を止める（カメラだけは動かしておく）
 	if (PauseMenu::GetInstance()->IsPaused()) {
@@ -364,6 +376,11 @@ void GameScene::AddObjectSetting()
 	// オブジェクトを選択しなくても触れるよう、固有の項目だけを直接描いている
 	if (player_) {
 		player_->DrawGameplayImGui();
+	}
+
+	// プレイヤーと敵を閉じ込めている円柱の外周
+	if (field_) {
+		field_->DrawImGui();
 	}
 
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。

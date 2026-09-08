@@ -4,6 +4,7 @@
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Boss/Effect/BossDefeatDirector.h"
 #include "src/Character/Player/Player.h"
+#include "src/Field/Field.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
@@ -87,6 +88,9 @@ public:
 private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<GameInput> gameInput_;
+
+    // プレイヤーと敵を閉じ込める円柱の外周（見た目は線だけ）
+    std::unique_ptr<Field> field_;
 
     // ----- ボス（プレイヤー側の処理には触らず、インターフェース経由で連携する）-----
     std::unique_ptr<Boss> boss_;

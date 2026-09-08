@@ -3,6 +3,7 @@
 #include "src/Input/GameInput.h"
 #include "src/Interface/IColorProvider.h"
 #include "src/Interface/IDamageable.h"
+#include "src/Interface/IFieldBounds.h"
 
 #include "States/Base/PlayerStateBase.h"
 #include "Core/PlayerContext.h"
@@ -36,6 +37,12 @@ public:
 
 	// 移動の基準になるカメラの向きを渡す（射線と同じくシーン側から毎フレーム）
 	void SetCameraYaw(float yaw) { context_.cameraYaw_ = yaw; }
+
+	/// <summary>
+	/// 動き回れる範囲を渡す（初期化時に一度だけ）。プレイヤーは Field の型を知らず、
+	/// 更新の最後に「範囲の外にいたら戻して」と頼むだけ
+	/// </summary>
+	void SetFieldBounds(const IFieldBounds* field) { pFieldBounds_ = field; }
 
 	// 撃つ相手の提供元を渡す（形態の切り替えはシーン側が判断する）
 	void SetBossTargetProvider(PlayerShootComponent::TargetProvider provider) {
@@ -117,6 +124,9 @@ private:
 
 	// 被弾の通知先（未配線でも被弾そのものは成立する）
 	DamagedCallback onDamaged_{};
+
+	// 動き回れる範囲（未配線ならどこまでも動ける）
+	const IFieldBounds* pFieldBounds_ = nullptr;
 
 	// ぷにぷにの中心になるスケール（Init 時のスケールを基準にする）
 	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};

@@ -22,6 +22,9 @@
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp">
       <Filter>src\UI\Damage</Filter>
     </ClCompile>
+    <ClCompile Include="src\Field\Field.cpp">
+      <Filter>src\Field</Filter>
+    </ClCompile>
     <ClCompile Include="src\pch.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -51,6 +54,9 @@
       <Filter>src\Boss\Data</Filter>
     </ClCompile>
     <ClCompile Include="src\Boss\Effect\BossDefeatDirector.cpp">
+      <Filter>src\Boss\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Boss\Effect\BossParticles.cpp">
       <Filter>src\Boss\Effect</Filter>
     </ClCompile>
     <ClCompile Include="src\Boss\Effect\BossWarningMarker.cpp">
@@ -159,6 +165,9 @@
     </Filter>
     <Filter Include="src\Character">
       <UniqueIdentifier>{986533EB-0764-B475-E36F-25DAC94DD792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Field">
+      <UniqueIdentifier>{365e67f8-37bf-4401-9e3a-45e0bd6aa277}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\framework">
       <UniqueIdentifier>{CF54C32F-4A7F-DA77-7AED-54D4A08E1C58}</UniqueIdentifier>
@@ -300,6 +309,9 @@
     <ClInclude Include="src\UI\Damage\DamageVignette.h">
       <Filter>src\UI\Damage</Filter>
     </ClInclude>
+    <ClInclude Include="src\Field\Field.h">
+      <Filter>src\Field</Filter>
+    </ClInclude>
     <ClInclude Include="src\pch.h">
       <Filter>src</Filter>
     </ClInclude>
@@ -334,6 +346,9 @@
       <Filter>src\Boss\Data</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Effect\BossDefeatDirector.h">
+      <Filter>src\Boss\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Boss\Effect\BossParticles.h">
       <Filter>src\Boss\Effect</Filter>
     </ClInclude>
     <ClInclude Include="src\Boss\Effect\BossWarningMarker.h">
@@ -448,6 +463,9 @@
       <Filter>src\Interface</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\IDamageable.h">
+      <Filter>src\Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Interface\IFieldBounds.h">
       <Filter>src\Interface</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\ITargetLocator.h">

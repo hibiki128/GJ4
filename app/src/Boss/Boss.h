@@ -7,6 +7,7 @@
 #include "src/Interface/IBossTargetQuery.h"
 #include "src/Interface/IColorProvider.h"
 #include "src/Interface/IDamageable.h"
+#include "src/Interface/IFieldBounds.h"
 #include "src/Interface/ITargetLocator.h"
 #include "debug/param/GameParamHub.h"
 #include "object/base/BaseObject.h"
@@ -109,6 +110,13 @@ public:
 
     /// <summary>相手が選んでいる色の提供元を設定する</summary>
     void SetColorProvider(IColorProvider *provider) { pColorProvider_ = provider; }
+
+    /// <summary>
+    /// 動き回れる範囲を設定する（初期化時に一度だけ）。
+    /// ボスは自分の巣（homePosition_）まわりの arenaRadius でも動きを抑えているが、
+    /// フィールドの外へ出さないのはこちらの役目
+    /// </summary>
+    void SetFieldBounds(const IFieldBounds *field) { pFieldBounds_ = field; }
 
     /// <summary>
     /// ボスの攻撃を当てる相手を設定する。
@@ -346,6 +354,7 @@ private:
     ITargetLocator *pTargetLocator_ = nullptr;   // 狙う相手（非所有）
     IColorProvider *pColorProvider_ = nullptr;   // 相手の選択色（非所有）
     IDamageable *pTargetDamageSink_ = nullptr;   // 攻撃の当て先（非所有・未接続可）
+    const IFieldBounds *pFieldBounds_ = nullptr; // 動き回れる範囲（非所有・未接続可）
 
     BossStateMachine stateMachine_{};            // 待機／攻撃／怯み／撃破
     BossAttackScheduler scheduler_{};            // 攻撃の選択と間隔（攻撃の所有者）

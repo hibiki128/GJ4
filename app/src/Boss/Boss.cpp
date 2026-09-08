@@ -296,6 +296,12 @@ void Boss::ClampToArena() {
     // 地面より下へ潜らせない
     position.y = (std::max)(position.y, homePosition_.y);
 
+    // 巣の範囲に収めたうえで、さらにフィールドの外へは出さない。
+    // 巣がフィールドの端に寄っていても、外周をはみ出すのはこれで止まる
+    if (pFieldBounds_) {
+        pFieldBounds_->ClampToField(position);
+    }
+
     transform_->translation_ = position;
 }
 
