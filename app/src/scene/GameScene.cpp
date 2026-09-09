@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include "src/Boss/Effect/BossParticles.h"
+#include "src/GameOver/GameOverContext.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -252,6 +253,13 @@ void GameScene::Update()
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();
+
+	// 負けた瞬間に出ていた形態を控えておく。ゲームオーバー画面はこれを見て、
+	// どちらの姿で見下ろしてくるかを決める（画面側からボスの中身は覗きにいかない）
+	if (player_->IsDead()) {
+		GameOverContext::GetInstance()->SetBossForm(
+			bossSpider_->IsActive() ? BossFormId::Spider : BossFormId::Sphere);
+	}
 
 	followCamera_->Update(gameInput_->GetCameraContext());
 

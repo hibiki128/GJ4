@@ -174,6 +174,32 @@ public:
     /// </summary>
     void RebuildShell();
 
+    /// <summary>
+    /// 殻をコアから遠ざける／近づける（1.0 が本来の位置）。
+    /// 並び・色・球の大きさはそのままで、殻全体が膨らんだり縮んだりする。
+    /// 保存値には触らないので、演出から毎フレーム呼んでよい
+    /// </summary>
+    /// <param name="scale">格子の位置に掛ける倍率</param>
+    void SetShellExpansion(float scale) { cluster_.SetShellExpansion(scale); }
+
+    /// <summary>
+    /// 殻を上端から下端へ波打たせる（一律に膨らませる SetShellExpansion の代わり）。
+    /// 向きはボスのローカル空間で渡すので、ワールドの上を波の起点にしたいときは
+    /// ボスの回転の逆を掛けてから渡すこと。保存値には触らない
+    /// </summary>
+    /// <param name="upAxis">波の起点になる向き（ローカル空間）</param>
+    /// <param name="minScale">いちばん縮んだときの倍率</param>
+    /// <param name="maxScale">いちばん広がったときの倍率</param>
+    /// <param name="phase">波の位相（ラジアン。増やすと上から下へ流れる）</param>
+    /// <param name="waveCount">上端から下端までに入る波の数</param>
+    void SetShellExpansionWave(const Hagine::Vector3 &upAxis, float minScale, float maxScale,
+                               float phase, float waveCount) {
+        cluster_.SetShellExpansionWave(upAxis, minScale, maxScale, phase, waveCount);
+    }
+
+    /// <summary>いまの殻の広がり</summary>
+    float GetShellExpansion() const { return cluster_.GetShellExpansion(); }
+
     /// ===================================================
     /// 状態・攻撃（BossState / IBossAttack から使う操作）
     /// ===================================================
