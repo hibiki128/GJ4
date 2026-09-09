@@ -2,6 +2,7 @@
 #include "BaseScene.h"
 #include "src/Clear/ClearStaging.h"
 #include "src/Field/FieldSurround.h"
+#include "src/UI/Result/ResultUi.h"
 #include <memory>
 
 /// <summary>
@@ -70,4 +71,10 @@ private:
 
     // 周りを囲む飾りの柱。ゲームシーンと同じ場所に立っているように見せる
     std::unique_ptr<FieldSurround> fieldSurround_;
+
+    // 「くりあ！！」の見出しと、右下の案内
+    std::unique_ptr<ResultUi> resultUi_;
+
+    // 次のシーンを予約したか（決定を何度も拾って二重に予約しないため）
+    bool isChanging_ = false;
 };
