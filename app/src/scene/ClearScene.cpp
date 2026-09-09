@@ -1,4 +1,5 @@
 #include"ClearScene.h"
+#include "src/Field/FieldParticles.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <Frame.h>
 #include <utility/scene/SceneManager.h>
@@ -27,6 +28,10 @@ void ClearScene::Initialize()
 	// 上の LoadAll で並んだものをそのまま引き取る（無ければここで作って保存する）
 	fieldSurround_ = std::make_unique<FieldSurround>();
 	fieldSurround_->Init(FieldSurround::kDefaultFieldRadius, pObjectManager_, "ClearScene");
+
+	// フィールドに漂う粒。ゲームシーンと同じものを同じ場所へ出して、
+	// 戦っていた場所がそのまま続いているように見せる
+	FieldParticles::Spawn();
 
 	// 登場人物と画角。描画の登録より先に作っておく（描画コールバックから触るため）
 	staging_ = std::make_unique<ClearStaging>();

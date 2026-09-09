@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
+#include "src/Field/FieldParticles.h"
 #include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "src/Item/HealItemManager.h"
@@ -251,6 +252,9 @@ GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 	// エミッターの発生範囲はボスの大きさに合わせるので、倍率も渡しておく
 	BossParticles::GetInstance()->Init();
 	BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+
+	// フィールドに漂う粒。置き方は Field_Particle.json のとおり（原点・フィールドと同じ広さ）
+	FieldParticles::Spawn();
 
 	// 残弾を回復するエリア。ボスがひと続きの攻撃を終えるたびに1つ生まれる。
 	// 調整値はボスデータ（Boss01.json の recoveryZone）に置いてあるので、そこを参照させる
