@@ -1,4 +1,5 @@
 #include "BossStates.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Boss.h"
 
 /// ===================================================
@@ -58,6 +59,8 @@ void BossStateAttack::Exit(Boss &boss) {
 
 void BossStateStagger::Enter(Boss &boss) {
     (void)boss;
+    // ひるんでいるあいだ鳴らし続ける
+    GameSounds::GetInstance()->StartLoop(GameSounds::Id::Stun);
 }
 
 void BossStateStagger::Update(Boss &boss, float deltaTime) {
@@ -71,6 +74,7 @@ void BossStateStagger::Update(Boss &boss, float deltaTime) {
 }
 
 void BossStateStagger::Exit(Boss &boss) {
+    GameSounds::GetInstance()->StopLoop(GameSounds::Id::Stun);
     boss.ClearStaggerShake();
 }
 

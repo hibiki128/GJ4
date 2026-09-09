@@ -11,6 +11,7 @@
 #include "src/Interface/ITargetLocator.h"
 #include "debug/param/GameParamHub.h"
 #include "object/base/BaseObject.h"
+#include <functional>
 #include <string>
 
 /// <summary>コライダーのタグ（ゲーム側で ColliderTagManager へ登録する）</summary>
@@ -154,6 +155,8 @@ public:
     /// <summary>初期状態の球の数（＝最大HP相当）</summary>
     float GetMaxHp() const { return static_cast<float>(cluster_.GetInitialCount()); }
     const BossParameters &GetParameters() const { return parameters_; }
+    /// <summary>調整UIやギミックが値を触るための参照（回復エリアの設定など）</summary>
+    BossParameters &GetMutableParameters() { return parameters_; }
     const BossColorPalette &GetPalette() const { return palette_; }
     BossSphereCluster &GetCluster() { return cluster_; }
 
@@ -207,6 +210,29 @@ public:
     /// <param name="scale">新しい倍率</param>
     /// <returns>float: 実際に掛けた比率（第2形態やパーティクルへ同じ比率を渡すのに使う）</returns>
     float ApplyMasterScale(float scale);
+
+    /// <summary>
+    /// 攻撃の届く範囲だけを、いまの倍率へそろえ直す（1回きりの埋め合わせ）。
+    /// 攻撃範囲を倍率の対象へ入れる前に保存したデータは、体だけ大きくて範囲が置いていかれている
+    /// </summary>
+    void ApplyMasterScaleToAttackRanges() { parameters_.ScaleAttackRanges(parameters_.GetMasterScale()); }
+
+    /// <summary>
+    /// いまの大きさを「1倍」として基準を取り直す（値は1つも変えない）。
+    ///
+    /// 倍率は各パラメータへ掛けたうえで「何倍ぶん掛けたか」を覚えておく作りなので、
+    /// 倍率が1以外のときに個別の大きさを手で書き換えると、その値まで倍率ぶん割られてしまう。
+    /// そうなったとき、いま見えている大きさを新しい基準に据え直すための逃げ道
+    /// </summary>
+    void RebaseMasterScale() { parameters_.SetMasterScale(1.0f); }
+
+    /// <summary>
+    /// ひと続きの攻撃を終えたときに呼ばれる先を差す（残弾の回復エリア）。
+    /// 中断されたときは呼ばない（最後までやり切ったご褒美という位置づけのため）
+    /// </summary>
+    void SetAttackFinishedCallback(std::function<void()> callback) {
+        attackFinishedCallback_ = std::move(callback);
+    }
 
     /// <summary>いまの値を jsons/Boss/[id].json へ書き出す</summary>
     void SaveParameters() { parameters_.Save(); }
@@ -434,6 +460,7 @@ private:
     BossAttackScheduler scheduler_{};            // 攻撃の選択と間隔（攻撃の所有者）
     IBossAttack *pCurrentAttack_ = nullptr;      // 進行中の攻撃（所有は scheduler_）
     int forcedAttackIndex_ = -1;                 // 調整UIから指定された次の攻撃（-1で指定なし）
+    std::function<void()> attackFinishedCallback_{}; // 攻撃をやり切ったときの通知先
 
     Hagine::Vector3 homePosition_{};             // 初期位置（アリーナ中心・着地高さの基準）
     float spinAngle_ = 0.0f;                     // 自転の累積角（ラジアン）

@@ -1,4 +1,5 @@
 #pragma once
+#include "src/Interface/IAmmoRecoverySink.h"
 #include "src/Interface/IColorProvider.h"
 #include "src/Interface/ITargetLocator.h"
 #include <functional>
@@ -13,12 +14,16 @@
 ///       [p = player_.get()] { return p-&gt;GetWorldPosition(); },
 ///       [p = player_.get()] { return p-&gt;GetSelectedColor(); });
 /// </summary>
-class FunctionalPlayerBridge final : public ITargetLocator, public IColorProvider {
+class FunctionalPlayerBridge final : public ITargetLocator, public IColorProvider, public IAmmoRecoverySink {
 public:
     using PositionGetter = std::function<Hagine::Vector3()>;
     using ColorGetter = std::function<Color()>;
     using RadiusGetter = std::function<float()>;
     using ValidGetter = std::function<bool()>;
+    using RegenRequester = std::function<void(Color, float)>;
+    using AmmoFullGetter = std::function<bool(Color)>;
+    using RegenRequester = std::function<void(Color, float)>;
+    using AmmoFullGetter = std::function<bool(Color)>;
 
     FunctionalPlayerBridge() = default;
     FunctionalPlayerBridge(PositionGetter position, ColorGetter color)
@@ -52,6 +57,20 @@ public:
     }
 
     /// ===================================================
+    /// IAmmoRecoverySink
+    /// ===================================================
+
+    void RequestAmmoRegen(Color color, float scale) override {
+        if (regenRequester_) {
+            regenRequester_(color, scale);
+        }
+    }
+
+    bool IsAmmoFull(Color color) const override {
+        return ammoFullGetter_ ? ammoFullGetter_(color) : false;
+    }
+
+    /// ===================================================
     /// setter
     /// ===================================================
 
@@ -60,11 +79,15 @@ public:
     void SetRadiusGetter(RadiusGetter getter) { radiusGetter_ = std::move(getter); }
     void SetValidGetter(ValidGetter getter) { validGetter_ = std::move(getter); }
     void SetRadius(float radius) { radius_ = radius; }
+    void SetRegenRequester(RegenRequester requester) { regenRequester_ = std::move(requester); }
+    void SetAmmoFullGetter(AmmoFullGetter getter) { ammoFullGetter_ = std::move(getter); }
 
 private:
     PositionGetter positionGetter_{};
     ColorGetter colorGetter_{};
     RadiusGetter radiusGetter_{};
     ValidGetter validGetter_{};
+    RegenRequester regenRequester_{};
+    AmmoFullGetter ammoFullGetter_{};
     float radius_ = 1.0f;
 };

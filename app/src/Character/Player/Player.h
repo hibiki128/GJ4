@@ -185,6 +185,15 @@ public:
 	/// </summary>
 	void RequestAmmoRegenScale(float scale) { ammo_.RequestRegenScale(scale); }
 
+	/// <summary>
+	/// この1フレームだけ、指定した色の回復倍率を要求する。
+	/// 色つきの回復エリアに乗っているあいだ、その色だけが早く戻る
+	/// </summary>
+	void RequestAmmoRegenScale(Color color, float scale) { ammo_.RequestRegenScale(color, scale); }
+
+	/// <summary>その色の弾が満タンか（回復エリアが役目を終えたかの判断に使う）</summary>
+	bool IsAmmoFull(Color color) const { return ammo_.IsFull(color); }
+
 	/// <summary>一定時間だけ効く弾の回復倍率を足す（拾って効く時限型のギミック用）</summary>
 	void AddAmmoRegenBoost(float scale, float duration) { ammo_.AddRegenBoost(scale, duration); }
 
