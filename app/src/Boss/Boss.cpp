@@ -623,22 +623,13 @@ void Boss::RegisterTuningParameters() {
     BossLockOnParams &lockOn = parameters_.LockOn();
     BossShellParams &shell = parameters_.Shell();
 
-    // --- 殻の形（球の大きさは即反映。帯を変えたら作り直しが要る）---
-    GameParamHub::Options radiusOptions{};
-    radiusOptions.speed = 0.01f;
-    radiusOptions.min = 0.05f;
-    radiusOptions.max = 3.0f;
-    radiusOptions.onChange = [this] { ApplyShellChanges(); };
-    params_.Register("殻:球の半径", &shell.sphereRadius, radiusOptions);
-
-    GameParamHub::Options bandOptions{};
-    bandOptions.speed = 0.05f;
-    bandOptions.min = 0.1f;
-    bandOptions.max = 30.0f;
-    // 帯を動かすと球の数が変わるので、作り直す
-    bandOptions.onChange = [this] { RebuildShell(); };
-    params_.Register("殻:基本殻の半径", &shell.shellRadius, bandOptions);
-
+    // --- 殻の形 ---
+    //
+    // 大きさそのもの（基本殻の半径・球の半径・接地高さの調整）はここへ登録しない。
+    // GameParamHub は起動時に自分の保存値を書き戻すので、登録すると
+    // Boss01.json 側の「全体の倍率を掛けたあとの大きさ」が毎回上書きされ、
+    // 倍率の値だけ残って見た目が元に戻ってしまう。
+    // これらはボスのパネル（殻の形）から触れて、Boss01.json に保存される
     GameParamHub::Options layerOptions{};
     layerOptions.speed = 1.0f;
     layerOptions.min = 0.0f;
@@ -654,13 +645,6 @@ void Boss::RegisterTuningParameters() {
     coreOptions.max = 1.2f;
     coreOptions.onChange = [this] { ApplyShellChanges(); };
     params_.Register("殻:コアの大きさ", &shell.coreScale, coreOptions);
-
-    GameParamHub::Options groundOptions{};
-    groundOptions.speed = 0.01f;
-    groundOptions.min = -5.0f;
-    groundOptions.max = 20.0f;
-    groundOptions.onChange = [this] { ApplyCoreLayout(); };
-    params_.Register("殻:接地高さの調整", &shell.groundOffset, groundOptions);
 
     // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
     BossMetaBallParams &metaBall = parameters_.MetaBall();
@@ -730,11 +714,9 @@ void Boss::RegisterTuningParameters() {
     params_.Register("突進:時間", &spin.dashTime, {0.01f, 0.05f, 5.0f});
     params_.Register("突進:硬直", &spin.recoverTime, {0.01f, 0.0f, 5.0f});
     params_.Register("突進:ダメージ", &spin.damage, {0.5f, 0.0f, 200.0f});
-    params_.Register("突進:当たりの甘さ", &spin.contactMargin, {0.05f, 0.0f, 10.0f});
 
     BossWallStaggerParams &wallStagger = parameters_.WallStagger();
     params_.Register("壁ひるみ:ふらつく時間", &wallStagger.wobbleTime, {0.05f, 0.05f, 15.0f});
-    params_.Register("壁ひるみ:ふらつきの大きさ", &wallStagger.wobbleAmount, {0.01f, 0.0f, 5.0f});
     params_.Register("壁ひるみ:ふらつきの速さ", &wallStagger.wobbleSpeed, {0.05f, 0.0f, 20.0f});
     params_.Register("壁ひるみ:傾く角度", &wallStagger.wobbleTilt, {0.5f, 0.0f, 90.0f});
     params_.Register("壁ひるみ:首を振る時間", &wallStagger.shakeTime, {0.05f, 0.05f, 5.0f});
@@ -743,12 +725,13 @@ void Boss::RegisterTuningParameters() {
     params_.Register("壁ひるみ:元へ戻る時間", &wallStagger.settleTime, {0.05f, 0.05f, 6.0f});
     params_.Register("壁ひるみ:必要な突進距離", &wallStagger.minTravel, {0.1f, 0.0f, 60.0f});
 
+    // 届く範囲（当たりの甘さ・落下の高さと有効半径）はここへ登録しない。
+    // 全体の倍率が掛かる値なので、登録すると起動のたびに GameParamHub の保存値へ
+    // 戻されて、倍率が効いていないように見える。触るのはボスのパネルの「攻撃」から
     params_.Register("落下:飛び上がり時間", &slam.riseTime, {0.01f, 0.05f, 5.0f});
-    params_.Register("落下:高さ", &slam.riseHeight, {0.2f, 1.0f, 80.0f});
     params_.Register("落下:狙いの時間", &slam.aimTime, {0.01f, 0.0f, 5.0f});
     params_.Register("落下:落下時間", &slam.fallTime, {0.01f, 0.05f, 5.0f});
     params_.Register("落下:着弾後の静止", &slam.impactTime, {0.01f, 0.0f, 5.0f});
-    params_.Register("落下:有効半径", &slam.impactRadius, {0.1f, 0.5f, 40.0f});
     params_.Register("落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
     params_.Register("落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
 
@@ -757,7 +740,6 @@ void Boss::RegisterTuningParameters() {
     params_.Register("演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
     params_.Register("演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
     params_.Register("演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
-    params_.Register("演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
     params_.Register("演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
 
     // --- 登場演出 ---
@@ -765,7 +747,6 @@ void Boss::RegisterTuningParameters() {
     params_.Register("登場:集束の時間", &appear.gatherTime, {0.05f, 0.1f, 10.0f});
     params_.Register("登場:回転が収まる時間", &appear.settleTime, {0.01f, 0.0f, 5.0f});
     params_.Register("登場:膨らむ時間", &appear.expandTime, {0.01f, 0.05f, 5.0f});
-    params_.Register("登場:集まってくる距離", &appear.gatherRadius, {0.5f, 1.0f, 100.0f});
     params_.Register("登場:集束中の自転速度", &appear.gatherSpinSpeed, {5.0f, 0.0f, 3000.0f});
     params_.Register("登場:飛来中の大きさ", &appear.startScale, {0.01f, 0.01f, 1.0f});
     params_.Register("登場:到着時の大きさ", &appear.arriveScale, {0.01f, 0.01f, 1.0f});
