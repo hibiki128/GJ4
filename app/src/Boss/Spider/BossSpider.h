@@ -298,6 +298,20 @@ public:
     /// <summary>足を今の胴のまわりへ置き直す（変形直後など、補間が要らないときだけ）</summary>
     void ReplantFeet();
 
+    /// <summary>
+    /// 変形を最後まで飛ばして、その場に立った状態にする。
+    /// デバッグの「変形を飛ばす」のほか、ゲームオーバー画面のように
+    /// 「もう立っている蜘蛛」をいきなり置きたい演出からも使う
+    /// </summary>
+    void SkipTransform();
+
+    /// <summary>
+    /// 攻撃するかどうかを切り替える。false のあいだは新しい攻撃を選ばない
+    /// （歩行と脚の動きはそのまま）。止まって見せたい演出用で、保存値には影響しない
+    /// </summary>
+    /// <param name="enabled">攻撃させるなら true</param>
+    void SetAttackEnabled(bool enabled) { isAttackEnabled_ = enabled; }
+
     /// <summary>色つきの弾を1発撃つ</summary>
     /// <param name="direction">飛ばす向き（正規化していなくてよい）</param>
     /// <param name="params">弾のパラメータ</param>
@@ -405,9 +419,6 @@ private:
     /// <param name="deltaTime">経過時間（秒）</param>
     void UpdateLegPosture(float deltaTime);
 
-    /// <summary>変形を最後まで飛ばして戦闘できる状態にする（デバッグ用）</summary>
-    void SkipTransform();
-
     /// <summary>いま足が置かれている高さの平均（胴をどこに乗せるかの基準）</summary>
     float CalcFootAverageHeight() const;
 
@@ -456,6 +467,7 @@ private:
     std::vector<std::unique_ptr<IBossAttack>> attacks_{}; // 使える攻撃（所有）
     IBossAttack *pCurrentAttack_ = nullptr;               // 進行中の攻撃（非所有）
     float attackCoolDown_ = 0.0f;                         // 次の攻撃までの残り時間（秒）
+    bool isAttackEnabled_ = true;                         // 新しい攻撃を選んでよいか（演出中は false）
     float staggerTimer_ = 0.0f;                           // 動けない残り時間（秒）
     std::function<void()> attackFinishedCallback_{};      // 攻撃をやり切ったときの通知先
     HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
