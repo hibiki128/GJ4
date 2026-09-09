@@ -4,6 +4,7 @@
 #include "src/Character/Player/Components/Jump/PlayerJumpComponent.h"
 #include "src/Character/Player/Components/Move/PlayerMoveComponent.h"
 #include "src/Character/Player/Components/Reaction/PlayerComponentReaction.h"
+#include "src/Character/Player/Effect/PlayerParticles.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 
 void PlayerStateJump::RegisterParams() {
@@ -39,6 +40,11 @@ void PlayerStateJump::Update(Player& player, PlayerContext& context) {
 		// 高いところから落ちたときほど大きく潰れる
 		const float strength = std::clamp(context.jumpComponent_->GetLandingSpeed() / kRefSpeed, 0.0f, 1.0f);
 		context.reactionComponent_->PlayLanding(strength);
+		// 足元から上へ跳ね上がる粒。潰れ具合と同じ強さを渡すので、高いところから落ちたときほど大きく飛ぶ
+		if (context.transform_) {
+			PlayerParticles::GetInstance()->BurstLanding(
+				context.transform_->translation_, strength, player.GetDisplayColor());
+		}
 		// 演出は reactionComponent_ が持ち越すので、その場で Idle に戻してよい
 		player.ChangeState("Idle");
 		return;

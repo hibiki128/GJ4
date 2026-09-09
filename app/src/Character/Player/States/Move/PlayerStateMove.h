@@ -16,4 +16,5 @@ private:
 	float kPeriod = 1.0f; // 揺れの細かさ
 	float kSharpness = 1.0f; // 揺れの鋭さ
 	float kPhase = 0.0f; // 揺れの位相
+	float kMoveSpeed = 0.15f; // 移動速度
 };

@@ -1,0 +1,8 @@
+{
+    "blendMode": 2,
+    "groupName": "Player_PerfectRipple",
+    "maxParticleCount": 64,
+    "modelFilePath": "",
+    "primitiveType": 5,
+    "textureName": "debug/white1x1.png"
+}

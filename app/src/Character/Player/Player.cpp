@@ -7,6 +7,7 @@
 #include "States/Jump/PlayerStateJump.h"
 #include "States/Damaged/PlayerStateDamaged.h"
 #include "Utility/Debug/Param/GameParamHub.h"
+#include "Effect/PlayerParticles.h"
 
 namespace {
 // 色をそのまま出すための白テクスチャ。
@@ -86,9 +87,25 @@ void Player::Update() {
 		return;
 	}
 
+	// 回避のクールタイムを進める。回避ステートに入っていない間も減らし続けるので、
+	// 時間を進めるのはステートではなくここ1か所にしてある
+	if (context_.dodgeCooldown_ > 0.0f) {
+		context_.dodgeCooldown_ -= Hagine::Frame::DeltaTime();
+	}
+	if (context_.dodgeJustTimer_ > 0.0f) {
+		context_.dodgeJustTimer_ -= Hagine::Frame::DeltaTime();
+	}
+
 	// 被弾はボスの更新の途中で届くので、拾うのは自分の更新の頭でまとめて行う。
 	// ここ1か所からしか被弾ステートへ入らないので、更新の順番で挙動が変わらない
 	health_.Update();
+
+	// 回避の出だしに攻撃を無敵で弾けたらジャスト回避。体力は減っていないので、
+	// ここでやるのは演出の合図だけ。被弾と同じく更新の頭でまとめて拾う
+	if (health_.ConsumeBlocked() && context_.dodgeJustTimer_ > 0.0f) {
+		context_.dodgeJustTimer_ = 0.0f; // 1回の回避につき1回だけ
+		PlayPerfectDodgeEffects(health_.GetLastBlocked());
+	}
 	if (health_.ConsumeHit()) {
 		ChangeState("Damaged");
 		// 画面まわりの演出はシーンが受け持つ。ステートを切り替えた後に知らせるので、
@@ -106,6 +123,18 @@ void Player::Update() {
 	// こうしておくと、ステートを跨いでも着地のぷにっが上書きされずに最後まで再生される
 	reaction_.Update();
 	GetWorldTransform()->scale_ = reaction_.Apply(baseScale_);
+
+	// ダッシュの伸びは進行方向へ効かせたいので、再生中だけ体をその向きへ向ける。
+	// スライムに正面は無いので、向きが変わっても見た目に出るのは伸びの向きだけ
+	if (reaction_.IsDashPlaying()) {
+		const float dashYaw = reaction_.GetDashYaw();
+		Hagine::WorldTransform* transform = GetWorldTransform();
+		transform->quaternionRotation_ = Hagine::Quaternion::FromAxisAngle({0.0f, 1.0f, 0.0f}, dashYaw);
+		transform->eulerRotation_.y = dashYaw; // オイラー角で回す設定にされていても向きが合うように
+	}
+
+	// 粒の要求（移動中の足元）もここで形にする。ステートは動いている間ずっと要求を出すだけでよい
+	PlayerParticles::GetInstance()->Update();
 
 	// 残弾の回復は撃つより先に進める。こうしておくと、回復して1発ぶん貯まったフレームに
 	// そのまま撃てる。回復倍率を要求するギミックは、この Update までに呼んでおけば同じフレームで効く
@@ -130,6 +159,29 @@ void Player::Update() {
 
 void Player::Draw(const Hagine::ViewProjection& viewProjection) {
 	BaseObject::Draw(viewProjection);
+}
+
+void Player::PlayPerfectDodgeEffects(const DamageInfo& info) {
+	// 攻撃から離れる向き（水平）。当たる位置が真上・真下で向きが出ないときは、
+	// 見ている向きの後ろへ受け流したことにする
+	Hagine::Vector3 away = GetWorldPosition() - info.hitPoint;
+	away.y = 0.0f;
+	if (away.LengthSq() <= 0.0001f) {
+		away = Hagine::Vector3{-context_.aimDirection_.x, 0.0f, -context_.aimDirection_.z};
+	}
+	away = (away.LengthSq() > 0.0001f) ? away.Normalize() : Hagine::Vector3{0.0f, 0.0f, 1.0f};
+
+	// 体を大きく受け流す形へ。スケールの書き手は反応コンポーネントのままなので、
+	// 回避中の伸びに割り込んでも形が喧嘩しない
+	reaction_.PlayPerfectDodge(away);
+
+	// 衝撃を逃がす波紋と、はじけたゼリー粒
+	PlayerParticles::GetInstance()->BurstPerfectDodge(GetWorldPosition(), color_.GetDisplayColor());
+
+	// 白フラッシュやスローモーションは画面ぜんたいの話なのでシーンへ渡す
+	if (onPerfectDodge_) {
+		onPerfectDodge_(info);
+	}
 }
 
 void Player::ChangeState(const std::string& stateName) {

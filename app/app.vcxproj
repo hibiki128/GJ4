@@ -179,6 +179,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
     <ClCompile Include="src\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
     <ClCompile Include="src\Character\Player\Player.cpp" />
+    <ClCompile Include="src\Character\Player\Effect\PlayerParticles.cpp" />
+    <ClCompile Include="src\Effect\PerfectDodgeDirector.cpp" />
     <ClCompile Include="src\Character\Player\States\Dash\PlayerStateDash.cpp" />
     <ClCompile Include="src\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
     <ClCompile Include="src\Character\Player\States\Idle\PlayerStateIdle.cpp" />
@@ -237,6 +239,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Shoot\PlayerShootComponent.h" />
     <ClInclude Include="src\Character\Player\Core\PlayerContext.h" />
     <ClInclude Include="src\Character\Player\Player.h" />
+    <ClInclude Include="src\Character\Player\Effect\PlayerParticles.h" />
+    <ClInclude Include="src\Effect\PerfectDodgeDirector.h" />
     <ClInclude Include="src\Character\Player\States\Base\PlayerStateBase.h" />
     <ClInclude Include="src\Character\Player\States\Dash\PlayerStateDash.h" />
     <ClInclude Include="src\Character\Player\States\Dodge\PlayerStateDodge.h" />
