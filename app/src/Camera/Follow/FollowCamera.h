@@ -161,6 +161,13 @@ public:
 	/// <param name="strength">強さの倍率（1.0 で調整値どおり）</param>
 	void AddImpact(float strength = 1.0f);
 
+	/// <summary>
+	/// ダッシュ（回避）の押し出しをカメラへ加える（少しだけ前へ出てから戻る）。
+	/// 距離だけを一時的に詰めるので、揺れも構図のずれも残らない
+	/// </summary>
+	/// <param name="strength">強さの倍率（1.0 で調整値どおり）</param>
+	void AddDashPush(float strength = 1.0f);
+
 	/// <summary>ヨー角(左右の向き・ラジアン)を取得</summary>
 	float GetYaw() const { return yaw_; }
 
@@ -254,6 +261,9 @@ private:
 	/// <param name="outShake">カメラ位置へ足すズレ</param>
 	void CalcImpact(float& outPullBack, Hagine::Vector3& outShake) const;
 
+	/// <summary>ダッシュの押し出しぶんの、カメラ距離から引く量を求める（押し出しが無ければ 0）</summary>
+	float CalcDashPush() const;
+
 	/// <summary>調整用のデバッグ線を出す（仕様書 §22）</summary>
 	void DrawDebugLines(const Hagine::Vector3& playerTarget, const CameraFrameTarget& frame) const;
 
@@ -292,6 +302,10 @@ private:
 	// 被弾の衝撃（AddImpact で入り、時間で収まる）
 	float impactTimer_ = 0.0f;    // 残り時間(秒)。0 なら衝撃は効いていない
 	float impactStrength_ = 0.0f; // いま効いている強さの倍率
+
+	// ダッシュの押し出し（AddDashPush で入り、時間で戻る）
+	float dashPushTimer_ = 0.0f;    // 残り時間(秒)。0 なら押し出しは効いていない
+	float dashPushStrength_ = 0.0f; // いま効いている強さの倍率
 
 	// ここから下は ImGui で調整する値（Save / Load の対象）
 
@@ -336,6 +350,10 @@ private:
 	float impactPullBack_ = 1.6f;     // 当たった瞬間に後ろへ引かれる距離
 	float impactShakeAmount_ = 0.25f; // 揺れの大きさ
 	float impactShakeSpeed_ = 38.0f;  // 揺れの速さ（大きいほど細かく震える）
+
+	// --- ダッシュの押し出し（AddDashPush で加わる） ---
+	float dashPushDistance_ = 0.07f; // 前へ押し出す距離（＝カメラ距離を詰める量）
+	float dashPushDuration_ = 0.12f; // 元の距離へ戻りきるまでの時間(秒)
 
 	// --- レンズ（仕様書 §10） ---
 	float fovDegrees_ = 60.0f;

@@ -125,6 +125,12 @@
     <ClCompile Include="src\Character\Player\Player.cpp">
       <Filter>src\Character\Player</Filter>
     </ClCompile>
+    <ClCompile Include="src\Character\Player\Effect\PlayerParticles.cpp">
+      <Filter>src\Character\Player\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Effect\PerfectDodgeDirector.cpp">
+      <Filter>src\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="src\Character\Player\States\Dash\PlayerStateDash.cpp">
       <Filter>src\Character\Player\States\Dash</Filter>
     </ClCompile>
@@ -243,6 +249,12 @@
     </Filter>
     <Filter Include="src\Character\Player\Components">
       <UniqueIdentifier>{0D95733D-5B7B-5C40-0AD1-00501AF4C0A5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Effect">
+      <UniqueIdentifier>{3B92D4E1-8A67-4C05-B1F3-6E27C9D0A845}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Effect">
+      <UniqueIdentifier>{7C41F0B2-3E5D-4A18-9B6C-2D5E8A0F41C7}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Character\Player\Core">
       <UniqueIdentifier>{99C177B3-82E4-AF36-97BB-03C4008B819B}</UniqueIdentifier>
@@ -440,6 +452,12 @@
     </ClInclude>
     <ClInclude Include="src\Character\Player\Player.h">
       <Filter>src\Character\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character\Player\Effect\PlayerParticles.h">
+      <Filter>src\Character\Player\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Effect\PerfectDodgeDirector.h">
+      <Filter>src\Effect</Filter>
     </ClInclude>
     <ClInclude Include="src\Character\Player\States\Base\PlayerStateBase.h">
       <Filter>src\Character\Player\States\Base</Filter>

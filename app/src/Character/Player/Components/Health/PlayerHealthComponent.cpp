@@ -12,6 +12,8 @@ void PlayerHealthComponent::Init() {
 	invincibleTimer_ = 0.0f;
 	hitPending_ = false;
 	lastDamage_ = DamageInfo{};
+	blockedPending_ = false;
+	lastBlocked_ = DamageInfo{};
 }
 
 void PlayerHealthComponent::RegisterParams() {
@@ -37,8 +39,15 @@ void PlayerHealthComponent::Update() {
 }
 
 bool PlayerHealthComponent::ApplyDamage(const DamageInfo& info) {
-	// 無敵中の被弾は無かったことにする（複数の攻撃が同じフレームに届いても1回ぶんだけ減る）
-	if (IsDead() || IsInvincible()) {
+	if (IsDead()) {
+		return false;
+	}
+
+	// 無敵中の被弾は無かったことにする（複数の攻撃が同じフレームに届いても1回ぶんだけ減る）。
+	// ただし「弾いた」という事実だけは残す。回避の出だしで弾けていればジャスト回避になる
+	if (IsInvincible()) {
+		lastBlocked_ = info;
+		blockedPending_ = true;
 		return false;
 	}
 
@@ -53,6 +62,12 @@ bool PlayerHealthComponent::ConsumeHit() {
 	const bool wasHit = hitPending_;
 	hitPending_ = false;
 	return wasHit;
+}
+
+bool PlayerHealthComponent::ConsumeBlocked() {
+	const bool wasBlocked = blockedPending_;
+	blockedPending_ = false;
+	return wasBlocked;
 }
 
 float PlayerHealthComponent::GetRatio() const {

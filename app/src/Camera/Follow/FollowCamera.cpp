@@ -191,6 +191,10 @@ void FollowCamera::RegisterTuningParameters(const std::string& cameraName)
 	params_.Register("衝撃:揺れの大きさ", &impactShakeAmount_, { 0.01f, 0.0f, 2.0f });
 	params_.Register("衝撃:揺れの速さ", &impactShakeSpeed_, { 0.5f, 0.0f, 120.0f });
 
+	// --- ダッシュの押し出し（AddDashPush）---
+	params_.Register("ダッシュ:前へ押し出す距離", &dashPushDistance_, { 0.01f, 0.0f, 2.0f });
+	params_.Register("ダッシュ:戻るまでの時間(秒)", &dashPushDuration_, { 0.01f, 0.01f, 1.0f });
+
 	// --- カメラ衝突（仕様書 §15）---
 	params_.Register("衝突:処理する", &collisionEnabled_);
 	params_.Register("衝突:カメラの太さ", &collisionRadius_, { 0.01f, 0.0f, 2.0f });
@@ -221,6 +225,17 @@ void FollowCamera::Update(const CameraInput& input)
 		{
 			impactTimer_ = 0.0f;
 			impactStrength_ = 0.0f;
+		}
+	}
+
+	// ダッシュの押し出しも同じように戻していく（距離だけの効果なので構図は動かない）
+	if (dashPushTimer_ > 0.0f)
+	{
+		dashPushTimer_ -= deltaTime;
+		if (dashPushTimer_ <= 0.0f)
+		{
+			dashPushTimer_ = 0.0f;
+			dashPushStrength_ = 0.0f;
 		}
 	}
 
@@ -497,7 +512,11 @@ void FollowCamera::ApplyToCamera()
 	Vector3 impactShake{};
 	CalcImpact(impactPullBack, impactShake);
 
-	const Vector3 desiredPosition = target_ - forward * (distance_ + impactPullBack) + impactShake;
+	// ダッシュの押し出しは逆に距離を詰める。衝撃と足し合わせるので、
+	// 回避の直後に被弾しても打ち消し合うだけで暴れない
+	const float dashPush = CalcDashPush();
+
+	const Vector3 desiredPosition = target_ - forward * (distance_ + impactPullBack - dashPush) + impactShake;
 
 	// 壁や地面にめり込むなら手前へ寄せる（仕様書 §15）
 	const Vector3 position = ResolveCameraCollision(target_, desiredPosition);
@@ -877,4 +896,29 @@ void FollowCamera::Load()
 
 	fovDegrees_ = data.Load("fovDegrees", fovDegrees_);
 	pCamera_->SetFovYDegrees(fovDegrees_);
+}
+
+void FollowCamera::AddDashPush(float strength)
+{
+	if (strength <= 0.0f)
+	{
+		return;
+	}
+
+	// 連続で回避したときに弱くならないよう、衝撃と同じく強いほうを採る
+	dashPushStrength_ = (std::max)(dashPushStrength_, strength);
+	dashPushTimer_ = dashPushDuration_;
+}
+
+float FollowCamera::CalcDashPush() const
+{
+	if (dashPushTimer_ <= 0.0f || dashPushStrength_ <= 0.0f)
+	{
+		return 0.0f;
+	}
+
+	const float duration = (std::max)(0.01f, dashPushDuration_);
+	const float remain = std::clamp(dashPushTimer_ / duration, 0.0f, 1.0f);
+	// 飛び出した瞬間が一番前に出ていて、そこからばねが戻るように素早く元へ戻る
+	return dashPushDistance_ * dashPushStrength_ * remain * remain;
 }

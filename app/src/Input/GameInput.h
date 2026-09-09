@@ -7,6 +7,8 @@ struct PlayerInput {
 	bool jump;
 	bool attack;
 	bool dash;
+	// 回避（押した瞬間だけ true）。ダッシュと違い、押しっぱなしでは何度も出ない
+	bool dodge;
 	// 選んだ色の添字（-1 なら変更なし）。ColorStruct.h の Color の並びと対応する
 	int selectColorIndex = -1;
 };

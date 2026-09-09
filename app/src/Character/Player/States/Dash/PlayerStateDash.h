@@ -5,8 +5,15 @@ class PlayerStateDash : public PlayerStateBase {
 public:
 	PlayerStateDash() = default;
 	~PlayerStateDash() = default;
+	void RegisterParams() override;
 	void Enter(Player& player, PlayerContext& context) override;
 	void Update(Player& player, PlayerContext& context) override;
 	void Exit(Player& player, PlayerContext& context) override;
+private:
+	float kMoveSpeed = 0.15f; // 移動速度
+	float kAmplitude = 0.2f;  // 潰れる量
+	float kPeriod = 1.0f; // 揺れの細かさ
+	float kSharpness = 1.0f; // 揺れの鋭さ
+	float kPhase = 0.0f; // 揺れの位相
 };
 

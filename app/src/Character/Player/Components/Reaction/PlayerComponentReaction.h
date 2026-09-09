@@ -32,9 +32,27 @@ public:
 	void PlayLanding(float strength01);
 	// 踏み切りの予備動作(縮んでから伸びる)。kUseTakeoff_ がオフなら何も起きない
 	void PlayTakeoff();
+
+	// ダッシュ（回避）の3段階を再生する: 溜め（縦に潰れる）→ 発射（進行方向へ伸びる）→ 揺り戻し（1回だけ）。
+	// 伸ばす向きはワールドの水平向きで受け取る（体をその向きへ向けてから伸ばすため）
+	void PlayDashBurst(const Hagine::Vector3& worldDirection);
+	// ジャスト回避の受け流し。ダッシュと同じ形を、より大きく・より短く再生する。
+	// 伸びる向きは攻撃から離れる向き（ワールドの水平向き）
+	void PlayPerfectDodge(const Hagine::Vector3& awayDirection);
+	// ダッシュの演出が再生中か（体を進行方向へ向けておく必要があるあいだ true）
+	bool IsDashPlaying() const { return dashTime_ >= 0.0f; }
+	// 伸ばす向き(Y軸まわり・ラジアン)。向けるのは持ち主（Player）の仕事
+	float GetDashYaw() const { return dashYaw_; }
 	// 反応を適用したスケールを取得
 	Hagine::Vector3 Apply(const Hagine::Vector3& baseScale) const;
 private:
+	/// <summary>ダッシュの伸びの量（正 = 進行方向へ伸びる / 負 = 進行方向へ潰れる）</summary>
+	float CalcDashStretch() const;
+	/// <summary>ダッシュの溜めの潰れ量（縦に潰れて横へ広がるぶん）</summary>
+	float CalcDashCompress() const;
+	/// <summary>ダッシュ系の再生を始める（大きさと速さの倍率だけ変えて同じ形を使い回す）</summary>
+	void StartDashBurst(const Hagine::Vector3& worldDirection, float stretchScale, float timeScale);
+
 	// --- 再生状態 ---
 	float loopTime_ = 0.0f;
 	float loopAmp_ = 0.0f;        // 実際に効いているループの振幅（要求へ追従する）
@@ -48,6 +66,10 @@ private:
 	float landAmp_ = 0.0f;  // landTime_ < 0 なら非再生
 	float takeoffTime_ = -1.0f; // takeoffTime_ < 0 なら非再生
 	float sizePop_ = 0.0f; // 着地の「大きく」ぶん
+	float dashTime_ = -1.0f;    // dashTime_ < 0 なら非再生
+	float dashYaw_ = 0.0f;      // 伸ばす向き(Y軸まわり・ラジアン)
+	float dashScale_ = 1.0f;    // 伸び縮みの倍率（1.0 = ダッシュ）
+	float dashTimeScale_ = 1.0f;// 再生の速さの倍率（1.0 = ダッシュ）
 
 	// --- 調整パラメータ ---
 	float kLoopFollow = 10.0f;    // ループ振幅の追従の速さ（空中で呼吸が止まる速さ）
@@ -64,4 +86,18 @@ private:
 	bool kUseTakeoff_ = true;      // false にすると PlayTakeoff() が何もしなくなる
 	float kTakeoffAmp = 0.18f;     // 縮み／伸びの大きさ
 	float kTakeoffDuration = 0.14f; // 縮んで伸びて戻るまでの時間
+
+	// --- ダッシュ（回避）の3段階 ---
+	float kDashCompress = 0.25f;     // ①溜め: 縦の潰れ量（0.25 で 縦0.75 / 横1.25）
+	float kDashCompressTime = 0.05f; // ①溜めが抜けるまでの時間（秒）
+	float kDashStretch = 0.5f;       // ②発射: 進行方向へ伸びる割合（0.5 で 1.5倍）
+	float kDashSideRatio = 0.3f;     // ②伸びたぶん横と縦が細くなる割合（0.3 で 0.85倍）
+	float kDashRiseTime = 0.03f;     // ②伸びきるまでの時間（秒）
+	float kDashStretchTime = 0.2f;   // ②伸びが戻りきるまでの時間（秒）
+	float kDashRecovery = 0.17f;     // ③揺り戻し: 進行方向へ潰れる割合（1回だけ）
+	float kDashDuration = 0.3f;      // ③揺り戻しも終わって元の形に戻るまでの時間（秒）
+
+	// --- ジャスト回避（ダッシュと同じ形を倍率だけ変えて使う） ---
+	float kPerfectScale = 1.6f;      // 伸び縮みの倍率（大きく受け流す）
+	float kPerfectTimeScale = 1.6f;  // 再生の速さの倍率（0.3秒ぶんを約0.19秒で終える）
 };

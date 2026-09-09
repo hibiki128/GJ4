@@ -51,11 +51,15 @@ void GameInput::UpdateInputState() {
 			context_.attack = false;
 		}
 
-		if (gamePad->IsPress(XINPUT_GAMEPAD_RIGHT_THUMB)) {
+		if (gamePad->IsPress(XINPUT_GAMEPAD_RIGHT_SHOULDER)) {
 			context_.dash = true;
 		} else {
 			context_.dash = false;
 		}
+
+		// 回避は押した瞬間だけ拾う。ダッシュと同じボタンなので、押しっぱなしにすれば
+		// 最初の1回だけ回避が出て、そのままダッシュへ繋がる
+		context_.dodge = gamePad->IsTrigger(XINPUT_GAMEPAD_RIGHT_SHOULDER);
 
 		// 撃つ色の切り替え（十字キー 上→右→下→左 が Color の並びに対応）
 		for (int i = 0; i < kGameColorCount; ++i) {
@@ -97,6 +101,8 @@ void GameInput::UpdateInputState() {
 		} else {
 			context_.dash = false;
 		}
+
+		context_.dodge = input->TriggerKey(DIK_K);
 
 		// 撃つ色の切り替え（[1][2][3][4]）
 		for (int i = 0; i < kGameColorCount; ++i) {
