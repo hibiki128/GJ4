@@ -20,6 +20,13 @@ void ClearScene::Initialize()
 	PauseMenu::GetInstance()->Initialize();
 	PauseMenu::GetInstance()->CloseImmediately();
 
+	// 周りを囲む飾りの柱。ゲームシーンと同じ広さ・同じ見た目にして、
+	// 「さっきまで戦っていた場所」がそのまま続いているように見せる。
+	// 柱はこのシーンのオブジェクトとして SceneData/ClearScene/ObjectDatas に保存され、
+	// 上の LoadAll で並んだものをそのまま引き取る（無ければここで作って保存する）
+	fieldSurround_ = std::make_unique<FieldSurround>();
+	fieldSurround_->Init(FieldSurround::kDefaultFieldRadius, pObjectManager_, "ClearScene");
+
 	// 登場人物と画角。描画の登録より先に作っておく（描画コールバックから触るため）
 	staging_ = std::make_unique<ClearStaging>();
 	staging_->Init(pObjectManager_);
@@ -72,6 +79,11 @@ void ClearScene::Update()
 	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
 	PauseMenu::GetInstance()->Update();
 
+	// 柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
+	if (!PauseMenu::GetInstance()->IsPaused()) {
+		fieldSurround_->Update();
+	}
+
 	CameraUpdate();
 
 }
@@ -83,6 +95,11 @@ void ClearScene::AddObjectSetting()
 	/// ===================================================
 	if (staging_) {
 		staging_->DrawImGui();
+	}
+
+	// 周りを囲む飾りの柱
+	if (fieldSurround_) {
+		fieldSurround_->DrawImGui();
 	}
 }
 

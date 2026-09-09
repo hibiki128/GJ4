@@ -1,0 +1,68 @@
+{
+    "Lighting": true,
+    "PrimitiveType": 3,
+    "blendMode": 1,
+    "childrenNames": [],
+    "color_0": {
+        "w": 1.0,
+        "x": 0.30000001192092896,
+        "y": 0.800000011920929,
+        "z": 0.4000000059604645
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "inheritTranslation": true,
+    "isGizmoSelectable": true,
+    "isLighting": true,
+    "isModelDraw": true,
+    "isRainbow": false,
+    "isWireframe": false,
+    "material_0_enableNormalMap": true,
+    "material_0_enableProceduralNormal": false,
+    "material_0_enableToon": true,
+    "material_0_normalMapPath": "NormalMap/hex_normal_2048.png",
+    "material_0_normalStrength": 8.0,
+    "material_0_proceduralScale": 3.0,
+    "material_0_uvPosition": {
+        "x": 0.0,
+        "y": 0.0
+    },
+    "material_0_uvRotate": 0.0,
+    "material_0_uvSize": {
+        "x": 2.0,
+        "y": 2.0
+    },
+    "modelName": "",
+    "objectName": "FieldBlock_068",
+    "parentName": "",
+    "rb_enabled": false,
+    "rb_friction": 0.30000001192092896,
+    "rb_gravity": {
+        "x": 0.0,
+        "y": -9.800000190734863,
+        "z": 0.0
+    },
+    "rb_linearDamping": 0.05000000074505806,
+    "rb_mass": 1.0,
+    "rb_restitution": 0.0,
+    "rb_useGravity": true,
+    "resolveCollision": false,
+    "rotation": {
+        "w": 0.9194847941398621,
+        "x": -0.0,
+        "y": -0.39312559366226196,
+        "z": -0.0
+    },
+    "scale": {
+        "x": 13.209415435791016,
+        "y": 81.89909362792969,
+        "z": 4.5
+    },
+    "skeletonDraw": false,
+    "textureName_0": "debug/white1x1.png",
+    "translation": {
+        "x": 65.14639282226563,
+        "y": 73.89909362792969,
+        "z": 97.49848175048828
+    }
+}

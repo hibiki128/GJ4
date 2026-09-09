@@ -1,0 +1,68 @@
+{
+    "Lighting": false,
+    "PrimitiveType": 2,
+    "blendMode": 1,
+    "childrenNames": [],
+    "color_0": {
+        "w": 1.0,
+        "x": 0.09000000357627869,
+        "y": 0.10999999940395355,
+        "z": 0.18000000715255737
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "inheritTranslation": true,
+    "isGizmoSelectable": false,
+    "isLighting": false,
+    "isModelDraw": true,
+    "isRainbow": false,
+    "isWireframe": false,
+    "material_0_enableNormalMap": false,
+    "material_0_enableProceduralNormal": false,
+    "material_0_enableToon": false,
+    "material_0_normalMapPath": "",
+    "material_0_normalStrength": 1.0,
+    "material_0_proceduralScale": 3.0,
+    "material_0_uvPosition": {
+        "x": 0.0,
+        "y": 0.0
+    },
+    "material_0_uvRotate": 0.0,
+    "material_0_uvSize": {
+        "x": 1.0,
+        "y": 1.0
+    },
+    "modelName": "",
+    "objectName": "FieldSkyDome",
+    "parentName": "",
+    "rb_enabled": false,
+    "rb_friction": 0.30000001192092896,
+    "rb_gravity": {
+        "x": 0.0,
+        "y": -9.800000190734863,
+        "z": 0.0
+    },
+    "rb_linearDamping": 0.05000000074505806,
+    "rb_mass": 1.0,
+    "rb_restitution": 0.0,
+    "rb_useGravity": true,
+    "resolveCollision": false,
+    "rotation": {
+        "w": 1.0,
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "scale": {
+        "x": -450.0,
+        "y": 450.0,
+        "z": 450.0
+    },
+    "skeletonDraw": false,
+    "textureName_0": "debug/white1x1.png",
+    "translation": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    }
+}

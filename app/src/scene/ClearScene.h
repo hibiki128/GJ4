@@ -1,6 +1,7 @@
 #pragma once
 #include "BaseScene.h"
 #include "src/Clear/ClearStaging.h"
+#include "src/Field/FieldSurround.h"
 #include <memory>
 
 /// <summary>
@@ -66,4 +67,7 @@ public:
 private:
     // 置くもの（喜んでいるプレイヤー・転がったボス）と、その画角
     std::unique_ptr<ClearStaging> staging_;
+
+    // 周りを囲む飾りの柱。ゲームシーンと同じ場所に立っているように見せる
+    std::unique_ptr<FieldSurround> fieldSurround_;
 };

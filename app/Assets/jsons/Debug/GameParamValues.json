@@ -81,6 +81,7 @@
         "x": 6.0,
         "y": 0.6000000238418579,
         "z": 5.5
+    },
     "Player/Dash/Amplitude": 0.20000000298023224,
     "Player/Dash/MoveSpeed": 15.0,
     "Player/Dash/Period": 1.0,
