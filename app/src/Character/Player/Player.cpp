@@ -55,6 +55,7 @@ void Player::Init(const std::string objectName) {
 	context_.reactionComponent_ = &reaction_;
 	context_.healthComponent_ = &health_;
 	context_.ammoComponent_ = &ammo_;
+	context_.voiceComponent_ = &voice_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
 
@@ -70,6 +71,7 @@ void Player::Init(const std::string objectName) {
 	shoot_.RegisterParams();
 	health_.RegisterParams();
 	ammo_.RegisterParams();
+	voice_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
@@ -153,6 +155,10 @@ void Player::Update() {
 
 	// 粒の要求（移動中の足元）もここで形にする。ステートは動いている間ずっと要求を出すだけでよい
 	PlayerParticles::GetInstance()->Update();
+
+	// 鳴らし続ける音（ぽよぽよ・足音）も同じく、要求を形にするのはここ1か所。
+	// ステートを跨いでも間隔の数え方が変わらないので、音が二重に鳴らない
+	voice_.Update(Hagine::Frame::DeltaTime());
 
 	// 残弾の回復は撃つより先に進める。こうしておくと、回復して1発ぶん貯まったフレームに
 	// そのまま撃てる。回復倍率を要求するギミックは、この Update までに呼んでおけば同じフレームで効く
