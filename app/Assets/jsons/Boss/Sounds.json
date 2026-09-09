@@ -1,0 +1,22 @@
+{
+    "BGM/gameScene.wav_minInterval": 0.0,
+    "BGM/gameScene.wav_volume": 0.09300000220537186,
+    "SE/boss/break.wav_minInterval": 0.25,
+    "SE/boss/break.wav_volume": 0.550000011920929,
+    "SE/boss/landing.wav_minInterval": 0.07999999821186066,
+    "SE/boss/landing.wav_volume": 0.699999988079071,
+    "SE/boss/langed.wav_minInterval": 0.05000000074505806,
+    "SE/boss/langed.wav_volume": 0.44999998807907104,
+    "SE/boss/rotate.wav_minInterval": 0.0,
+    "SE/boss/rotate.wav_volume": 0.4000000059604645,
+    "SE/boss/rotate_spider.wav_minInterval": 0.0,
+    "SE/boss/rotate_spider.wav_volume": 0.4000000059604645,
+    "SE/boss/stun.wav_minInterval": 0.0,
+    "SE/boss/stun.wav_volume": 0.3499999940395355,
+    "SE/other/enter.wav_minInterval": 0.0,
+    "SE/other/enter.wav_volume": 0.6000000238418579,
+    "SE/player/damaged.wav_minInterval": 0.15000000596046448,
+    "SE/player/damaged.wav_volume": 0.6000000238418579,
+    "SE/player/slime.wav_minInterval": 0.05000000074505806,
+    "SE/player/slime.wav_volume": 0.44999998807907104
+}
