@@ -11,6 +11,9 @@ struct PlayerInput {
 	bool dodge;
 	// 選んだ色の添字（-1 なら変更なし）。ColorStruct.h の Color の並びと対応する
 	int selectColorIndex = -1;
+	// 色を1つ送る向き（-1で前・+1で次・0で送らない）。
+	// 十字ボタンが「色を直接選ぶ」のに対し、こちらは ColorStruct の並びを順に回す
+	int colorCycle = 0;
 };
 
 // カメラ（視点）操作の入力

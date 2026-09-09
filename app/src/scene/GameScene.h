@@ -10,6 +10,7 @@
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
+#include "src/UI/Hud/GameHud.h"
 #include "src/UI/Reticle/PlayerReticle.h"
 #include "src/Effect/PerfectDodgeDirector.h"
 
@@ -78,6 +79,11 @@ public:
     /// プレイヤーはカメラを知らないので、カメラを動かした後にシーンから渡す
     /// </summary>
     void UpdateAim();
+
+    /// <summary>
+    /// HUD（体力・ボスの体力・色と残弾）へ、今フレームの値を渡す
+    /// </summary>
+    void UpdateHud();
 
     /// <summary>
     /// カメラの更新
@@ -150,6 +156,12 @@ BossRecoveryZoneManager recoveryZones_;
 
 	// 照準レティクル（画面中央に固定する十字と、弾が本当に当たる先を指す水色の円）
 	std::unique_ptr<PlayerReticle> reticle_;
+
+	// 体力・ボスの体力・色と残弾のHUD
+	std::unique_ptr<GameHud> hud_;
+
+	// ボスの球が減った瞬間を拾うために、前フレームの数を覚えておく
+	float previousBossHp_ = 0.0f;
 
 	// デバッグで回復アイテムを出す距離（プレイヤーから見て前方へこれだけ離す）
 	float healItemSpawnDistance_ = 8.0f;

@@ -194,6 +194,15 @@ public:
 	/// <summary>その色の弾が満タンか（回復エリアが役目を終えたかの判断に使う）</summary>
 	bool IsAmmoFull(Color color) const { return ammo_.IsFull(color); }
 
+	/// <summary>撃っても弾が減らないようにする（チュートリアルで補給を教えるまでのあいだ）</summary>
+	/// <param name="infinite">true で減らなくなる</param>
+	void SetInfiniteAmmo(bool infinite) { ammo_.SetInfinite(infinite); }
+
+	/// <summary>残弾を直接決める（チュートリアルで「減った状態」を作るときに使う）</summary>
+	/// <param name="color">色</param>
+	/// <param name="amount">残弾</param>
+	void SetAmmo(Color color, int amount) { ammo_.SetAmmo(color, amount); }
+
 	/// <summary>一定時間だけ効く弾の回復倍率を足す（拾って効く時限型のギミック用）</summary>
 	void AddAmmoRegenBoost(float scale, float duration) { ammo_.AddRegenBoost(scale, duration); }
 

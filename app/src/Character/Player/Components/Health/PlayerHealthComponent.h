@@ -15,7 +15,7 @@ class PlayerHealthComponent {
 public:
 	/// <summary>体力の調整値（デバッグUIから触る）</summary>
 	struct Params {
-		int maxHp = 5;               // 最大HP
+		int maxHp = 4;               // 最大HP（HUDのハートの数もこれに合わせて描かれる）
 		int damagePerHit = 1;        // 1回の被弾で減る量
 		float invincibleTime = 1.0f; // 被弾してから次の被弾を受け付けるまでの時間（秒）
 	};

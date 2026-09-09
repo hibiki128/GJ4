@@ -6,6 +6,9 @@ namespace {
 // 色切り替えに使うキー（Color の並びと対応）
 constexpr BYTE kColorKeys[kGameColorCount] = { DIK_1, DIK_2, DIK_3, DIK_4 };
 
+// トリガーを「踏んだ」とみなす押し込み量
+constexpr float kTriggerThreshold = 0.25f;
+
 // 色切り替えに使う十字キー（Color の並びと対応）
 constexpr WORD kColorPadButtons[kGameColorCount] = {
 	XINPUT_GAMEPAD_DPAD_UP,
@@ -21,6 +24,7 @@ void GameInput::UpdateInputState() {
 
 	// 押されていないフレームは「変更なし」。押した瞬間だけ色を差し替える
 	context_.selectColorIndex = -1;
+	context_.colorCycle = 0;
 
 	if (gamePad->IsConnected()) {
 		context_.move = false;
@@ -51,21 +55,25 @@ void GameInput::UpdateInputState() {
 			context_.attack = false;
 		}
 
-		if (gamePad->IsPress(XINPUT_GAMEPAD_RIGHT_SHOULDER)) {
-			context_.dash = true;
-		} else {
-			context_.dash = false;
-		}
+		// ダッシュは LT。押し込み量で見るので、半押しでは走らない
+		context_.dash = (gamePad->GetLeftTrigger() > kTriggerThreshold);
 
-		// 回避は押した瞬間だけ拾う。ダッシュと同じボタンなので、押しっぱなしにすれば
+		// 回避は押した瞬間だけ拾う。ダッシュと同じ LT なので、押しっぱなしにすれば
 		// 最初の1回だけ回避が出て、そのままダッシュへ繋がる
-		context_.dodge = gamePad->IsTrigger(XINPUT_GAMEPAD_RIGHT_SHOULDER);
+		context_.dodge = gamePad->IsLeftTriggerTriggered(kTriggerThreshold);
 
 		// 撃つ色の切り替え（十字キー 上→右→下→左 が Color の並びに対応）
 		for (int i = 0; i < kGameColorCount; ++i) {
 			if (gamePad->IsTrigger(kColorPadButtons[i])) {
 				context_.selectColorIndex = i;
 			}
+		}
+
+		// LB / RB は色を1つずつ送る。十字ボタンで直接選ぶのと併用できる
+		if (gamePad->IsTrigger(XINPUT_GAMEPAD_LEFT_SHOULDER)) {
+			context_.colorCycle = -1;
+		} else if (gamePad->IsTrigger(XINPUT_GAMEPAD_RIGHT_SHOULDER)) {
+			context_.colorCycle = 1;
 		}
 	} else {
 		context_.move = false;
@@ -109,6 +117,13 @@ void GameInput::UpdateInputState() {
 			if (input->TriggerKey(kColorKeys[i])) {
 				context_.selectColorIndex = i;
 			}
+		}
+
+		// 色送り（LB / RB に相当）
+		if (input->TriggerKey(DIK_Q)) {
+			context_.colorCycle = -1;
+		} else if (input->TriggerKey(DIK_E)) {
+			context_.colorCycle = 1;
 		}
 	}
 

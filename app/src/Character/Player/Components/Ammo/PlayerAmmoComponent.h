@@ -49,6 +49,22 @@ public:
 	/// <summary>消費を取り消す（発射に失敗したときの払い戻し）</summary>
 	void Refund(Color color);
 
+	/// <summary>
+	/// 撃っても減らないようにする。
+	/// チュートリアルで弾の補給をまだ教えていないあいだ、弾切れで手が止まらないようにするため。
+	/// 入れているあいだは満タンのまま固定されるので、切った瞬間から普通の減り方に戻る
+	/// </summary>
+	/// <param name="infinite">true で減らなくなる</param>
+	void SetInfinite(bool infinite) { isInfinite_ = infinite; }
+	bool IsInfinite() const { return isInfinite_; }
+
+	/// <summary>
+	/// 残弾を直接決める（チュートリアルで「減った状態」を作るときと、デバッグ用）
+	/// </summary>
+	/// <param name="color">色</param>
+	/// <param name="amount">残弾（0〜最大弾数に収める）</param>
+	void SetAmmo(Color color, int amount);
+
 	// 弾を満タンに戻す（リトライやデバッグ用）
 	void Reset() { Init(); }
 
@@ -117,4 +133,5 @@ private:
 	// 継続型の要求（Update の最後で 1.0 に戻す）
 	std::array<float, kGameColorCount> frameScaleRequest_{};
 	std::vector<RegenBoost> boosts_; // 時限型の倍率（色を問わず全色へ効く）
+	bool isInfinite_ = false;        // 減らさない（チュートリアル用）
 };

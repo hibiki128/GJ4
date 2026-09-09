@@ -146,6 +146,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp" />
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
+    <ClCompile Include="src\UI\Hud\GameHud.cpp" />
     <ClCompile Include="src\UI\Reticle\PlayerReticle.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\Field\FieldSurround.cpp" />
@@ -219,6 +220,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h" />
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
+    <ClInclude Include="src\UI\Hud\GameHud.h" />
     <ClInclude Include="src\UI\Reticle\PlayerReticle.h" />
     <ClInclude Include="src\Character\Player\Core\PlayerAimReport.h" />
     <ClInclude Include="src\Field\Field.h" />
