@@ -1,5 +1,6 @@
 #include"GameOverScene.h"
 #include "src/UI/Pause/PauseMenu.h"
+#include <Frame.h>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
 
@@ -47,10 +48,19 @@ void GameOverScene::Initialize()
 			staging_->DispatchCompute();
 		});
 
+	// 見出しと案内。文字は1つずつ傾き方を変えて、そろっていない＝崩れて見えるようにする
+	resultUi_ = std::make_unique<ResultUi>();
+	resultUi_->Init("GameOver", {"げ", "ー", "む", "お", "ー", "ば", "ー", ".", ".", "."},
+	                {"もういちど", "はじめにもどる"}, ResultTitleMotion::Wobble);
+	resultUi_->RegisterParams("GameOverUi");
+
 	// スプライトの描画（ポストエフェクトなし）
 	pDrawSystem_->Register("GameOverScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
 		{
 			pSpriteManager_->DrawAll();
+			if (resultUi_) {
+				resultUi_->Draw();
+			}
 		});
 
 	// ポーズ画面（スプライトより手前に出したいので後から登録する）
@@ -66,6 +76,9 @@ void GameOverScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+	if (resultUi_) {
+		resultUi_->Finalize();
+	}
 	BaseScene::Finalize();
 }
 
@@ -83,6 +96,15 @@ void GameOverScene::Update()
 		staging_->Update();
 		// 柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
 		fieldSurround_->Update();
+	}
+
+	// 見出しの動きはポーズ中も進めてよいが、選択と決定だけは拾わせない。
+	// ポーズを閉じたAをそのまま決定にしてしまうため
+	resultUi_->SetInputEnabled(!PauseMenu::GetInstance()->IsPaused());
+	resultUi_->Update(Frame::DeltaTime());
+	if (resultUi_->IsDecided() && !isChanging_) {
+		isChanging_ = true;
+		ChangeScene();
 	}
 
 	CameraUpdate();
@@ -112,6 +134,10 @@ void GameOverScene::AddObjectSetting()
 	if (fieldSurround_) {
 		fieldSurround_->DrawImGui();
 	}
+
+	if (resultUi_) {
+		resultUi_->DrawImGui();
+	}
 }
 
 void GameOverScene::AddParticleSetting()
@@ -140,5 +166,14 @@ void GameOverScene::ChangeScene() {
 	/// シーン切り替え
 	/// ===================================================
 
-	//pSceneManager_->NextSceneReservation();
+	// 選ばれた項目で行き先が変わる
+	switch (resultUi_->GetDecidedIndex()) {
+	case kMenuRetry:
+		pSceneManager_->NextSceneReservation("GAME");
+		break;
+	case kMenuReturnTitle:
+	default:
+		pSceneManager_->NextSceneReservation("TITLE");
+		break;
+	}
 }

@@ -145,6 +145,47 @@
         "y": 0.6000000238418579,
         "z": -4.5
     },
+    "ClearUi/ItemGlyphGap": 26.0,
+    "ClearUi/ItemGlyphSize": 70.0,
+    "ClearUi/ItemSize": 65.0,
+    "ClearUi/ItemSpacing": 68.0,
+    "ClearUi/MenuAnchor": {
+        "x": 1684.0,
+        "y": 906.0
+    },
+    "ClearUi/TitleCenter": {
+        "x": 880.0,
+        "y": 232.0
+    },
+    "ClearUi/TitleMaxWidth": 1504.0,
+    "ClearUi/TitleSize": 310.0,
+    "ClearUi/TitleSpacing": 0.8999999761581421,
+    "FieldSurround/BlockDepth": 8.0,
+    "FieldSurround/BobAmount": 0.8999999761581421,
+    "FieldSurround/BobPeriodMax": 8.0,
+    "FieldSurround/BobPeriodMin": 4.0,
+    "FieldSurround/ColorScale": 1.0,
+    "FieldSurround/DomeColor": {
+        "w": 1.0,
+        "x": 0.09000000357627869,
+        "y": 0.10999999940395355,
+        "z": 0.18000000715255737
+    },
+    "FieldSurround/DomeRadius": 450.0,
+    "FieldSurround/FillInner": 0.800000011920929,
+    "FieldSurround/FillOuter": 1.149999976158142,
+    "FieldSurround/HeightGrowth": 2.450000047683716,
+    "FieldSurround/HeightMax": 36.0,
+    "FieldSurround/HeightMin": 20.0,
+    "FieldSurround/InnerMargin": 35.0,
+    "FieldSurround/NormalStrength": 7.099999904632568,
+    "FieldSurround/RadiusJitter": 2.0,
+    "FieldSurround/RingCount": 3,
+    "FieldSurround/RingSpacing": 16.0,
+    "FieldSurround/Seed": 100000,
+    "FieldSurround/SinkDepth": 8.0,
+    "FieldSurround/UvScale": 0.800000011920929,
+    "FieldSurround/YawJitter": 10.0,
     "GameOver/Boss/Spider/FacingDeg": -52.0,
     "GameOver/Boss/Spider/LegStanceBend": 0.10000000149011612,
     "GameOver/Boss/Spider/StepSwayPeriod": 9.100000381469727,
@@ -170,6 +211,22 @@
         "y": 0.6000000238418579,
         "z": 5.5
     },
+    "GameOverUi/HintSize": 55.0,
+    "GameOverUi/ItemGlyphGap": 31.0,
+    "GameOverUi/ItemGlyphSize": 75.0,
+    "GameOverUi/ItemSize": 80.0,
+    "GameOverUi/ItemSpacing": 95.0,
+    "GameOverUi/MenuAnchor": {
+        "x": 1700.0,
+        "y": 906.0
+    },
+    "GameOverUi/TitleCenter": {
+        "x": 880.0,
+        "y": 250.0
+    },
+    "GameOverUi/TitleMaxWidth": 1510.0,
+    "GameOverUi/TitleSize": 200.0,
+    "GameOverUi/TitleSpacing": 0.8999999761581421,
     "Hud/AmmoTextSize": 48.0,
     "Hud/BossBarCenter": {
         "x": 880.0,

@@ -39,6 +39,9 @@ void DrawSprite(Sprite *sprite, const Vector2 &center, const Vector2 &size, cons
     sprite->SetRotation(rotation);
     sprite->SetColor({color.x, color.y, color.z});
     sprite->SetAlpha(color.w);
+    // 傾きはスプライトが持ち続けるので、傾けない呼び出しでも毎回入れ直す。
+    // 入れ直さないと、一度傾けたスプライトを使い回したときに傾いたままになる
+    sprite->SetRotation(rotation);
     sprite->Draw();
 }
 
@@ -150,7 +153,7 @@ void UiText::Create(const std::string &id, const std::string &text, float outlin
     Initialize(TakeTexturePath(id));
 }
 
-void UiText::DrawCentered(const Vector2 &center, float height, const Vector4 &color)
+void UiText::DrawCentered(const Vector2 &center, float height, const Vector4 &color, float rotation)
 {
     if (!sprite_ || baseSize_.y <= 0.0f)
     {
@@ -158,7 +161,7 @@ void UiText::DrawCentered(const Vector2 &center, float height, const Vector4 &co
     }
 
     const float scale = height / baseSize_.y;
-    UiSprite::Draw(center, {baseSize_.x * scale, baseSize_.y * scale}, color);
+    UiSprite::Draw(center, {baseSize_.x * scale, baseSize_.y * scale}, color, rotation);
 }
 
 void UiText::DrawLeft(float left, float centerY, float height, const Vector4 &color)

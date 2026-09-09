@@ -1,5 +1,6 @@
 #include"ClearScene.h"
 #include "src/UI/Pause/PauseMenu.h"
+#include <Frame.h>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
 
@@ -48,10 +49,20 @@ void ClearScene::Initialize()
 			staging_->DispatchCompute();
 		});
 
+	// 見出しと案内。見出しは1文字ずつ動かすので、まとめて ResultUi が受け持つ。
+	// 文字はゲームの4色で塗る（まわりの柱と同じ色づかいにそろえる）
+	resultUi_ = std::make_unique<ResultUi>();
+	resultUi_->Init("Clear", {"く", "り", "あ", "！", "！"}, {"はじめにもどる"},
+	                ResultTitleMotion::Bounce);
+	resultUi_->RegisterParams("ClearUi");
+
 	// スプライトの描画（ポストエフェクトなし）
 	pDrawSystem_->Register("ClearScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
 		{
 			pSpriteManager_->DrawAll();
+			if (resultUi_) {
+				resultUi_->Draw();
+			}
 		});
 
 	// ポーズ画面（スプライトより手前に出したいので後から登録する）
@@ -67,6 +78,9 @@ void ClearScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+	if (resultUi_) {
+		resultUi_->Finalize();
+	}
 	BaseScene::Finalize();
 }
 
@@ -82,6 +96,15 @@ void ClearScene::Update()
 	// 柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
 	if (!PauseMenu::GetInstance()->IsPaused()) {
 		fieldSurround_->Update();
+	}
+
+	// 見出しの動きはポーズ中も進めてよい（ポーズ画面の下でひっそり動いているだけ）が、
+	// 決定だけは拾わせない。ポーズを閉じたAをそのまま決定にしてしまうため
+	resultUi_->SetInputEnabled(!PauseMenu::GetInstance()->IsPaused());
+	resultUi_->Update(Frame::DeltaTime());
+	if (resultUi_->IsDecided() && !isChanging_) {
+		isChanging_ = true;
+		ChangeScene();
 	}
 
 	CameraUpdate();
@@ -100,6 +123,10 @@ void ClearScene::AddObjectSetting()
 	// 周りを囲む飾りの柱
 	if (fieldSurround_) {
 		fieldSurround_->DrawImGui();
+	}
+
+	if (resultUi_) {
+		resultUi_->DrawImGui();
 	}
 }
 
@@ -139,5 +166,6 @@ void ClearScene::ChangeScene() {
 	/// シーン切り替え
 	/// ===================================================
 
-	//pSceneManager_->NextSceneReservation();
+	// 案内は「はじめにもどる」の1つだけなので、行き先も1つ
+	pSceneManager_->NextSceneReservation("TITLE");
 }

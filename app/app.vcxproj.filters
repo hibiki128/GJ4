@@ -400,6 +400,7 @@
     <ClCompile Include="src\scene\TutorialScene.cpp" />
     <ClCompile Include="src\Tutorial\TutorialDirector.cpp" />
     <ClCompile Include="src\UI\Hud\GameHud.cpp" />
+    <ClCompile Include="src\UI\Result\ResultUi.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\scene\GameOverScene.h">
@@ -705,6 +706,7 @@
     <ClInclude Include="src\scene\TutorialScene.h" />
     <ClInclude Include="src\Tutorial\TutorialDirector.h" />
     <ClInclude Include="src\UI\Hud\GameHud.h" />
+    <ClInclude Include="src\UI\Result\ResultUi.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

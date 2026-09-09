@@ -179,7 +179,9 @@ public:
     /// <param name="center">中心座標</param>
     /// <param name="height">描画したい高さ（ピクセル）。横幅は比率を保って決まる</param>
     /// <param name="color">色</param>
-    void DrawCentered(const Hagine::Vector2 &center, float height, const Hagine::Vector4 &color);
+    /// <param name="rotation">傾き（ラジアン）。既定は傾けない</param>
+    void DrawCentered(const Hagine::Vector2 &center, float height, const Hagine::Vector4 &color,
+                      float rotation = 0.0f);
 
     /// <summary>
     /// 左端を合わせて描く

@@ -2,6 +2,7 @@
 #include "BaseScene.h"
 #include "src/Field/FieldSurround.h"
 #include "src/GameOver/GameOverStaging.h"
+#include "src/UI/Result/ResultUi.h"
 #include <memory>
 
 /// <summary>
@@ -70,4 +71,16 @@ private:
 
     // 周りを囲む飾りの柱。ゲームシーンと同じ場所に立っているように見せる
     std::unique_ptr<FieldSurround> fieldSurround_;
+
+    // 「げーむおーばー...」の見出しと、右下の2択
+    std::unique_ptr<ResultUi> resultUi_;
+
+    // 案内の並び順。ResultUi は番号しか返さないので、行き先はここで決める
+    enum MenuIndex {
+        kMenuRetry,       // もういちど
+        kMenuReturnTitle, // はじめにもどる
+    };
+
+    // 次のシーンを予約したか（決定を何度も拾って二重に予約しないため）
+    bool isChanging_ = false;
 };
