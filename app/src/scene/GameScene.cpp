@@ -765,12 +765,22 @@ void GameScene::DrawHealItemImGui()
 	ImGui::SetNextItemWidth(120.0f);
 	ImGui::DragFloat("出す距離", &healItemSpawnDistance_, 0.5f, 1.0f, 40.0f, "%.1f");
 
+	HealItemParams& itemParams = healItems->GetParams();
 	ImGui::SetNextItemWidth(120.0f);
-	ImGui::DragInt("膜を割るのに必要な弾数", &healItems->GetParams().sealHitPoints, 0.1f, 1, 20);
+	ImGui::DragInt("膜を割るのに必要な弾数", &itemParams.sealHitPoints, 0.1f, 1, 20);
 	ImGui::SetItemTooltip("次に出すぶんから効きます（出ている膜の固さは変わりません）");
 
-	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると拾えるようになります（拾うと %d 回復）",
-	                    healItems->GetParams().healAmount);
+	// 見た目の調整。出ているアイテムにもその場で効く
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragFloat("膜の半径", &itemParams.sealRadius, 0.05f, 0.2f, 6.0f, "%.2f");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragFloat("ハートの大きさ", &itemParams.coreRadius, 0.05f, 0.1f, 4.0f, "%.2f");
+	ImGui::ColorEdit4("膜の色", &itemParams.sealRgba.x, ImGuiColorEditFlags_AlphaBar);
+	ImGui::ColorEdit4("ハートの色", &itemParams.coreRgba.x);
+
+	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると中のハートを拾えます（拾うと %d 回復）",
+	                    itemParams.healAmount);
 }
 
 void GameScene::AddParticleSetting()
