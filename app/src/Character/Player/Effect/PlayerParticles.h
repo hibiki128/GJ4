@@ -83,6 +83,17 @@ public:
 	/// <param name="bodyColor">体の色。波紋も粒も同系色にする</param>
 	void BurstPerfectDodge(const Hagine::Vector3& position, const Hagine::Vector4& bodyColor);
 
+	/// <summary>
+	/// やられてはじけ飛ぶ粒を1回出す。
+	///
+	/// ジャスト回避と同じテンプレートを使うが、速度をこちらで入れ直して
+	/// 全方向へ強くばら撒く（受け流しではなく「体が飛び散る」絵にするため）。
+	/// やられた後にジャスト回避が起きることは無いので、エミッターの取り合いにはならない
+	/// </summary>
+	/// <param name="position">プレイヤーの位置（ワールド）</param>
+	/// <param name="bodyColor">体の色。粒も波紋も同系色にする</param>
+	void BurstDefeat(const Hagine::Vector3& position, const Hagine::Vector4& bodyColor);
+
 	/// <summary>調整UI（エンジンのエミッター編集をそのまま出す）</summary>
 	void DrawImGui();
 

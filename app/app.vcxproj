@@ -145,6 +145,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp" />
     <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp" />
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
+    <ClCompile Include="src\Character\Player\States\Defeated\PlayerStateDefeated.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
     <ClCompile Include="src\UI\Hud\GameHud.cpp" />
     <ClCompile Include="src\UI\Reticle\PlayerReticle.cpp" />
@@ -219,6 +220,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h" />
     <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h" />
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
+    <ClInclude Include="src\Character\Player\States\Defeated\PlayerStateDefeated.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
     <ClInclude Include="src\UI\Hud\GameHud.h" />
     <ClInclude Include="src\UI\Reticle\PlayerReticle.h" />

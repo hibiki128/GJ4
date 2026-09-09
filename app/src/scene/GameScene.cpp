@@ -297,7 +297,7 @@ GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 	healItems->SetPickupHandler([this] {
 		return player_->Heal(HealItemManager::GetInstance()->GetParams().healAmount);
 		});
-
+	
 	// 膜を「ボス以外の的」として撃つ側へ渡す。着弾・照準・ソフトロックオンのいずれも
 	// ボスの球と同じ問い合わせを通るので、狙いを合わせれば強調表示もアシストも効く
 	player_->SetItemTargetProvider([]() -> IShootableTargetQuery* {
@@ -480,6 +480,10 @@ recoveryZones_.Update(Frame::DeltaTime());
 	UpdateAim();
 
 	UpdateHud();
+
+	// 勝ち負けがついていれば、間を置いて結果画面へ送る。
+	// ポーズ中はここまで来ないので、止めているあいだに遷移が進むことはない
+	ChangeScene();
 }
 
 void GameScene::ApplyBossPause(bool paused)
@@ -887,16 +891,36 @@ void GameScene::ChangeScene() {
 	/// シーン切り替え
 	/// ===================================================
 
-	// プレイヤーのHPが0になった。ダウン演出を挟んでからゲームオーバーへ繋ぐならここ
-	// （被弾ステートはプレイヤーを倒れたまま留めるので、遷移の間合いはここで決められる）
-	if (player_ && player_->IsDead()) {
-		//pSceneManager_->NextSceneReservation("GAMEOVER");
+	// 予約済み。切り替わるまでは何もしない
+	if (sceneChangeRequested_) {
 		return;
 	}
 
-	// 第2形態の撃破演出が終わる（コアがはじけて消える）と、ここが true になる。
-	// 遷移先のシーンが用意できたら pSceneManager_->NextSceneReservation() をここへ足す
-	if (bossSpider_ && bossSpider_->IsDefeatFinished()) {
+	// まだ決着していないので、勝ち負けがついていないかだけ見て抜ける
+	if (nextSceneName_.empty()) {
+		// プレイヤーが震えてはじけ飛ぶところまで終わった。
+		// 倒れた瞬間（IsDead）ではなくここを見るので、演出は必ず最後まで流れる
+		if (player_ && player_->IsDefeatFinished()) {
+			nextSceneName_ = "GAMEOVER";
+			sceneChangeWait_ = kGameOverWait;
+			return;
+		}
+
+		// 第2形態の撃破演出が終わった（コアがはじけて消えた）。
+		// 第1形態を倒しただけでは第2形態へ変形するだけなので、ここは通らない
+		if (bossSpider_ && bossSpider_->IsDefeatFinished()) {
+			nextSceneName_ = "CLEAR";
+			sceneChangeWait_ = kClearWait;
+		}
 		return;
 	}
+
+	// 決着はついている。間を置いてから送る
+	sceneChangeWait_ -= Frame::DeltaTime();
+	if (sceneChangeWait_ > 0.0f) {
+		return;
+	}
+
+	sceneChangeRequested_ = true;
+	pSceneManager_->NextSceneReservation(nextSceneName_);
 }
