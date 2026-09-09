@@ -160,6 +160,12 @@ void FollowCamera::RegisterTuningParameters(const std::string& cameraName)
 	params_.Register("通常:注視点の追従時間(秒)", &normalTargetSmoothTime_, { 0.01f, 0.0f, 2.0f });
 	params_.Register("通常:距離の追従時間(秒)", &normalDistanceSmoothTime_, { 0.01f, 0.0f, 2.0f });
 
+	// --- やられたときの寄り ---
+	params_.Register("やられ:カメラ距離", &defeatDistance_, { 0.1f, 0.5f, 30.0f });
+	params_.Register("やられ:注視点の高さ", &defeatTargetHeight_, { 0.05f, -5.0f, 10.0f });
+	params_.Register("やられ:注視点の追従時間(秒)", &defeatTargetSmoothTime_, { 0.01f, 0.0f, 3.0f });
+	params_.Register("やられ:距離の追従時間(秒)", &defeatDistanceSmoothTime_, { 0.01f, 0.0f, 3.0f });
+
 	// --- ボス戦のフレーミング（仕様書 §6〜§9・§19）---
 	params_.Register("ボス戦:プレイヤー寄せ", &bossConfig_.playerWeight, { 0.01f, 0.0f, 1.0f });
 	params_.Register("ボス戦:ボスの注視点ずらし", &bossConfig_.bossTargetOffset, { 0.05f, -20.0f, 20.0f });
@@ -348,6 +354,15 @@ CameraFrameTarget FollowCamera::CalcFrameTarget() const
 void FollowCamera::CalcDesired(const Vector3& playerTarget, const CameraFrameTarget& frame,
 	Vector3& outTarget, float& outDistance) const
 {
+	// やられたときはプレイヤーだけへ寄る。
+	// 注視点の高さも通常より下げて、寄っても体が画面の中心に残るようにする
+	if (mode_ == CameraMode::Defeat)
+	{
+		outTarget = pTarget_->translation_ + Vector3{ 0.0f, defeatTargetHeight_, 0.0f };
+		outDistance = defeatDistance_;
+		return;
+	}
+
 	// 収める相手がいなければ、プレイヤーだけを追う普通のTPS（仕様書 §23 Phase 1）
 	if (!frame.valid)
 	{
@@ -607,12 +622,28 @@ void FollowCamera::DrawDebugLines(const Vector3& playerTarget, const CameraFrame
 
 float FollowCamera::GetTargetSmoothTime() const
 {
-	return mode_ == CameraMode::BossBattle ? bossConfig_.targetSmoothTime : normalTargetSmoothTime_;
+	switch (mode_)
+	{
+	case CameraMode::BossBattle:
+		return bossConfig_.targetSmoothTime;
+	case CameraMode::Defeat:
+		return defeatTargetSmoothTime_;
+	default:
+		return normalTargetSmoothTime_;
+	}
 }
 
 float FollowCamera::GetDistanceSmoothTime() const
 {
-	return mode_ == CameraMode::BossBattle ? bossConfig_.distanceSmoothTime : normalDistanceSmoothTime_;
+	switch (mode_)
+	{
+	case CameraMode::BossBattle:
+		return bossConfig_.distanceSmoothTime;
+	case CameraMode::Defeat:
+		return defeatDistanceSmoothTime_;
+	default:
+		return normalDistanceSmoothTime_;
+	}
 }
 
 void FollowCamera::DrawImGui()
@@ -641,10 +672,11 @@ void FollowCamera::DrawImGui()
 
 	// 仕様書 §16 のカメラモード
 	ImGui::SeparatorText("カメラモード");
-	int modeIndex = (mode_ == CameraMode::BossBattle) ? 1 : 0;
-	if (ImGui::Combo("モード##followmode", &modeIndex, "通常(プレイヤー追従)\0ボス戦(2人を画面に収める)\0"))
+	int modeIndex = static_cast<int>(mode_);
+	if (ImGui::Combo("モード##followmode", &modeIndex,
+		"通常(プレイヤー追従)\0ボス戦(2人を画面に収める)\0やられ(プレイヤーへ寄る)\0"))
 	{
-		SetMode(modeIndex == 1 ? CameraMode::BossBattle : CameraMode::Normal);
+		SetMode(static_cast<CameraMode>(modeIndex));
 	}
 
 	// 仕様書 §24 の調整順に沿って並べてある
@@ -663,6 +695,14 @@ void FollowCamera::DrawImGui()
 	ImGui::DragFloat("カメラ距離##follownormaldistance", &normalDistance_, 0.1f, 1.0f, 50.0f, "%.2f");
 	ImGui::DragFloat("注視点の追従時間(秒)##follownormaltargetsmooth", &normalTargetSmoothTime_, 0.01f, 0.0f, 2.0f, "%.3f");
 	ImGui::DragFloat("距離の追従時間(秒)##follownormaldistsmooth", &normalDistanceSmoothTime_, 0.01f, 0.0f, 2.0f, "%.3f");
+
+	ImGui::SeparatorText("やられたときの寄り");
+	ImGui::DragFloat("カメラ距離##followdefeatdistance", &defeatDistance_, 0.1f, 0.5f, 30.0f, "%.2f");
+	ImGui::SetItemTooltip("やられたプレイヤーへ寄りきったときの距離。震えとはじけがはっきり見える近さにする");
+	ImGui::DragFloat("注視点の高さ##followdefeatheight", &defeatTargetHeight_, 0.05f, -5.0f, 10.0f, "%.2f");
+	ImGui::DragFloat("注視点の追従時間(秒)##followdefeattargetsmooth", &defeatTargetSmoothTime_, 0.01f, 0.0f, 3.0f, "%.3f");
+	ImGui::DragFloat("距離の追従時間(秒)##followdefeatdistsmooth", &defeatDistanceSmoothTime_, 0.01f, 0.0f, 3.0f, "%.3f");
+	ImGui::SetItemTooltip("長いほどゆっくり寄る。短くすると画面が飛んだように見える");
 
 	if (ImGui::TreeNodeEx("4. ボス戦のフレーミング (§6〜§9,§19)##followbossconfig", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -810,6 +850,11 @@ void FollowCamera::Save()
 	data.Save("normalTargetSmoothTime", normalTargetSmoothTime_);
 	data.Save("normalDistanceSmoothTime", normalDistanceSmoothTime_);
 
+	data.Save("defeatDistance", defeatDistance_);
+	data.Save("defeatTargetHeight", defeatTargetHeight_);
+	data.Save("defeatTargetSmoothTime", defeatTargetSmoothTime_);
+	data.Save("defeatDistanceSmoothTime", defeatDistanceSmoothTime_);
+
 	data.Save("bossPlayerWeight", bossConfig_.playerWeight);
 	data.Save("bossDistanceScale", bossConfig_.distanceScale);
 	data.Save("bossRadiusScale", bossConfig_.bossRadiusScale);
@@ -860,6 +905,11 @@ void FollowCamera::Load()
 	normalDistance_ = data.Load("normalDistance", normalDistance_);
 	normalTargetSmoothTime_ = data.Load("normalTargetSmoothTime", normalTargetSmoothTime_);
 	normalDistanceSmoothTime_ = data.Load("normalDistanceSmoothTime", normalDistanceSmoothTime_);
+
+	defeatDistance_ = data.Load("defeatDistance", defeatDistance_);
+	defeatTargetHeight_ = data.Load("defeatTargetHeight", defeatTargetHeight_);
+	defeatTargetSmoothTime_ = data.Load("defeatTargetSmoothTime", defeatTargetSmoothTime_);
+	defeatDistanceSmoothTime_ = data.Load("defeatDistanceSmoothTime", defeatDistanceSmoothTime_);
 
 	bossConfig_.playerWeight = data.Load("bossPlayerWeight", bossConfig_.playerWeight);
 	bossConfig_.distanceScale = data.Load("bossDistanceScale", bossConfig_.distanceScale);

@@ -466,9 +466,15 @@ recoveryZones_.Update(Frame::DeltaTime());
 	if (player_->IsDead()) {
 		GameOverContext::GetInstance()->SetBossForm(
 			bossSpider_->IsActive() ? BossFormId::Spider : BossFormId::Sphere);
+
+		// やられたらボスのフレーミングをやめ、震えてはじけるプレイヤーへ寄る。
+		// 一度入ったらこのシーンが終わるまで戻さない
+		followCamera_->SetMode(CameraMode::Defeat);
 	}
 
-	followCamera_->Update(gameInput_->GetCameraContext());
+	// 倒れた後は視点操作も受け付けない。寄っていく構図を操作で崩されないようにする
+	//（プレイヤーの操作を切るのと同じ考え方で、「何も入れていない」ことにして渡す）
+	followCamera_->Update(player_->IsDead() ? CameraInput{} : gameInput_->GetCameraContext());
 
 	// 移動の基準もカメラから作る。視点を回すと、奥へ倒したときに進む向きも一緒に回る
 	player_->SetCameraYaw(followCamera_->GetYaw());
