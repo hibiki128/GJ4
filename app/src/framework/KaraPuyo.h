@@ -6,7 +6,7 @@
 /// <summary>
 /// アプリケーション本体
 /// </summary>
-class GJ4App : public Hagine::Framework
+class KaraPuyo : public Hagine::Framework
 {
 public: // メンバ関数
     /// <summary>
