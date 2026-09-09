@@ -2,6 +2,7 @@
 #include "src/Boss/Attack/BossAttackSlam.h"
 #include "src/Boss/Attack/BossAttackSpin.h"
 #include "src/Audio/GameSounds.h"
+#include "src/Boss/Data/BossItemDrop.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/State/BossStates.h"
 #include "collider/ColliderTagManager.h"
@@ -319,12 +320,19 @@ void Boss::UpdateExposureScaling() {
 
 void Boss::BeginWallStagger() {
     const BossWallStaggerParams &wall = parameters_.WallStagger();
+    // すでにひるんでいるところへ重ねて呼ばれても、アイテムは1回だけにする
+    const bool wasStaggered = staggerTimer_ > 0.0f;
     staggerKind_ = StaggerKind::Wall;
     // 動きが途中で切れないよう、3つの段階の合計をそのまま怯み時間にする
     staggerTimer_ = (std::max)(0.05f, wall.wobbleTime + wall.shakeTime + wall.settleTime);
     staggerShakeTime_ = 0.0f;
     // 連鎖のひるみと同じフレームに重なっても、揺らし方が混ざらないようにそろえる
     SetOffset(Vector3{0.0f, 0.0f, 0.0f});
+
+    // ひるんでいるあいだに拾ってもらう回復アイテムを足元へ落とす
+    if (!wasStaggered) {
+        DropHealItemOnStagger(GetBossPosition(), GetBodyRadius(), pTargetLocator_, pFieldBounds_);
+    }
 }
 
 bool Boss::IsBeyondBounds(const Vector3 &position) const {

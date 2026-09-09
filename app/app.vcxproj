@@ -248,6 +248,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Boss.h" />
     <ClInclude Include="src\Boss\Data\BossColorPalette.h" />
     <ClInclude Include="src\Boss\Data\BossEasing.h" />
+    <ClInclude Include="src\Boss\Data\BossItemDrop.h" />
     <ClInclude Include="src\Boss\Data\BossParameters.h" />
     <ClInclude Include="src\Boss\Effect\BossDefeatDirector.h" />
     <ClInclude Include="src\Boss\Effect\BossParticles.h" />
