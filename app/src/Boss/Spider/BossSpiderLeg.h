@@ -138,6 +138,15 @@ public:
     bool TryGetTipPosition(Hagine::Vector3 &out) const;
 
     /// <summary>
+    /// 並び順で指定した球のワールド座標（エイムアシストの吸着先に使う）。
+    /// 番号は Raycast が返す outIndex と同じ、付け根から数えた番号
+    /// </summary>
+    /// <param name="index">球の並び順</param>
+    /// <param name="out">ワールド座標</param>
+    /// <returns>bool: その番号の球があれば true</returns>
+    bool TryGetSpherePosition(int index, Hagine::Vector3 &out) const;
+
+    /// <summary>
     /// 攻撃中の脚の姿勢を指定する（通常は 1.0, 0.0）
     /// </summary>
     /// <param name="reachScale">足を置く半径の倍率（大きいほど脚を広げる）</param>

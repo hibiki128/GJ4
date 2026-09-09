@@ -579,6 +579,15 @@ bool BossSpiderLeg::TryGetTipPosition(Vector3 &out) const {
     return true;
 }
 
+bool BossSpiderLeg::TryGetSpherePosition(int index, Vector3 &out) const {
+    if (isHidden_ || index < 0 || index >= static_cast<int>(chain_.size())) {
+        return false;
+    }
+    // Raycast が中心に使っているのと同じ座標を返す（判定と吸着先がずれないように）
+    out = chain_[static_cast<size_t>(index)].sphere->GetRenderPosition();
+    return true;
+}
+
 void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const BossSpiderParams &params,
                               float growth, float bend) {
     if (chain_.empty() || isHidden_ || upperSphereCount_ < 2 || lowerSphereCount_ < 2) {
