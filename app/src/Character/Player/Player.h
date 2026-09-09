@@ -14,7 +14,6 @@
 #include "Components/Color/PlayerColorComponent.h"
 #include "Components/Health/PlayerHealthComponent.h"
 #include "Components/Ammo/PlayerAmmoComponent.h"
-#include "Components/Voice/PlayerVoiceComponent.h"
 
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
@@ -253,7 +252,6 @@ private:
 	PlayerColorComponent color_;
 	PlayerHealthComponent health_;
 	PlayerAmmoComponent ammo_;
-	PlayerVoiceComponent voice_;
 
 	PlayerBulletManager bullets_;
 	PlayerWeapon weapon_;

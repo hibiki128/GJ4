@@ -19,7 +19,8 @@ REGISTER_SCENE("GAME", GameScene)
 
 using namespace Hagine;
 
-void GameScene::Initialize() {
+void GameScene::Initialize()
+{
 	/// ===================================================
 	/// 初期化
 	/// ===================================================
@@ -33,62 +34,66 @@ void GameScene::Initialize() {
 	followCamera_ = std::make_unique<FollowCamera>();
 
 	// 3Dオブジェクトの描画（ポストエフェクトあり）
-	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp) {
-		pObjectManager_->Draw(vp);
-		// ポーズ中は回復エリアを描かない。
-		// ポーズからタイトルへ抜けるとき、閉じていく幕の上へエリアの円盤が
-		// 抜けて見えてしまうため（円盤はオブジェクトマネージャーに載せず
-		// ここから直に描いているので、止めるのもここでよい）
-		if (!PauseMenu::GetInstance()->IsPaused()) {
-			recoveryZones_.Draw(vp);
-		}
+	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
+		{
+			pObjectManager_->Draw(vp);
+			// ポーズ中は回復エリアを描かない。
+			// ポーズからタイトルへ抜けるとき、閉じていく幕の上へエリアの円盤が
+			// 抜けて見えてしまうため（円盤はオブジェクトマネージャーに載せず
+			// ここから直に描いているので、止めるのもここでよい）
+			if (!PauseMenu::GetInstance()->IsPaused()) {
+				recoveryZones_.Draw(vp);
+			}
 		});
 
 	// ボスの殻（メタボール）をGPUで作り直す。
 	// シャドウ・G-Buffer より前のコンピュートフェーズで走らせ、描画側は完了を待ってから使う
 	pDrawSystem_->Register("GameScene_MetaBallCompute", DrawSystem::kGPUParticleCompute,
-		[this](const ViewProjection&) {
+		[this](const ViewProjection&)
+		{
 			if (boss_) {
 				boss_->DispatchShellCompute();
 			}
 		});
 
-	// スプライトの描画（ポストエフェクトなし）
-	pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp) {
-		pSpriteManager_->DrawAll();
-		// HUD はゲーム画面の上、レティクルより先に描く
-		if (hud_) {
-			hud_->Draw();
-		}
-		// 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
-		// 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする
-		if (ShouldDrawReticle()) {
-			reticle_->Draw();
-		}
-		// 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
-		// 演出の帯やポーズ画面が赤く染まらないようにする
-		if (damageVignette_) {
-			damageVignette_->Draw();
-		}
-		// ジャスト回避の白フラッシュも同じ扱い（赤いマスクの上に重ねる）
-		if (perfectDodge_) {
-			perfectDodge_->Draw();
-		}
-		// 撃破演出の黒帯は他のUIより手前に出す
-		if (defeatDirector_) {
-			defeatDirector_->Draw();
-		}
-		});
+    // スプライトの描画（ポストエフェクトなし）
+    pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
+        {
+            pSpriteManager_->DrawAll();
+            // HUD はゲーム画面の上、レティクルより先に描く
+            if (hud_) {
+                hud_->Draw();
+            }
+            // 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
+            // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする
+            if (ShouldDrawReticle()) {
+                reticle_->Draw();
+            }
+            // 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
+            // 演出の帯やポーズ画面が赤く染まらないようにする
+            if (damageVignette_) {
+                damageVignette_->Draw();
+            }
+            // ジャスト回避の白フラッシュも同じ扱い（赤いマスクの上に重ねる）
+            if (perfectDodge_) {
+                perfectDodge_->Draw();
+            }
+            // 撃破演出の黒帯は他のUIより手前に出す
+            if (defeatDirector_) {
+                defeatDirector_->Draw();
+            }
+        });
 
-	// ポーズ画面（スプライトより手前に出したいので後から登録する）
-	pDrawSystem_->Register("GameScene_PauseMenu", DrawLayer::PostEffect, [](const ViewProjection& vp) {
-		PauseMenu::GetInstance()->Draw();
-		});
+    // ポーズ画面（スプライトより手前に出したいので後から登録する）
+    pDrawSystem_->Register("GameScene_PauseMenu", DrawLayer::PostEffect, [](const ViewProjection& vp)
+        {
+            PauseMenu::GetInstance()->Draw();
+        });
 
 	/// ===================================================
-	/// ゲームの初期化
-	/// ===================================================
-
+    /// ゲームの初期化
+    /// ===================================================
+    
 	// ゲーム入力の生成
 	gameInput_ = std::make_unique<GameInput>();
 
@@ -105,7 +110,7 @@ void GameScene::Initialize() {
 
 	// プレイヤーの生成初期化
 	player_ = std::make_unique<Player>();
-	player_->Init("Player");
+    player_->Init("Player");
 	player_->SetFieldBounds(field_.get());
 
 	followCamera_->Init();
@@ -183,7 +188,7 @@ void GameScene::Initialize() {
 	player_->SetOnDodge([this](const Vector3& direction) {
 		(void)direction;
 		followCamera_->AddDashPush(1.0f);
-		GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
+GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 		});
 
 	// ジャスト回避の画面演出。プレイヤーは画面のことを知らないので、被弾と同じくここで配る
@@ -296,7 +301,7 @@ void GameScene::Initialize() {
 	healItems->SetPickupHandler([this] {
 		return player_->Heal(HealItemManager::GetInstance()->GetParams().healAmount);
 		});
-
+	
 	// 膜を「ボス以外の的」として撃つ側へ渡す。着弾・照準・ソフトロックオンのいずれも
 	// ボスの球と同じ問い合わせを通るので、狙いを合わせれば強調表示もアシストも効く
 	player_->SetItemTargetProvider([]() -> IShootableTargetQuery* {
@@ -310,7 +315,7 @@ void GameScene::Initialize() {
 	// 蜘蛛の脚へも同じ入口（IBossTargetQuery）で弾を当てられるようにする。
 	// 撃つ相手の切り替えは activeBossTarget が受け持つので、ここは値をそろえるだけ
 	bossSpider_->SetBattleParams(boss_->GetParameters().Chain(), boss_->GetParameters().Effect(),
-		boss_->GetParameters().LockOn());
+	                             boss_->GetParameters().LockOn());
 
 	// ボス戦カメラの配線。カメラはボスの具象クラスを知らないので、
 	// 「今どの形態が出ているか」の判断は撃つ相手と同じくシーンが受け持つ
@@ -332,7 +337,7 @@ void GameScene::Initialize() {
 	// カメラ衝突で当てる相手。プレイヤー・ボス・弾に当てたくないので、
 	// シーンに置いた地形だけを名前で拾う（壁を足したらこの配列に名前を追加する）
 	followCamera_->SetObstacleProvider([this]() {
-		static const char* kObstacleNames[] = {"plane"};
+		static const char* kObstacleNames[] = { "plane" };
 		std::vector<BaseObject*> obstacles;
 		for (const char* name : kObstacleNames) {
 			if (BaseObject* pObject = pObjectManager_->GetObjectByName(name)) {
@@ -356,7 +361,8 @@ void GameScene::Initialize() {
 	pOffScreen_->LoadData("GameScenePostEffect");
 }
 
-void GameScene::Finalize() {
+void GameScene::Finalize()
+{
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
@@ -379,7 +385,7 @@ void GameScene::Finalize() {
 	// ボスやカメラのように GameParamOwner を持っている側は破棄時に自分で外すので、
 	// ここに並べるのは「GameParamHub へ直に登録している出所」だけでよい。
 	// 出所を増やしたときは、ここへも足すこと（Finalize はメンバの破棄より前に走る）
-	static constexpr const char* kDirectParamOwners[] = {
+	static constexpr const char *kDirectParamOwners[] = {
 		"Player",
 		"Player/Ammo",
 		"Player/Color",
@@ -398,14 +404,15 @@ void GameScene::Finalize() {
 	// 鳴らし続けている音（BGM・回転・ひるみ）を残したままシーンを抜けない
 	GameSounds::GetInstance()->StopAll();
 
-	for (const char* owner : kDirectParamOwners) {
+	for (const char *owner : kDirectParamOwners) {
 		GameParamHub::GetInstance()->Unregister(owner);
 	}
 
 	BaseScene::Finalize();
 }
 
-void GameScene::Update() {
+void GameScene::Update()
+{
 	/// ===================================================
 	/// 更新処理
 	/// ===================================================
@@ -448,7 +455,7 @@ void GameScene::Update() {
 	// 出ている回復エリアを進める（乗っていれば、その色の回復がここで早くなる）
 	GameSounds::GetInstance()->Update(Frame::DeltaTime());
 
-	recoveryZones_.Update(Frame::DeltaTime());
+recoveryZones_.Update(Frame::DeltaTime());
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	// 入力を配るより先に呼ぶのは、ムービーが始まったフレームからもう操作を切りたいため
@@ -489,7 +496,8 @@ void GameScene::Update() {
 	ChangeScene();
 }
 
-void GameScene::ApplyBossPause(bool paused) {
+void GameScene::ApplyBossPause(bool paused)
+{
 	/// ===================================================
 	/// 敵の更新を止めるかを配る
 	/// ===================================================
@@ -505,7 +513,8 @@ void GameScene::ApplyBossPause(bool paused) {
 	}
 }
 
-bool GameScene::IsCinematicPlaying() const {
+bool GameScene::IsCinematicPlaying() const
+{
 	/// ===================================================
 	/// ムービー中か（黒帯が出ているあいだ）
 	/// ===================================================
@@ -516,7 +525,8 @@ bool GameScene::IsCinematicPlaying() const {
 	return defeatDirector_ && defeatDirector_->IsActive();
 }
 
-bool GameScene::ShouldDrawReticle() const {
+bool GameScene::ShouldDrawReticle() const
+{
 	/// ===================================================
 	/// レティクルを出してよい場面か
 	/// ===================================================
@@ -529,7 +539,8 @@ bool GameScene::ShouldDrawReticle() const {
 	return !PauseMenu::GetInstance()->IsPaused() && !IsCinematicPlaying() && !player_->IsDead();
 }
 
-void GameScene::UpdateHud() {
+void GameScene::UpdateHud()
+{
 	/// ===================================================
 	/// HUD へ今フレームの値を渡す
 	/// ===================================================
@@ -579,7 +590,8 @@ void GameScene::UpdateHud() {
 	hud_->Update(Frame::DeltaTime(), snapshot);
 }
 
-void GameScene::UpdateAim() {
+void GameScene::UpdateAim()
+{
 	/// ===================================================
 	/// 照準（カメラの射線）をプレイヤーへ配る
 	/// ===================================================
@@ -594,7 +606,8 @@ void GameScene::UpdateAim() {
 	player_->SetAim(aimOrigin, aimDirection);
 }
 
-void GameScene::UpdateFormChange() {
+void GameScene::UpdateFormChange()
+{
 	/// ===================================================
 	/// 第1形態（球体）→ 第2形態（蜘蛛）への引き継ぎ
 	/// ===================================================
@@ -617,19 +630,20 @@ void GameScene::UpdateFormChange() {
 	UpdateDefeatDirection();
 }
 
-void GameScene::UpdateDefeatDirection() {
+void GameScene::UpdateDefeatDirection()
+{
 	/// ===================================================
 	/// 第2形態の演出（登場・撃破）で使う、黒帯とカメラ寄せ
 	/// ===================================================
 
 	const float deltaTime = Frame::DeltaTime();
-	const BossSpiderDefeatParams& params = bossSpider_->GetParameters().defeat;
+	const BossSpiderDefeatParams &params = bossSpider_->GetParameters().defeat;
 	const Vector3 corePosition = bossSpider_->GetBodyPosition();
 
 	// カメラをプレイヤーへ戻している最中
 	if (defeatDirector_->IsReturning()) {
 		if (defeatDirector_->UpdateReturn(deltaTime, followCamera_->GetViewProjection().translation_,
-			player_->GetWorldPosition(), params)) {
+		                                  player_->GetWorldPosition(), params)) {
 			followCamera_->Activate();
 		}
 		return;
@@ -648,9 +662,9 @@ void GameScene::UpdateDefeatDirection() {
 	// 落ちたコアの高さに構えたまま、浮き上がるコアを見上げる
 	if (bossSpider_->IsIntroCinematic()) {
 		if (!defeatDirector_->IsActive()) {
-			const BossSpiderParams& spider = bossSpider_->GetParameters();
+			const BossSpiderParams &spider = bossSpider_->GetParameters();
 			defeatDirector_->Begin(corePosition, followCamera_->GetViewProjection().translation_, true,
-				spider.introCameraDistance, spider.introCameraHeight);
+			                       spider.introCameraDistance, spider.introCameraHeight);
 		}
 		defeatDirector_->Update(deltaTime, corePosition, bossSpider_->GetBodyYaw(), params);
 		return;
@@ -670,14 +684,16 @@ void GameScene::AddSceneSetting() {
 	camera_->ShowDebugWindow();
 
 	// 追従カメラの調整（距離や高さ）
-	if (followCamera_) {
+	if (followCamera_)
+	{
 		followCamera_->DrawImGui();
 	}
 
 	PauseMenu::GetInstance()->DrawImGui();
 }
 
-void GameScene::AddObjectSetting() {
+void GameScene::AddObjectSetting()
+{
 	/// ===================================================
 	/// オブジェクト設定（デバッグ）
 	/// ===================================================
@@ -808,7 +824,8 @@ void GameScene::AddObjectSetting() {
 		bossSpider_->DrawGameplayImGui();
 	}
 }
-void GameScene::DrawHealItemImGui() {
+void GameScene::DrawHealItemImGui()
+{
 	/// ===================================================
 	/// 回復アイテム（デバッグ）
 	/// ===================================================
@@ -848,10 +865,11 @@ void GameScene::DrawHealItemImGui() {
 	ImGui::ColorEdit4("ハートの色", &itemParams.coreRgba.x);
 
 	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると中のハートを拾えます（拾うと %d 回復）",
-		itemParams.healAmount);
+	                    itemParams.healAmount);
 }
 
-void GameScene::AddParticleSetting() {
+void GameScene::AddParticleSetting()
+{
 	/// ===================================================
 	/// パーティクル設定（デバッグ）
 	/// ===================================================
@@ -863,14 +881,15 @@ void GameScene::AddParticleSetting() {
 	// 保存先はボスデータなので、書き出しはボスに頼む
 	GameSounds::GetInstance()->DrawImGui();
 
-	recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
+recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
 		boss_->SaveParameters();
 		ImGuiNotification::Post("回復エリアの設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
 		});
 	PlayerParticles::GetInstance()->DrawImGui();
 }
 
-void GameScene::CameraUpdate() {
+void GameScene::CameraUpdate()
+{
 	/// ===================================================
 	/// カメラ更新
 	/// ===================================================
