@@ -113,6 +113,13 @@ public:
     /// <returns>bool: 出してよければ true</returns>
     bool ShouldDrawReticle() const;
 
+    /// <summary>
+    /// 回復アイテムのデバッグUI（「オブジェクト設定」窓から呼ぶ）。
+    /// 敵が落とす導線はまだ無いので、ここから出して
+    /// 「黄色い弾で膜を割る → 拾って回復する」までを確かめられるようにしてある
+    /// </summary>
+    void DrawHealItemImGui();
+
 private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<GameInput> gameInput_;
@@ -140,4 +147,7 @@ std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・
 
 	// 照準レティクル（画面中央に固定する十字と、弾が本当に当たる先を指す水色の円）
 	std::unique_ptr<PlayerReticle> reticle_;
+
+	// デバッグで回復アイテムを出す距離（プレイヤーから見て前方へこれだけ離す）
+	float healItemSpawnDistance_ = 8.0f;
 };

@@ -31,6 +31,12 @@
     <ClCompile Include="src\Field\FieldSurround.cpp">
       <Filter>src\Field</Filter>
     </ClCompile>
+    <ClCompile Include="src\Item\HealItem.cpp">
+      <Filter>src\Item</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Item\HealItemManager.cpp">
+      <Filter>src\Item</Filter>
+    </ClCompile>
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp">
       <Filter>src\GameOver</Filter>
     </ClCompile>
@@ -213,6 +219,9 @@
     <Filter Include="src\Interface">
       <UniqueIdentifier>{6B2A7542-E748-9898-E3E5-E012D855B63A}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\Item">
+      <UniqueIdentifier>{3D9F41C6-7B0A-4E52-9C1D-5F2A8B6E0D74}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\scene">
       <UniqueIdentifier>{72706981-6907-EF9F-9DF9-4B763CF81236}</UniqueIdentifier>
     </Filter>
@@ -358,6 +367,12 @@
     </ClInclude>
     <ClInclude Include="src\Field\FieldSurround.h">
       <Filter>src\Field</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Item\HealItem.h">
+      <Filter>src\Item</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Item\HealItemManager.h">
+      <Filter>src\Item</Filter>
     </ClInclude>
     <ClInclude Include="src\GameOver\GameOverBossActor.h">
       <Filter>src\GameOver</Filter>
@@ -539,6 +554,9 @@
       <Filter>src\Interface</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\IFieldBounds.h">
+      <Filter>src\Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Interface\IShootableTargetQuery.h">
       <Filter>src\Interface</Filter>
     </ClInclude>
     <ClInclude Include="src\Interface\ITargetLocator.h">

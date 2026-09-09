@@ -2,12 +2,14 @@
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
+#include "src/Item/HealItemManager.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
+#include <cmath>
 
 REGISTER_SCENE("GAME", GameScene)
 
@@ -219,6 +221,35 @@ void GameScene::Initialize()
 	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
 	PlayerParticles::GetInstance()->Init();
 
+	// 回復アイテム。敵が落とす想定なので、出す側は Spawn(位置) を1行呼ぶだけでよい。
+	// アイテムはプレイヤーもボスも知らないので、その配線をここでまとめて行う
+	HealItemManager* healItems = HealItemManager::GetInstance();
+	healItems->Init("HealItem");
+
+	// 膜の黄色はボスの色マスタから引く。弾の色と同じ元をたどるので、
+	// 色を調整しても「膜の黄色と弾の黄色が違う」ことにならない
+	healItems->SetSealColor(boss_->GetPalette().GetRgba(Color::YELLOW));
+
+	// 拾い手の位置。倒れているあいだは拾わせない
+	healItems->SetPlayerPositionGetter([this](Vector3& out) {
+		if (player_->IsDead()) {
+			return false;
+		}
+		out = player_->GetWorldPosition();
+		return true;
+		});
+
+	// 拾ったときの効果。満タンで効かなければ false が返り、アイテムはその場に残る
+	healItems->SetPickupHandler([this] {
+		return player_->Heal(HealItemManager::GetInstance()->GetParams().healAmount);
+		});
+
+	// 膜を「ボス以外の的」として撃つ側へ渡す。着弾・照準・ソフトロックオンのいずれも
+	// ボスの球と同じ問い合わせを通るので、狙いを合わせれば強調表示もアシストも効く
+	player_->SetItemTargetProvider([]() -> IShootableTargetQuery* {
+		return HealItemManager::GetInstance();
+		});
+
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
 	defeatDirector_->Init();
@@ -277,6 +308,11 @@ void GameScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+
+	// 出したままのアイテムを片付ける。非所有登録はシーンを切り替えても外れないので、
+	// ここで捨てないとゲームオーバー画面などにアイテムが残ってしまう
+	HealItemManager::GetInstance()->Finalize();
+
 	BaseScene::Finalize();
 }
 
@@ -299,6 +335,9 @@ void GameScene::Update()
 	const bool isPaused = PauseMenu::GetInstance()->IsPaused();
 	player_->SetPaused(isPaused);
 	ApplyBossPause(isPaused);
+	// アイテムの更新もオブジェクトマネージャーが回しているので、同じくここで配る。
+	// 配らないと、ポーズ中も揺れ続けたうえ寿命が減っていってしまう
+	HealItemManager::GetInstance()->SetPaused(isPaused);
 
 	// ポーズ中はゲーム側の更新を止める（カメラだけは動かしておく）
 	if (isPaused) {
@@ -509,6 +548,9 @@ void GameScene::AddObjectSetting()
 		fieldSurround_->DrawImGui();
 	}
 
+	// 回復アイテム（敵が落とす導線ができるまでの確認用）
+	DrawHealItemImGui();
+
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
 	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
 	if (ImGui::Checkbox("敵を一時停止", &isBossPaused_)) {
@@ -555,6 +597,40 @@ void GameScene::AddObjectSetting()
 		bossSpider_->DrawGameplayImGui();
 	}
 }
+void GameScene::DrawHealItemImGui()
+{
+	/// ===================================================
+	/// 回復アイテム（デバッグ）
+	/// ===================================================
+
+	HealItemManager* healItems = HealItemManager::GetInstance();
+
+	ImGui::SeparatorText("回復アイテム");
+	ImGui::Text("出ている数: %zu", healItems->GetActiveCount());
+
+	// 敵が落とす導線はまだ無いので、ここから出して確かめられるようにしておく。
+	// 出るのは膜に包まれた状態なので、黄色い弾を当てないと拾えない
+	if (ImGui::Button("プレイヤーの前に出す")) {
+		// カメラの向き（＝プレイヤーが見ている向き）の先へ置く。
+		// 足元に出すと膜に埋もれて狙えないので、少し離す
+		const float yaw = followCamera_->GetYaw();
+		const Vector3 forward{std::sin(yaw), 0.0f, std::cos(yaw)};
+		if (!healItems->Spawn(player_->GetWorldPosition() + forward * healItemSpawnDistance_)) {
+			ImGuiNotification::Post("回復アイテムの空きがありません", {0.9f, 0.7f, 0.2f, 1.0f});
+		}
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragFloat("出す距離", &healItemSpawnDistance_, 0.5f, 1.0f, 40.0f, "%.1f");
+
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragInt("膜を割るのに必要な弾数", &healItems->GetParams().sealHitPoints, 0.1f, 1, 20);
+	ImGui::SetItemTooltip("次に出すぶんから効きます（出ている膜の固さは変わりません）");
+
+	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると拾えるようになります（拾うと %d 回復）",
+	                    healItems->GetParams().healAmount);
+}
+
 void GameScene::AddParticleSetting()
 {
 	/// ===================================================
