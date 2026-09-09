@@ -235,6 +235,35 @@ public:
     float GetStandHeight() const { return standHeight_; }
 
     /// <summary>
+    /// 大きさに関わるパラメータをまとめて掛ける（球体形態と足並みをそろえるため）。
+    /// 倍率そのものは球体形態が1つだけ持っていて、ここへは比率だけが渡ってくる
+    /// </summary>
+    /// <param name="ratio">直前からの比率</param>
+    void ScaleSizesBy(float ratio);
+
+    /// <summary>
+    /// しばらく動けなくする（回転攻撃のあとの隙）。
+    /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る
+    /// </summary>
+    /// <param name="seconds">動けない時間（秒）</param>
+    void BeginStagger(float seconds) {
+        if (seconds > staggerTimer_) {
+            staggerTimer_ = seconds;
+        }
+    }
+
+    /// <summary>動けない状態を打ち切る（攻撃を中断したときなど）</summary>
+    void ClearStagger() { staggerTimer_ = 0.0f; }
+
+    /// <summary>動けなくなっているか</summary>
+    bool IsStaggered() const { return staggerTimer_ > 0.0f; }
+
+    /// <summary>頭の中心（胴の上端あたり）。ひるみの輪をここの上に出す</summary>
+    Hagine::Vector3 GetHeadCenter() const {
+        return bodyPosition_ + Hagine::Vector3{0.0f, parameters_.bodyRadius, 0.0f};
+    }
+
+    /// <summary>
     /// 脚を胴の下へ畳む度合いを、時間をかけて変える（0で接地・1で真下）。
     /// 一気に切り替えると足がワープするので、必ず時間をかけること
     /// </summary>
@@ -413,6 +442,7 @@ private:
     std::vector<std::unique_ptr<IBossAttack>> attacks_{}; // 使える攻撃（所有）
     IBossAttack *pCurrentAttack_ = nullptr;               // 進行中の攻撃（非所有）
     float attackCoolDown_ = 0.0f;                         // 次の攻撃までの残り時間（秒）
+    float staggerTimer_ = 0.0f;                           // 動けない残り時間（秒）
     HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
 
     // --- 弾 ---

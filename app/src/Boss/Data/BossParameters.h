@@ -19,6 +19,10 @@ struct BossShellParams {
     int outerLayers = 2;        // 外側へ付着を許す層数（弾が盛り上がる）
     float coreScale = 1.0f;     // コア球の大きさ（基本殻の内側に接する大きさに対する倍率）
     int extraCapacity = 0;      // 付着ぶんの球プール（0なら層数から自動算出）
+    // 接地高さの微調整。中心の高さは「外周半径 + これ」になる。
+    // 融合メッシュは球の中心より外へ膨らみ、外側の層へ弾が積み上がるぶんも出っ張るので、
+    // 大きくすると下の球が床へ潜って見える。そのぶんを持ち上げる余白
+    float groundOffset = 0.0f;
 };
 
 /// <summary>
@@ -151,7 +155,9 @@ struct BossSpiderShootParams {
 struct BossSpiderWhirlParams {
     float telegraphTime = 1.4f; // 脚を広げる予備動作（遅め）
     float spinTime = 3.0f;      // その場で回っている時間
-    float spinSpeed = 420.0f;   // 回転の速さ（度/秒）
+    float spinSpeed = 420.0f;   // 回り始めの速さ（度/秒）
+    float spinEndSpeedRatio = 0.12f; // 回り終わりの速さ（回り始めに対する割合）。1で等速
+    float staggerTime = 2.6f;   // 回り終わったあと動けなくなる時間（秒）。狙い撃つチャンス
     float spinHeight = 3.0f;    // 回っているあいだの脚の高さ（地面から。低いほど当たりやすい）
     float damage = 12.0f;       // 触れたときのダメージ
     float recoverTime = 1.0f;   // 回転後の硬直
@@ -323,6 +329,25 @@ struct BossSpinAttackParams {
 };
 
 /// <summary>
+/// 突進がフィールドの壁で止まったときのひるみ（球体形態）。
+///
+/// ぶつかった場所でしばらく自転を止めるので、プレイヤーは狙った色の球を撃ち抜ける。
+/// 立ち直りは「首を横に振る → ゆっくり元の姿勢へ戻る」の順で、
+/// 振り終わりが「チャンスの終わり」の合図になる
+/// </summary>
+struct BossWallStaggerParams {
+    float wobbleTime = 2.4f;    // ぶつかったあと頭がふらつく時間（秒）
+    float wobbleAmount = 0.45f; // ふらつきの大きさ（ぶつかった地点からの距離）
+    float wobbleSpeed = 2.2f;   // ふらつきの速さ
+    float wobbleTilt = 12.0f;   // ふらつきに合わせて傾く角度（度）
+    float shakeTime = 0.7f;     // 首を横に振る時間（秒）
+    float shakeAngle = 32.0f;   // 首を振る角度（度）
+    float shakeCount = 2.0f;    // 首を振る往復の回数
+    float settleTime = 0.9f;    // 元の姿勢へ戻る時間（秒）
+    float minTravel = 4.0f;     // これだけ進んでからぶつかった時だけひるむ（壁際での連発よけ）
+};
+
+/// <summary>
 /// 攻撃2: 飛び上がり→頭上落下のパラメータ
 /// </summary>
 struct BossSlamAttackParams {
@@ -351,6 +376,16 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out);
 /// <param name="bossId">ボス識別子</param>
 /// <param name="params">保存する値</param>
 void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params);
+
+/// <summary>
+/// 蜘蛛形態の「長さ」にあたる値へまとめて比率を掛ける。
+///
+/// 大きさの倍率を変えたときに、見た目だけでなく歩幅や攻撃の届く範囲も一緒に付いてくるようにする。
+/// 時間・角度・速さ・ダメージ・個数は触らない（大きくしたら鈍くなる、を持ち込まないため）
+/// </summary>
+/// <param name="out">対象</param>
+/// <param name="ratio">直前からの比率</param>
+void ScaleSpiderLengths(BossSpiderParams &out, float ratio);
 
 /// <summary>
 /// ソフトロックオンに関するパラメータ
@@ -385,6 +420,21 @@ public:
     const std::string &GetBossId() const { return bossId_; }
 
 
+    /// <summary>
+    /// ボス全体の大きさの倍率。形態をまたいで1つだけ持つ。
+    /// 各パラメータには適用済みの値が入っているので、変えるときは
+    /// 「直前の倍率からの差分」だけを掛けること（Boss::ApplyMasterScale が面倒を見る）
+    /// </summary>
+    float GetMasterScale() const { return masterScale_; }
+    void SetMasterScale(float scale) { masterScale_ = scale; }
+
+    /// <summary>
+    /// 球体形態の「長さ」にあたる値へまとめて比率を掛ける。
+    /// 半径・高さ・攻撃の届く範囲が対象で、時間・角度・速さ・ダメージは触らない
+    /// </summary>
+    /// <param name="ratio">直前からの比率</param>
+    void ScaleLengths(float ratio);
+
     uint32_t GetColorSeed() const { return colorSeed_; }
     void SetColorSeed(uint32_t seed) { colorSeed_ = seed; }
 
@@ -404,6 +454,8 @@ public:
     const BossBattleParams &Battle() const { return battle_; }
     BossSpinAttackParams &Spin() { return spin_; }
     const BossSpinAttackParams &Spin() const { return spin_; }
+    BossWallStaggerParams &WallStagger() { return wallStagger_; }
+    const BossWallStaggerParams &WallStagger() const { return wallStagger_; }
     BossSlamAttackParams &Slam() { return slam_; }
     const BossSlamAttackParams &Slam() const { return slam_; }
     BossEffectParams &Effect() { return effect_; }
@@ -420,6 +472,7 @@ private:
 
     std::string bossId_ = "Boss01";
     uint32_t colorSeed_ = 20260902; // 0 なら実行ごとにランダム
+    float masterScale_ = 1.0f;      // ボス全体の大きさの倍率（各値へ適用済み）
     std::vector<Color> usedColors_ = {Color::RED, Color::BLUE, Color::GREEN};
 
     BossShellParams shell_{};
@@ -428,6 +481,7 @@ private:
     BossLockOnParams lockOn_{};
     BossBattleParams battle_{};
     BossSpinAttackParams spin_{};
+    BossWallStaggerParams wallStagger_{};
     BossSlamAttackParams slam_{};
     BossExposureParams exposure_{};
     BossAppearParams appear_{};

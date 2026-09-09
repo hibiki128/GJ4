@@ -1,6 +1,7 @@
 #include "GameScene.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
+#include "debug/imgui/ImGuiNotification.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -186,8 +187,10 @@ void GameScene::Initialize()
 
 	pObjectManager_->RegisterExternal(bossSpider_.get());
 
-	// ボスまわりの土煙（見た目は Assets/jsons/ParticleCS 以下）
+	// ボスまわりの土煙（見た目は Assets/jsons/ParticleCS 以下）。
+	// エミッターの発生範囲はボスの大きさに合わせるので、倍率も渡しておく
 	BossParticles::GetInstance()->Init();
+	BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
 
 	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
 	PlayerParticles::GetInstance()->Init();
@@ -419,6 +422,33 @@ void GameScene::AddObjectSetting()
 		ImGui::SameLine();
 		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
 	}
+
+	// 形態をまたいだ大きさの倍率。球体・蜘蛛・パーティクルへ同じ比率で配る。
+	// 倍率そのものは球体形態が1つだけ持っていて、各パラメータには適用済みの値が入る
+	ImGui::SeparatorText("ボス全体の大きさ");
+	float masterScale = boss_->GetParameters().GetMasterScale();
+	if (ImGui::DragFloat("倍率(xyz同時)", &masterScale, 0.01f, 0.1f, 5.0f, "%.2f 倍")) {
+		const float ratio = boss_->ApplyMasterScale(masterScale);
+		bossSpider_->ScaleSizesBy(ratio);
+		BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("等倍に戻す")) {
+		const float ratio = boss_->ApplyMasterScale(1.0f);
+		bossSpider_->ScaleSizesBy(ratio);
+		BossParticles::GetInstance()->SetMasterScale(1.0f);
+	}
+	ImGui::TextDisabled("殻・球・コア・脚・胴・歩幅・攻撃の届く範囲・土煙の広がり・ひるみの輪が");
+	ImGui::TextDisabled("まとめて変わります（時間・角度・速さ・ダメージ・フィールドの広さは据え置き）");
+	// 大きさは両形態にまたがるので、保存もここでまとめて押せるようにしておく
+	if (ImGui::Button("大きさを両形態とも保存")) {
+		boss_->SaveParameters();
+		bossSpider_->SaveParameters();
+		ImGuiNotification::Post("ボスの大きさを保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("（大きさ以外の値も一緒に書き出されます）");
+
 	ImGui::Separator();
 	if (boss_) {
 		boss_->DrawGameplayImGui();

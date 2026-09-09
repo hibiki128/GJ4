@@ -1,5 +1,7 @@
 #pragma once
 #include "BaseScene.h"
+#include "src/Clear/ClearStaging.h"
+#include <memory>
 
 /// <summary>
 /// クリアシーン
@@ -62,4 +64,6 @@ public:
     void ChangeScene();
 
 private:
+    // 置くもの（喜んでいるプレイヤー・転がったボス）と、その画角
+    std::unique_ptr<ClearStaging> staging_;
 };

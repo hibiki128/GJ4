@@ -61,9 +61,11 @@ void BossStateStagger::Enter(Boss &boss) {
 }
 
 void BossStateStagger::Update(Boss &boss, float deltaTime) {
-    boss.UpdateStaggerShake(deltaTime);
+    // 壁に激突したひるみは立ち直りの動きが最後まであるので、
+    // 怯み時間が尽きていても動きが終わるまでは待つ
+    const bool playing = boss.UpdateStaggerMotion(deltaTime);
 
-    if (!boss.IsStaggered()) {
+    if (!playing && !boss.IsStaggered()) {
         boss.RequestState(BossStateId::Idle);
     }
 }

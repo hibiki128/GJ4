@@ -17,13 +17,13 @@
     "group_0_alphaCurve_1_x": 1.0,
     "group_0_alphaCurve_1_y": 1.0,
     "group_0_angularVelocityMax": {
-        "x": 0.0,
-        "y": 0.0,
+        "x": 1.600000023841858,
+        "y": 1.600000023841858,
         "z": 1.600000023841858
     },
     "group_0_angularVelocityMin": {
-        "x": 0.0,
-        "y": 0.0,
+        "x": -1.600000023841858,
+        "y": -1.600000023841858,
         "z": -1.600000023841858
     },
     "group_0_audioAttackSharpness": 1.7999999523162842,
@@ -108,9 +108,9 @@
     "group_0_gatherStartRatio": 0.5,
     "group_0_gatherStrength": 1.0,
     "group_0_gatherTarget": {
-        "x": -13.241985321044922,
-        "y": 0.30000001192092896,
-        "z": -37.15296936035156
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
     },
     "group_0_gatherTargetOffset": {
         "x": 0.0,
@@ -124,13 +124,13 @@
     },
     "group_0_lifetimeVelocityDampingStart": 0.0,
     "group_0_maxLifetime": 0.550000011920929,
-    "group_0_maxScale": 0.6499999761581421,
+    "group_0_maxScale": 0.9599999785423279,
     "group_0_maxScreenHeight": 0.0,
     "group_0_maxTrailPerParticle": 5,
     "group_0_maxVelocity": {
-        "x": 1.7999999523162842,
-        "y": 1.7999999523162842,
-        "z": 1.7999999523162842
+        "x": 3.888000011444092,
+        "y": 3.888000011444092,
+        "z": 3.888000011444092
     },
     "group_0_midColor": {
         "w": 1.0,
@@ -140,12 +140,12 @@
     },
     "group_0_midColorRatio": 0.5,
     "group_0_minLifetime": 0.25,
-    "group_0_minScale": 0.18000000715255737,
+    "group_0_minScale": 0.7200000286102295,
     "group_0_minScreenHeight": 0.0,
     "group_0_minVelocity": {
-        "x": -1.7999999523162842,
-        "y": 0.30000001192092896,
-        "z": -1.7999999523162842
+        "x": -3.888000011444092,
+        "y": 0.6480000615119934,
+        "z": -3.888000011444092
     },
     "group_0_name": "Spider_StepDust",
     "group_0_radialVelocityCenter": {
@@ -156,13 +156,13 @@
     "group_0_radialVelocityRandomness": 0.0,
     "group_0_radialVelocityStrength": 0.0,
     "group_0_rotationMax": {
-        "x": 0.0,
-        "y": 0.0,
+        "x": 3.140000104904175,
+        "y": 3.140000104904175,
         "z": 3.140000104904175
     },
     "group_0_rotationMin": {
-        "x": 0.0,
-        "y": 0.0,
+        "x": -3.140000104904175,
+        "y": -3.140000104904175,
         "z": -3.140000104904175
     },
     "group_0_sinScaleAmplitude": 0.30000001192092896,
@@ -178,7 +178,7 @@
         "y": 0.550000011920929,
         "z": 0.44999998807907104
     },
-    "group_0_texture": "debug/circle2.png",
+    "group_0_texture": "debug/white1x1.png",
     "group_0_trailColorMultiplier": {
         "w": 0.699999988079071,
         "x": 1.0,
@@ -206,9 +206,9 @@
     },
     "group_0_vortexStrength": 1.0,
     "group_0_vortexTarget": {
-        "x": -13.241985321044922,
-        "y": 0.30000001192092896,
-        "z": -37.15296936035156
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
     },
     "group_0_vortexTargetOffset": {
         "x": 0.0,
@@ -263,13 +263,13 @@
         "z": 0.0
     },
     "scale": {
-        "x": 0.5,
-        "y": 0.07999999821186066,
-        "z": 0.5
+        "x": 1.0800000429153442,
+        "y": 0.1728000044822693,
+        "z": 1.0800000429153442
     },
     "translate": {
-        "x": -13.241985321044922,
-        "y": 0.30000001192092896,
-        "z": -37.15296936035156
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
     }
 }
