@@ -1,6 +1,6 @@
 {
-    "masterVolume": 0.020000208169221878,
-    "stickSensitivity": 1.0000019073486328,
+    "masterVolume": 0.5,
+    "stickSensitivity": 1,
     "vibrationEnabled": true,
-    "vibrationStrength": 0.699999988079071
+    "vibrationStrength": 0.7
 }
