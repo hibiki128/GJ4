@@ -16,3 +16,13 @@ void PlayerMoveComponent::Move(PlayerContext& context, const Hagine::Vector2& in
 
 	context.transform_->translation_ = context.transform_->translation_ + moveDirection * moveSpeed;
 }
+
+void PlayerMoveComponent::MoveWorld(PlayerContext& context, const Hagine::Vector3& worldDirection, float distance) {
+	if (!context.transform_) {
+		return;
+	}
+
+	// 向きの作り方は呼び出し側に任せて、ここは進めるだけ。
+	// 位置を書くのは Move と合わせてこのコンポーネントの中だけにしておく
+	context.transform_->translation_ = context.transform_->translation_ + worldDirection * distance;
+}

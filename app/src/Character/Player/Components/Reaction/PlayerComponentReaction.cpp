@@ -3,6 +3,7 @@
 #include "Math/Easing.h"
 #include "Frame/Frame.h"
 #include "Utility/Debug/Param/GameParamHub.h"
+#include <numbers>
 
 Hagine::Vector3 PlayerComponentReaction::SquashStretch(const Hagine::Vector3& scale, float easeT, float time, float amplitude, float period) {
 	return Hagine::EaseAmplitudeScale(scale, easeT, time, amplitude, period);
@@ -30,6 +31,20 @@ void PlayerComponentReaction::RegisterParams() {
 	hub->Register(paramOwnerLabel, "UseTakeoff", &kUseTakeoff_);
 	hub->Register(paramOwnerLabel, "TakeoffAmp", &kTakeoffAmp, {0.01f, 0.0f, 1.0f});
 	hub->Register(paramOwnerLabel, "TakeoffDuration", &kTakeoffDuration, {0.01f, 0.02f, 1.0f});
+
+	// ダッシュ（回避）の3段階。仕様の「1F潰す→2F伸びる→12Fから揺り戻し→18Fで戻る」を秒で持つ
+	hub->Register(paramOwnerLabel, "DashCompress", &kDashCompress, {0.01f, 0.0f, 0.6f});
+	hub->Register(paramOwnerLabel, "DashCompressTime", &kDashCompressTime, {0.01f, 0.0f, 0.5f});
+	hub->Register(paramOwnerLabel, "DashStretch", &kDashStretch, {0.01f, 0.0f, 1.5f});
+	hub->Register(paramOwnerLabel, "DashSideRatio", &kDashSideRatio, {0.01f, 0.0f, 1.0f});
+	hub->Register(paramOwnerLabel, "DashRiseTime", &kDashRiseTime, {0.01f, 0.0f, 0.5f});
+	hub->Register(paramOwnerLabel, "DashStretchTime", &kDashStretchTime, {0.01f, 0.01f, 1.0f});
+	hub->Register(paramOwnerLabel, "DashRecovery", &kDashRecovery, {0.01f, 0.0f, 1.0f});
+	hub->Register(paramOwnerLabel, "DashDuration", &kDashDuration, {0.01f, 0.05f, 2.0f});
+
+	// ジャスト回避は同じ形の倍率違い。伸びの大きさと速さだけをここで変える
+	hub->Register(paramOwnerLabel, "PerfectScale", &kPerfectScale, {0.01f, 0.0f, 4.0f});
+	hub->Register(paramOwnerLabel, "PerfectTimeScale", &kPerfectTimeScale, {0.01f, 0.1f, 5.0f});
 }
 
 void PlayerComponentReaction::Update() {
@@ -61,6 +76,13 @@ void PlayerComponentReaction::Update() {
 		}
 	}
 
+	if (dashTime_ >= 0.0f) {
+		dashTime_ += deltaTime * dashTimeScale_;
+		if (dashTime_ >= kDashDuration) {
+			dashTime_ = -1.0f;
+		}
+	}
+
 	sizePop_ += (0.0f - sizePop_) * (1.0f - std::expf(-kPopDecay * deltaTime));
 }
 
@@ -88,8 +110,9 @@ void PlayerComponentReaction::PlayLanding(float strength01) {
 	// 伸びた形から一気に潰れた形へ飛ぶこの1フレームの落差が「衝撃」に見える
 	airTarget_ = 0.0f;
 	airStretch_ = 0.0f;
-	// 踏み切りが残っていても着地が優先
+	// 踏み切りやダッシュの伸びが残っていても着地が優先
 	takeoffTime_ = -1.0f;
+	dashTime_ = -1.0f;
 }
 
 void PlayerComponentReaction::PlayTakeoff() {
@@ -116,6 +139,9 @@ Hagine::Vector3 PlayerComponentReaction::Apply(const Hagine::Vector3& baseScale)
 		offset -= Hagine::LoopElasticAmplitude(takeoffTime_, kTakeoffAmp, kTakeoffDuration);
 	}
 
+	// ダッシュの溜めは縦の潰れなので、他の演出と同じ offset へ足してから形にする
+	offset -= CalcDashCompress();
+
 	// 重ね掛けでスケールが負に反転するのを防ぐ
 	offset = std::clamp(offset, -kMaxOffset, kMaxOffset);
 
@@ -125,6 +151,72 @@ Hagine::Vector3 PlayerComponentReaction::Apply(const Hagine::Vector3& baseScale)
 		baseScale.z - offset,
 	};
 
+	// ダッシュの伸びは進行方向（体を向けたローカルZ）へ効かせる。仕様の倍率をそのまま使いたいので、
+	// 縦の潰れと違って足し算ではなく掛け算にしてある（基準の大きさを変えても 1.5倍 は 1.5倍のまま）
+	const float dashStretch = std::clamp(CalcDashStretch(), -kMaxOffset, kMaxOffset);
+	newScale.z *= (1.0f + dashStretch);
+	newScale.x *= (1.0f - dashStretch * kDashSideRatio);
+	newScale.y *= (1.0f - dashStretch * kDashSideRatio);
+
 	// 着地の「大きく」ぶんは一様倍率で乗せる
 	return newScale * (1.0f + sizePop_);
+}
+
+void PlayerComponentReaction::PlayDashBurst(const Hagine::Vector3& worldDirection) {
+	StartDashBurst(worldDirection, 1.0f, 1.0f);
+}
+
+void PlayerComponentReaction::PlayPerfectDodge(const Hagine::Vector3& awayDirection) {
+	// 受け流しはダッシュと同じ「潰れて伸びて揺り戻す」形。大きさと速さだけ変える
+	StartDashBurst(awayDirection, kPerfectScale, kPerfectTimeScale);
+}
+
+void PlayerComponentReaction::StartDashBurst(const Hagine::Vector3& worldDirection, float stretchScale, float timeScale) {
+	dashTime_ = 0.0f;
+	dashScale_ = stretchScale;
+	dashTimeScale_ = (timeScale > 0.0f) ? timeScale : 1.0f;
+
+	// 伸ばす向き。水平成分が無いときは前の向きを使い回す（体が横倒しに伸びるのを防ぐ）
+	const float horizontalLengthSq =
+		worldDirection.x * worldDirection.x + worldDirection.z * worldDirection.z;
+	if (horizontalLengthSq > 0.0001f) {
+		dashYaw_ = std::atan2f(worldDirection.x, worldDirection.z);
+	}
+
+	// 空中の細長さは飛び出した瞬間に捨てる（着地と同じ理由で、形の落差を勢いに見せる）
+	airTarget_ = 0.0f;
+	airStretch_ = 0.0f;
+}
+
+float PlayerComponentReaction::CalcDashCompress() const {
+	if (dashTime_ < 0.0f || kDashCompressTime <= 0.0f || dashTime_ >= kDashCompressTime) {
+		return 0.0f;
+	}
+
+	// ①溜め: 飛び出した瞬間が一番潰れていて、1〜2フレームで抜ける。
+	// ここで止めすぎると「溜めてから走る」ように見えてしまうので短く切り上げる
+	return kDashCompress * dashScale_ * (1.0f - dashTime_ / kDashCompressTime);
+}
+
+float PlayerComponentReaction::CalcDashStretch() const {
+	if (dashTime_ < 0.0f) {
+		return 0.0f;
+	}
+
+	if (dashTime_ < kDashStretchTime) {
+		// ②発射: 数フレームで一気に伸びきり、そこからゆっくり戻る
+		if (dashTime_ < kDashRiseTime && kDashRiseTime > 0.0f) {
+			return kDashStretch * dashScale_ * (dashTime_ / kDashRiseTime);
+		}
+		const float t = std::clamp(
+			(dashTime_ - kDashRiseTime) / (std::max)(0.0001f, kDashStretchTime - kDashRiseTime), 0.0f, 1.0f);
+		// 戻り始めが一番速く、元の形に近づくほど緩やか
+		return kDashStretch * dashScale_ * (1.0f - t) * (1.0f - t);
+	}
+
+	// ③揺り戻し: 逆向きへ一度だけ潰れて戻る。
+	// 正弦波の半周ぶんなので山はひとつしか出ない（何度も揺らさない）
+	const float t = std::clamp(
+		(dashTime_ - kDashStretchTime) / (std::max)(0.0001f, kDashDuration - kDashStretchTime), 0.0f, 1.0f);
+	return -kDashRecovery * dashScale_ * std::sinf(t * std::numbers::pi_v<float>);
 }

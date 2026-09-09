@@ -31,7 +31,8 @@ private:
     enum class Phase {
         Telegraph, // 脚を広げる（遅め）
         Spin,      // 回転しながら接近
-        Recover,   // 脚を戻す
+        Stagger,   // 回り終わり。脚を広げ切ったまま低い姿勢で静止する（狙い撃つチャンス）
+        Recover,   // 脚を戻して立ち上がる
         Finished
     };
 

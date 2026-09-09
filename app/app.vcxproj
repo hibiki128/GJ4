@@ -143,12 +143,16 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.cpp" />
     <ClCompile Include="src\Character\Player\Components\Color\PlayerColorComponent.cpp" />
     <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp" />
+    <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp" />
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverPlayerActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverStaging.cpp" />
+    <ClCompile Include="src\Clear\ClearBossRemains.cpp" />
+    <ClCompile Include="src\Clear\ClearPlayerActor.cpp" />
+    <ClCompile Include="src\Clear\ClearStaging.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -181,6 +185,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Move\PlayerMoveComponent.cpp" />
     <ClCompile Include="src\Character\Player\Components\Shoot\PlayerShootComponent.cpp" />
     <ClCompile Include="src\Character\Player\Player.cpp" />
+    <ClCompile Include="src\Character\Player\Effect\PlayerParticles.cpp" />
+    <ClCompile Include="src\Effect\PerfectDodgeDirector.cpp" />
     <ClCompile Include="src\Character\Player\States\Dash\PlayerStateDash.cpp" />
     <ClCompile Include="src\Character\Player\States\Dodge\PlayerStateDodge.cpp" />
     <ClCompile Include="src\Character\Player\States\Idle\PlayerStateIdle.cpp" />
@@ -201,6 +207,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Reaction\PlayerComponentReaction.h" />
     <ClInclude Include="src\Character\Player\Components\Color\PlayerColorComponent.h" />
     <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h" />
+    <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h" />
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
     <ClInclude Include="src\Field\Field.h" />
@@ -208,6 +215,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\GameOver\GameOverContext.h" />
     <ClInclude Include="src\GameOver\GameOverPlayerActor.h" />
     <ClInclude Include="src\GameOver\GameOverStaging.h" />
+    <ClInclude Include="src\Clear\ClearBossRemains.h" />
+    <ClInclude Include="src\Clear\ClearPlayerActor.h" />
+    <ClInclude Include="src\Clear\ClearStaging.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\framework\GJ4App.h" />
     <ClInclude Include="src\scene\GameScene.h" />
@@ -242,6 +252,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Shoot\PlayerShootComponent.h" />
     <ClInclude Include="src\Character\Player\Core\PlayerContext.h" />
     <ClInclude Include="src\Character\Player\Player.h" />
+    <ClInclude Include="src\Character\Player\Effect\PlayerParticles.h" />
+    <ClInclude Include="src\Effect\PerfectDodgeDirector.h" />
     <ClInclude Include="src\Character\Player\States\Base\PlayerStateBase.h" />
     <ClInclude Include="src\Character\Player\States\Dash\PlayerStateDash.h" />
     <ClInclude Include="src\Character\Player\States\Dodge\PlayerStateDodge.h" />

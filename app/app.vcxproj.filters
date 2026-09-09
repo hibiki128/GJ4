@@ -16,6 +16,9 @@
     <ClCompile Include="src\Character\Player\Components\Health\PlayerHealthComponent.cpp">
       <Filter>src\Character\Player\Components\Health</Filter>
     </ClCompile>
+    <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp">
+      <Filter>src\Character\Player\Components\Ammo</Filter>
+    </ClCompile>
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp">
       <Filter>src\Character\Player\States\Damaged</Filter>
     </ClCompile>
@@ -33,6 +36,14 @@
     </ClCompile>
     <ClCompile Include="src\GameOver\GameOverStaging.cpp">
       <Filter>src\GameOver</Filter>
+    <ClCompile Include="src\Clear\ClearBossRemains.cpp">
+      <Filter>src\Clear</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Clear\ClearPlayerActor.cpp">
+      <Filter>src\Clear</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Clear\ClearStaging.cpp">
+      <Filter>src\Clear</Filter>
     </ClCompile>
     <ClCompile Include="src\pch.cpp">
       <Filter>src</Filter>
@@ -122,6 +133,12 @@
     <ClCompile Include="src\Character\Player\Player.cpp">
       <Filter>src\Character\Player</Filter>
     </ClCompile>
+    <ClCompile Include="src\Character\Player\Effect\PlayerParticles.cpp">
+      <Filter>src\Character\Player\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Effect\PerfectDodgeDirector.cpp">
+      <Filter>src\Effect</Filter>
+    </ClCompile>
     <ClCompile Include="src\Character\Player\States\Dash\PlayerStateDash.cpp">
       <Filter>src\Character\Player\States\Dash</Filter>
     </ClCompile>
@@ -174,6 +191,9 @@
     </Filter>
     <Filter Include="src\Character">
       <UniqueIdentifier>{986533EB-0764-B475-E36F-25DAC94DD792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Clear">
+      <UniqueIdentifier>{f81b768d-002a-4386-b611-e78c12d870a1}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Field">
       <UniqueIdentifier>{365e67f8-37bf-4401-9e3a-45e0bd6aa277}</UniqueIdentifier>
@@ -240,6 +260,12 @@
     </Filter>
     <Filter Include="src\Character\Player\Components">
       <UniqueIdentifier>{0D95733D-5B7B-5C40-0AD1-00501AF4C0A5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Effect">
+      <UniqueIdentifier>{3B92D4E1-8A67-4C05-B1F3-6E27C9D0A845}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Character\Player\Effect">
+      <UniqueIdentifier>{7C41F0B2-3E5D-4A18-9B6C-2D5E8A0F41C7}</UniqueIdentifier>
     </Filter>
     <Filter Include="src\Character\Player\Core">
       <UniqueIdentifier>{99C177B3-82E4-AF36-97BB-03C4008B819B}</UniqueIdentifier>
@@ -315,6 +341,9 @@
     <ClInclude Include="src\Character\Player\Components\Health\PlayerHealthComponent.h">
       <Filter>src\Character\Player\Components\Health</Filter>
     </ClInclude>
+    <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h">
+      <Filter>src\Character\Player\Components\Ammo</Filter>
+    </ClInclude>
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h">
       <Filter>src\Character\Player\States\Damaged</Filter>
     </ClInclude>
@@ -335,6 +364,14 @@
     </ClInclude>
     <ClInclude Include="src\GameOver\GameOverStaging.h">
       <Filter>src\GameOver</Filter>
+    <ClInclude Include="src\Clear\ClearBossRemains.h">
+      <Filter>src\Clear</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Clear\ClearPlayerActor.h">
+      <Filter>src\Clear</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Clear\ClearStaging.h">
+      <Filter>src\Clear</Filter>
     </ClInclude>
     <ClInclude Include="src\pch.h">
       <Filter>src</Filter>
@@ -437,6 +474,12 @@
     </ClInclude>
     <ClInclude Include="src\Character\Player\Player.h">
       <Filter>src\Character\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Character\Player\Effect\PlayerParticles.h">
+      <Filter>src\Character\Player\Effect</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Effect\PerfectDodgeDirector.h">
+      <Filter>src\Effect</Filter>
     </ClInclude>
     <ClInclude Include="src\Character\Player\States\Base\PlayerStateBase.h">
       <Filter>src\Character\Player\States\Base</Filter>

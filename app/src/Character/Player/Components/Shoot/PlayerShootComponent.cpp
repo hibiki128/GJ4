@@ -3,6 +3,7 @@
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include "line/LineRenderer.h"
+#include "src/Character/Player/Components/Ammo/PlayerAmmoComponent.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 #include <string>
 #ifdef USE_IMGUI
@@ -40,11 +41,22 @@ void PlayerShootComponent::Update(PlayerContext& context) {
         return;
     }
 
-    if (!weapon_ || !context.bullets) {
+    if (!weapon_ || !context.bullets || !context.ammoComponent_) {
         return;
     }
 
-    FireBullet(context, target);
+    // 残弾を先に押さえる。ここより前の早期 return に混ぜると、
+    // 撃っていないのに弾数だけ減るフレームができてしまう
+    if (!context.ammoComponent_->TryConsume(selectedColor_)) {
+        return; // 弾切れ。クールダウンも進めない
+    }
+
+    // プールが埋まっていると弾は出ない。その場合は押さえた残弾を戻して、
+    // 撃てなかったフレームとして扱う
+    if (!FireBullet(context, target)) {
+        context.ammoComponent_->Refund(selectedColor_);
+        return;
+    }
 
     cooldown_ = weapon_->GetFireInterval();
 }
@@ -104,7 +116,7 @@ void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target, const Hagine::
     target->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
 }
 
-void PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* target) {
+bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* target) {
     // 狙いは画面中心が指している着弾地点、弾が出るのはプレイヤーの位置。
     // 初速の時点でその一点を向けておくのが、狙ったところに当てるための要
     const Hagine::Vector3 muzzle = context.transform_->translation_;
@@ -130,8 +142,7 @@ void PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
 
     // 撃つ相手がいなければ、ただ飛んで消えるだけの弾になる
     if (!target) {
-        weapon_->Fire(*context.bullets, request);
-        return;
+        return weapon_->Fire(*context.bullets, request);
     }
 
     // 着弾は IBossTargetQuery::RaycastAttach へ「動いた線分」を渡して判定してもらう
@@ -155,7 +166,7 @@ void PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
         return result.ShouldConsumeBullet();
     };
 
-    weapon_->Fire(*context.bullets, request);
+    return weapon_->Fire(*context.bullets, request);
 }
 
 void PlayerShootComponent::DrawAimLine(const PlayerContext& context) const {

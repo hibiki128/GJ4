@@ -28,6 +28,8 @@ void BossParameters::Load(const std::string &bossId) {
     Hagine::DataHandler data("Boss", bossId_);
 
     colorSeed_ = data.Load<uint32_t>("colorSeed", colorSeed_);
+    // 各値には倍率が適用済みなので、読み直しでは掛け直さない
+    masterScale_ = data.Load<float>("masterScale", masterScale_);
 
     // --- 使用色（識別子の配列）---
     std::vector<std::string> colorIds;
@@ -58,6 +60,7 @@ void BossParameters::Load(const std::string &bossId) {
     shell_.outerLayers = JsonValue(shell, "outerLayers", shell_.outerLayers);
     shell_.coreScale = JsonValue(shell, "coreScale", shell_.coreScale);
     shell_.extraCapacity = JsonValue(shell, "extraCapacity", shell_.extraCapacity);
+    shell_.groundOffset = JsonValue(shell, "groundOffset", shell_.groundOffset);
 
     // --- 殻の見た目（メタボール） ---
     const json metaBall = data.Load<json>("metaBall", json::object());
@@ -130,6 +133,18 @@ void BossParameters::Load(const std::string &bossId) {
     spin_.damage = JsonValue(spin, "damage", spin_.damage);
     spin_.contactMargin = JsonValue(spin, "contactMargin", spin_.contactMargin);
 
+    // --- 壁に激突したときのひるみ ---
+    const json wallStagger = data.Load<json>("wallStagger", json::object());
+    wallStagger_.wobbleTime = JsonValue(wallStagger, "wobbleTime", wallStagger_.wobbleTime);
+    wallStagger_.wobbleAmount = JsonValue(wallStagger, "wobbleAmount", wallStagger_.wobbleAmount);
+    wallStagger_.wobbleSpeed = JsonValue(wallStagger, "wobbleSpeed", wallStagger_.wobbleSpeed);
+    wallStagger_.wobbleTilt = JsonValue(wallStagger, "wobbleTilt", wallStagger_.wobbleTilt);
+    wallStagger_.shakeTime = JsonValue(wallStagger, "shakeTime", wallStagger_.shakeTime);
+    wallStagger_.shakeAngle = JsonValue(wallStagger, "shakeAngle", wallStagger_.shakeAngle);
+    wallStagger_.shakeCount = JsonValue(wallStagger, "shakeCount", wallStagger_.shakeCount);
+    wallStagger_.settleTime = JsonValue(wallStagger, "settleTime", wallStagger_.settleTime);
+    wallStagger_.minTravel = JsonValue(wallStagger, "minTravel", wallStagger_.minTravel);
+
     const json slam = JsonValue(attacks, "slam", json::object());
     slam_.riseTime = JsonValue(slam, "riseTime", slam_.riseTime);
     slam_.riseHeight = JsonValue(slam, "riseHeight", slam_.riseHeight);
@@ -145,6 +160,7 @@ void BossParameters::Save() const {
     Hagine::DataHandler data("Boss", bossId_);
 
     data.Save("colorSeed", colorSeed_);
+    data.Save("masterScale", masterScale_);
 
     std::vector<std::string> colorIds;
     for (Color color : usedColors_) {
@@ -160,6 +176,7 @@ void BossParameters::Save() const {
     shell["outerLayers"] = shell_.outerLayers;
     shell["coreScale"] = shell_.coreScale;
     shell["extraCapacity"] = shell_.extraCapacity;
+    shell["groundOffset"] = shell_.groundOffset;
     data.Save("shell", shell);
 
     json metaBall = json::object();
@@ -229,6 +246,18 @@ void BossParameters::Save() const {
     spin["recoverTime"] = spin_.recoverTime;
     spin["damage"] = spin_.damage;
     spin["contactMargin"] = spin_.contactMargin;
+
+    json wallStagger = json::object();
+    wallStagger["wobbleTime"] = wallStagger_.wobbleTime;
+    wallStagger["wobbleAmount"] = wallStagger_.wobbleAmount;
+    wallStagger["wobbleSpeed"] = wallStagger_.wobbleSpeed;
+    wallStagger["wobbleTilt"] = wallStagger_.wobbleTilt;
+    wallStagger["shakeTime"] = wallStagger_.shakeTime;
+    wallStagger["shakeAngle"] = wallStagger_.shakeAngle;
+    wallStagger["shakeCount"] = wallStagger_.shakeCount;
+    wallStagger["settleTime"] = wallStagger_.settleTime;
+    wallStagger["minTravel"] = wallStagger_.minTravel;
+    data.Save("wallStagger", wallStagger);
 
     json slam = json::object();
     slam["riseTime"] = slam_.riseTime;
@@ -357,6 +386,8 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.attack.whirl.telegraphTime = JsonValue(whirl, "telegraphTime", out.attack.whirl.telegraphTime);
     out.attack.whirl.spinTime = JsonValue(whirl, "spinTime", out.attack.whirl.spinTime);
     out.attack.whirl.spinSpeed = JsonValue(whirl, "spinSpeed", out.attack.whirl.spinSpeed);
+    out.attack.whirl.spinEndSpeedRatio = JsonValue(whirl, "spinEndSpeedRatio", out.attack.whirl.spinEndSpeedRatio);
+    out.attack.whirl.staggerTime = JsonValue(whirl, "staggerTime", out.attack.whirl.staggerTime);
     out.attack.whirl.spinHeight = JsonValue(whirl, "spinHeight", out.attack.whirl.spinHeight);
     out.attack.whirl.damage = JsonValue(whirl, "damage", out.attack.whirl.damage);
     out.attack.whirl.recoverTime = JsonValue(whirl, "recoverTime", out.attack.whirl.recoverTime);
@@ -471,6 +502,8 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     whirl["telegraphTime"] = params.attack.whirl.telegraphTime;
     whirl["spinTime"] = params.attack.whirl.spinTime;
     whirl["spinSpeed"] = params.attack.whirl.spinSpeed;
+    whirl["spinEndSpeedRatio"] = params.attack.whirl.spinEndSpeedRatio;
+    whirl["staggerTime"] = params.attack.whirl.staggerTime;
     whirl["spinHeight"] = params.attack.whirl.spinHeight;
     whirl["damage"] = params.attack.whirl.damage;
     whirl["recoverTime"] = params.attack.whirl.recoverTime;
@@ -487,4 +520,71 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
 
 
     data.Save("spider", spider);
+}
+
+void BossParameters::ScaleLengths(float ratio) {
+    // 長さ・半径・高さだけを掛ける。
+    // 時間・角度・速さ・ダメージ・個数・割合はそのまま（大きくしたら鈍くなる、を避ける）。
+    // 行動範囲（arenaRadius）は床の広さなので、ボスの大きさとは無関係に据え置く
+
+    // --- 見た目（殻）---
+    shell_.shellRadius *= ratio;
+    shell_.sphereRadius *= ratio; // 0（自動算出）なら 0 のまま
+    shell_.groundOffset *= ratio;
+
+    // --- 攻撃の届く範囲 ---
+    spin_.contactMargin *= ratio;
+    slam_.riseHeight *= ratio;
+    slam_.impactRadius *= ratio;
+
+    // --- ひるみのふらつき幅 ---
+    wallStagger_.wobbleAmount *= ratio;
+
+    // --- 演出（距離にあたるものだけ）---
+    effect_.vanishDrift *= ratio;
+    appear_.gatherRadius *= ratio;
+}
+
+void ScaleSpiderLengths(BossSpiderParams &out, float ratio) {
+    // --- 体の寸法 ---
+    out.bodyRadius *= ratio;
+    out.legSphereRadius *= ratio;
+    out.legLength *= ratio;
+    out.kneeLift *= ratio;
+    out.footRadius *= ratio;
+    out.bodyHeight *= ratio;
+
+    // --- 歩幅。体だけ大きくして歩幅を据え置くと、脚が長いのに小刻みに歩いてしまう ---
+    out.stepHeight *= ratio;
+    out.stepTrigger *= ratio;
+    out.stepLead *= ratio;
+    out.bodyBob *= ratio;
+    out.bodySway *= ratio;
+    out.stopDistance *= ratio;
+
+    // --- 変形演出（距離にあたるもの）---
+    out.collapseSway *= ratio;
+    out.introCameraDistance *= ratio;
+    out.introCameraHeight *= ratio;
+
+    // --- 攻撃の届く範囲 ---
+    out.attack.shootRange *= ratio;
+
+    out.attack.leap.crouchDepth *= ratio;
+    out.attack.leap.apexHeight *= ratio;
+    out.attack.leap.impactRadius *= ratio;
+    out.attack.leap.landAbsorbDepth *= ratio;
+    out.attack.leap.landSpread *= ratio;
+    out.attack.leap.maxLeapRange *= ratio;
+
+    out.attack.shoot.radius *= ratio;
+    out.attack.shoot.telegraphRise *= ratio;
+    out.attack.shoot.recoilDepth *= ratio;
+    out.attack.shoot.shakeAmount *= ratio;
+
+    // 回転攻撃の届く範囲は脚の長さそのものなので、ここでは高さだけでよい
+    out.attack.whirl.spinHeight *= ratio;
+
+    // --- 撃破演出（ふらつきの幅）---
+    out.defeat.swayAmount *= ratio;
 }

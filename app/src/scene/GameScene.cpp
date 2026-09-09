@@ -1,6 +1,8 @@
 #include "GameScene.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/GameOver/GameOverContext.h"
+#include "src/Character/Player/Effect/PlayerParticles.h"
+#include "debug/imgui/ImGuiNotification.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -49,6 +51,10 @@ void GameScene::Initialize()
             // 演出の帯やポーズ画面が赤く染まらないようにする
             if (damageVignette_) {
                 damageVignette_->Draw();
+            }
+            // ジャスト回避の白フラッシュも同じ扱い（赤いマスクの上に重ねる）
+            if (perfectDodge_) {
+                perfectDodge_->Draw();
             }
             // 撃破演出の黒帯は他のUIより手前に出す
             if (defeatDirector_) {
@@ -136,6 +142,23 @@ void GameScene::Initialize()
 		damageVignette_->Play(1.0f);
 		});
 
+	// 回避の画面演出。飛び出した瞬間だけカメラを前へ押し出してスピード感を足す。
+	// 体の伸び縮みはプレイヤー自身の演出コンポーネントが受け持つ
+	player_->SetOnDodge([this](const Vector3& direction) {
+		(void)direction;
+		followCamera_->AddDashPush(1.0f);
+		});
+
+	// ジャスト回避の画面演出。プレイヤーは画面のことを知らないので、被弾と同じくここで配る
+	perfectDodge_ = std::make_unique<PerfectDodgeDirector>();
+	perfectDodge_->Init();
+	perfectDodge_->RegisterParams();
+
+	player_->SetOnPerfectDodge([this](const DamageInfo& info) {
+		(void)info;
+		perfectDodge_->Play();
+		});
+
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
 	bossSpider_ = std::make_unique<BossSpider>();
 	bossSpider_->SetPalette(boss_->GetPalette());
@@ -165,8 +188,13 @@ void GameScene::Initialize()
 
 	pObjectManager_->RegisterExternal(bossSpider_.get());
 
-	// ボスまわりの土煙（見た目は Assets/jsons/ParticleCS 以下）
+	// ボスまわりの土煙（見た目は Assets/jsons/ParticleCS 以下）。
+	// エミッターの発生範囲はボスの大きさに合わせるので、倍率も渡しておく
 	BossParticles::GetInstance()->Init();
+	BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+
+	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
+	PlayerParticles::GetInstance()->Init();
 
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
@@ -248,6 +276,7 @@ void GameScene::Update()
 
 	// 被弾の赤いマスクを進める（ポーズ中は止まったままにしたいのでこの位置）
 	damageVignette_->Update(Frame::DeltaTime());
+	perfectDodge_->Update(Frame::DeltaTime());
 
 	player_->CommandExecute(gameInput_->GetInputContext());
 
@@ -401,6 +430,33 @@ void GameScene::AddObjectSetting()
 		ImGui::SameLine();
 		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
 	}
+
+	// 形態をまたいだ大きさの倍率。球体・蜘蛛・パーティクルへ同じ比率で配る。
+	// 倍率そのものは球体形態が1つだけ持っていて、各パラメータには適用済みの値が入る
+	ImGui::SeparatorText("ボス全体の大きさ");
+	float masterScale = boss_->GetParameters().GetMasterScale();
+	if (ImGui::DragFloat("倍率(xyz同時)", &masterScale, 0.01f, 0.1f, 5.0f, "%.2f 倍")) {
+		const float ratio = boss_->ApplyMasterScale(masterScale);
+		bossSpider_->ScaleSizesBy(ratio);
+		BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("等倍に戻す")) {
+		const float ratio = boss_->ApplyMasterScale(1.0f);
+		bossSpider_->ScaleSizesBy(ratio);
+		BossParticles::GetInstance()->SetMasterScale(1.0f);
+	}
+	ImGui::TextDisabled("殻・球・コア・脚・胴・歩幅・攻撃の届く範囲・土煙の広がり・ひるみの輪が");
+	ImGui::TextDisabled("まとめて変わります（時間・角度・速さ・ダメージ・フィールドの広さは据え置き）");
+	// 大きさは両形態にまたがるので、保存もここでまとめて押せるようにしておく
+	if (ImGui::Button("大きさを両形態とも保存")) {
+		boss_->SaveParameters();
+		bossSpider_->SaveParameters();
+		ImGuiNotification::Post("ボスの大きさを保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("（大きさ以外の値も一緒に書き出されます）");
+
 	ImGui::Separator();
 	if (boss_) {
 		boss_->DrawGameplayImGui();
@@ -417,6 +473,7 @@ void GameScene::AddParticleSetting()
 	// ボスの土煙まとめ。中身はエンジンのGPUパーティクルなので、
 	// ここで見た目を作って保存すれば Assets/jsons/ParticleCS 以下へ残る
 	BossParticles::GetInstance()->DrawImGui();
+	PlayerParticles::GetInstance()->DrawImGui();
 }
 
 void GameScene::CameraUpdate()

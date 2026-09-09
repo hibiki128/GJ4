@@ -8,6 +8,7 @@ class PlayerJumpComponent;
 class PlayerShootComponent;
 class PlayerComponentReaction;
 class PlayerHealthComponent;
+class PlayerAmmoComponent;
 class PlayerBulletManager;
 
 class PlayerContext {
@@ -18,6 +19,7 @@ public:
 	PlayerShootComponent* shootComponent_ = nullptr;
 	PlayerComponentReaction* reactionComponent_ = nullptr;
 	PlayerHealthComponent* healthComponent_ = nullptr;
+	PlayerAmmoComponent* ammoComponent_ = nullptr;
 	PlayerBulletManager* bullets = nullptr;
 	PlayerInput input_;
 
@@ -34,5 +36,13 @@ public:
 	Hagine::BaseObject::RigidBodyParams* rigidBody_ = nullptr;
 	// 床のコライダーに触れている間 true（コライダーの衝突コールバックで更新される）
 	bool isOnGround_ = false;
+
+	// 次の回避が出せるようになるまでの残り時間（秒）。回避ステートに入っていない間も
+	// 減らし続ける必要があるので、ステートではなく Player::Update が面倒を見る
+	float dodgeCooldown_ = 0.0f;
+
+	// ジャスト回避として認める残り時間（秒）。回避に入った瞬間だけ立ち、
+	// この間に攻撃を無敵で弾けば「受け流した」ことにする
+	float dodgeJustTimer_ = 0.0f;
 };
 
