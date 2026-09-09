@@ -6,8 +6,10 @@
 #include "States/Dodge/PlayerStateDodge.h"
 #include "States/Jump/PlayerStateJump.h"
 #include "States/Damaged/PlayerStateDamaged.h"
+#include "States/Defeated/PlayerStateDefeated.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "Effect/PlayerParticles.h"
+#include "src/Audio/GameSounds.h"
 
 namespace {
 // 色をそのまま出すための白テクスチャ。
@@ -20,7 +22,11 @@ void Player::Init(const std::string objectName) {
 	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
 	CreateModel("slime/slime.obj");
 	SetTexture(kPlayerTexturePath);
-	SetOffset({ 0.0f,-0.45f,0.0f });
+
+	// モデルの原点合わせ。やられ演出の震えはこの値へ揺れを足す形で出すので、
+	// 基準としてここで控えておく（書き手は SetRenderShake の1か所）
+	baseOffset_ = Hagine::Vector3{ 0.0f,-0.45f,0.0f };
+	SetOffset(baseOffset_);
 
 	// ステートを登録
 	states_["Idle"] = std::make_unique<PlayerStateIdle>();
@@ -29,6 +35,11 @@ void Player::Init(const std::string objectName) {
 	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
 	states_["Damaged"] = std::make_unique<PlayerStateDamaged>();
+
+	auto defeated = std::make_unique<PlayerStateDefeated>();
+	defeatedState_ = defeated.get(); // 演出の進み具合を引くために控えておく
+	states_["Defeated"] = std::move(defeated);
+
 	currentState_ = states_["Idle"].get();
 
 	// 弾のプールを生成してオブジェクトマネージャーに登録する
@@ -44,6 +55,7 @@ void Player::Init(const std::string objectName) {
 	context_.reactionComponent_ = &reaction_;
 	context_.healthComponent_ = &health_;
 	context_.ammoComponent_ = &ammo_;
+	context_.voiceComponent_ = &voice_;
 	context_.bullets = &bullets_;
 	context_.rigidBody_ = &GetRigidBody();
 
@@ -59,6 +71,7 @@ void Player::Init(const std::string objectName) {
 	shoot_.RegisterParams();
 	health_.RegisterParams();
 	ammo_.RegisterParams();
+	voice_.RegisterParams();
 	for (auto& [stateName, state] : states_) {
 		state->RegisterParams();
 	}
@@ -143,6 +156,10 @@ void Player::Update() {
 	// 粒の要求（移動中の足元）もここで形にする。ステートは動いている間ずっと要求を出すだけでよい
 	PlayerParticles::GetInstance()->Update();
 
+	// 鳴らし続ける音（ぽよぽよ・足音）も同じく、要求を形にするのはここ1か所。
+	// ステートを跨いでも間隔の数え方が変わらないので、音が二重に鳴らない
+	voice_.Update(Hagine::Frame::DeltaTime());
+
 	// 残弾の回復は撃つより先に進める。こうしておくと、回復して1発ぶん貯まったフレームに
 	// そのまま撃てる。回復倍率を要求するギミックは、この Update までに呼んでおけば同じフレームで効く
 	ammo_.Update();
@@ -195,6 +212,23 @@ void Player::PlayPerfectDodgeEffects(const DamageInfo& info) {
 	if (onPerfectDodge_) {
 		onPerfectDodge_(info);
 	}
+}
+
+void Player::PlayDefeatBurst() {
+	// 体をはじけさせる。モデルを消すだけで実体は残すので、
+	// 座標を見ている相手（カメラの注視点など）が飛ばずに済む
+	SetIsModelDraw(false);
+
+	// 撒き散らすゼリー粒。体と同じ色にして「自分がはじけた」と分かるようにする
+	PlayerParticles::GetInstance()->BurstDefeat(GetWorldPosition(), color_.GetDisplayColor());
+
+	// はじける音。プレイヤー専用の音はまだ無いので、
+	// ボスの球がそろって消えるときと同じ「はじける」音を借りている
+	GameSounds::GetInstance()->Play(GameSounds::Id::Break);
+}
+
+bool Player::IsDefeatFinished() const {
+	return defeatedState_ && defeatedState_->IsFinished();
 }
 
 void Player::ChangeState(const std::string& stateName) {

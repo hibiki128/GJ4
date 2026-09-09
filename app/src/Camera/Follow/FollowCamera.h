@@ -18,6 +18,9 @@ enum class CameraMode
 {
 	Normal,     // プレイヤーだけを追う通常のTPS
 	BossBattle, // プレイヤーとボスを同時に画面へ収める
+	// やられたプレイヤーへ寄る。ボスは画面に収めず、震えてはじけるところだけを見せる。
+	// 一度入ったらシーンが終わるまで戻らない想定
+	Defeat,
 };
 
 /// <summary>
@@ -317,6 +320,16 @@ private:
 	float normalDistance_ = 7.0f;          // プレイヤーだけを追うときのカメラ距離
 	float normalTargetSmoothTime_ = 0.12f; // 注視点のスムージング時間(秒)
 	float normalDistanceSmoothTime_ = 0.15f;
+
+	// --- Defeat モード（やられたプレイヤーへ寄る） ---
+	float defeatDistance_ = 3.2f;          // 寄りきったときのカメラ距離
+	// 寄せる時間。通常より遅くして、すっと引き寄せられる見え方にする。
+	// 速くすると画面が飛んだように見えて、震えている体が読み取れない
+	float defeatTargetSmoothTime_ = 0.25f;
+	float defeatDistanceSmoothTime_ = 0.45f;
+	// 注視点をどれだけ上げるか。寄ると体が画面いっぱいになるので、
+	// 通常（playerTargetOffset_）より控えめにして体の中心を画面に置く
+	float defeatTargetHeight_ = 0.9f;
 
 	// --- BossBattle モード（仕様書 §19） ---
 	BossCameraConfig bossConfig_{};

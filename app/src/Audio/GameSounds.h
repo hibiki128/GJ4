@@ -28,8 +28,14 @@ public:
         Appear,        // 第2形態が起き上がる
         PlayerDamaged, // プレイヤーが被弾した
         PlayerDodge,   // プレイヤーが回避した
-        Bgm,           // 戦闘中のBGM（鳴らし続ける）
         BgmTutorial,   // チュートリアル中のBGM（鳴らし続ける）
+        // プレイヤーの「ぽよぽよ」。立ち止まっているあいだ、間を置いて交互に鳴らす。
+        // 2種類あるのは、同じ音が一定間隔で続くと機械的に聞こえるため
+        PlayerIdle1,
+        PlayerIdle2,
+        PlayerMove, // 歩き・走りの足音（動いているあいだ、間を置いて鳴らす）
+        PlayerFire, // 弾を撃った
+        Bgm,        // 戦闘中のBGM
         Count
     };
 

@@ -56,6 +56,13 @@ namespace {
 	constexpr float kPerfectBurstAlpha = 0.8f; // 飛沫が出た瞬間の濃さ
 	constexpr float kPerfectHeight = 0.1f;     // 体の中心から少し上で弾けさせる
 
+	// --- やられてはじけるときの粒（全方向へ飛ばすので速度はここで入れ直す） ---
+	constexpr float kDefeatSideSpeed = 6.5f;  // 横へ飛び散る速さ
+	constexpr float kDefeatUpSpeedMin = 1.0f; // 上へ飛ぶ速さ（最小）
+	constexpr float kDefeatUpSpeedMax = 8.0f; // 上へ飛ぶ速さ（最大）
+	constexpr float kDefeatAlpha = 0.9f;      // 出た瞬間の濃さ（弾けた瞬間ははっきり見せる）
+	constexpr float kDefeatHeight = 0.2f;     // 体の中心から少し上で弾けさせる
+
 	/// <summary>テンプレートから1体出して、プレイヤー用の使い方に合わせる</summary>
 	/// <param name="templateName">テンプレート名</param>
 	/// <returns>ParticleCSEmitter*: 出せなければ nullptr</returns>
@@ -226,6 +233,33 @@ void PlayerParticles::BurstPerfectDodge(const Vector3& position, const Vector4& 
 	if (ParticleCSEmitter* burst = NextEmitter(Id::PerfectBurst)) {
 		burst->SetTranslate(center);
 		burst->SetStartColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, kPerfectBurstAlpha});
+		burst->SetEndColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, 0.0f});
+		burst->EmitOnce();
+		++Get(Id::PerfectBurst).burstCount;
+		LogFirstBurst(Id::PerfectBurst, burst);
+	}
+}
+
+void PlayerParticles::BurstDefeat(const Vector3& position, const Vector4& bodyColor) {
+	const Vector3 center = position + Vector3{0.0f, kDefeatHeight, 0.0f};
+
+	// 足元に広がる波紋。「そこで消えた」ことを地面側にも残す
+	if (ParticleCSEmitter* ripple = NextEmitter(Id::PerfectRipple)) {
+		ripple->SetTranslate(center);
+		ripple->SetStartColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, kDefeatAlpha});
+		ripple->SetEndColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, 0.0f});
+		ripple->EmitOnce();
+		++Get(Id::PerfectRipple).burstCount;
+		LogFirstBurst(Id::PerfectRipple, ripple);
+	}
+
+	// はじけ飛ぶゼリー粒。受け流しの飛沫より強く、全方向へばら撒く。
+	// 上向きに幅を持たせて、真横だけでなく高く舞い上がる粒も混ぜる
+	if (ParticleCSEmitter* burst = NextEmitter(Id::PerfectBurst)) {
+		burst->SetTranslate(center);
+		burst->SetMinVelocity(Vector3{-kDefeatSideSpeed, kDefeatUpSpeedMin, -kDefeatSideSpeed});
+		burst->SetMaxVelocity(Vector3{kDefeatSideSpeed, kDefeatUpSpeedMax, kDefeatSideSpeed});
+		burst->SetStartColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, kDefeatAlpha});
 		burst->SetEndColor(Vector4{bodyColor.x, bodyColor.y, bodyColor.z, 0.0f});
 		burst->EmitOnce();
 		++Get(Id::PerfectBurst).burstCount;

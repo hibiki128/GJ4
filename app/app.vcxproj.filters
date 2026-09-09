@@ -346,6 +346,7 @@
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\Field\FieldSurround.cpp" />
+    <ClCompile Include="src\Field\FieldParticles.cpp" />
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverPlayerActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverStaging.cpp" />
@@ -640,6 +641,7 @@
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
     <ClInclude Include="src\Field\Field.h" />
     <ClInclude Include="src\Field\FieldSurround.h" />
+    <ClInclude Include="src\Field\FieldParticles.h" />
     <ClInclude Include="src\GameOver\GameOverBossActor.h" />
     <ClInclude Include="src\GameOver\GameOverContext.h" />
     <ClInclude Include="src\GameOver\GameOverPlayerActor.h" />

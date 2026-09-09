@@ -3,6 +3,7 @@
 #include "src/Character/Player/Core/PlayerContext.h"
 #include "src/Character/Player/Components/Move/PlayerMoveComponent.h"
 #include "src/Character/Player/Components/Reaction/PlayerComponentReaction.h"
+#include "src/Character/Player/Components/Voice/PlayerVoiceComponent.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "Frame/Frame.h"
@@ -32,6 +33,11 @@ void PlayerStateDash::Update(Player& player, PlayerContext& context) {
 	// 足元の粒（移動中と同じもの）。要求を出している間だけ出る
 	if (context.transform_) {
 		PlayerParticles::GetInstance()->RequestWalk(context.transform_->translation_, player.GetDisplayColor());
+	}
+
+	// 足音は歩きと同じ音を、走りの足運びに合わせて速い間隔で鳴らす
+	if (context.voiceComponent_) {
+		context.voiceComponent_->RequestDash();
 	}
 
 	if (!context.input_.dash) {

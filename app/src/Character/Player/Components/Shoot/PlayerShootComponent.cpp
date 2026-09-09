@@ -3,6 +3,7 @@
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include "line/LineRenderer.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Character/Player/Components/Ammo/PlayerAmmoComponent.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 #include <algorithm>
@@ -78,6 +79,9 @@ void PlayerShootComponent::Update(PlayerContext& context) {
         context.ammoComponent_->Refund(selectedColor_);
         return;
     }
+
+    // 実際に弾が出たときだけ鳴らす。弾切れやプール切れで空撃ちした音は鳴らさない
+    GameSounds::GetInstance()->Play(GameSounds::Id::PlayerFire);
 
     cooldown_ = weapon_->GetFireInterval();
 }

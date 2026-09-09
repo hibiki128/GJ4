@@ -34,7 +34,13 @@ constexpr SoundDesc kSoundDescs[] = {
     {GameSounds::Id::Stun, "SE/boss/stun.wav", "ひるみ中", 0.35f, 0.0f},
     {GameSounds::Id::Appear, "SE/other/enter.wav", "第2形態の登場", 0.60f, 0.0f},
     {GameSounds::Id::PlayerDamaged, "SE/player/damaged.wav", "プレイヤーの被弾", 0.60f, 0.15f},
-    {GameSounds::Id::PlayerDodge, "SE/player/slime.wav", "プレイヤーの回避", 0.45f, 0.05f},
+    // プレイヤーの音は鳴る回数が桁違いに多い（歩き・射撃は数秒に何度も鳴る）ので、
+    // ボスの音と同じ音量にすると戦闘の音が全部それに埋もれる。かなり絞ってある
+    {GameSounds::Id::PlayerDodge, "SE/player/Slime_Dodge.wav", "プレイヤーの回避", 0.30f, 0.05f},
+    {GameSounds::Id::PlayerIdle1, "SE/player/Slime_Idle1.wav", "プレイヤーのぽよぽよ1", 0.16f, 0.3f},
+    {GameSounds::Id::PlayerIdle2, "SE/player/Slime_Idle2.wav", "プレイヤーのぽよぽよ2", 0.16f, 0.3f},
+    {GameSounds::Id::PlayerMove, "SE/player/Slime_Move.wav", "プレイヤーの足音", 0.20f, 0.1f},
+    {GameSounds::Id::PlayerFire, "SE/player/Slime_Fire.wav", "プレイヤーの射撃", 0.24f, 0.05f},
     {GameSounds::Id::Bgm, "BGM/gameScene.wav", "戦闘中のBGM", 0.25f, 0.0f},
     // BGMはファイル名をシーン名に合わせてある（BGM/<シーン名>.wav）。
     // 既定の音量を戦闘中より低くしているのは、調整済みの戦闘BGM（0.09）に近づけるため。
@@ -161,6 +167,13 @@ void GameSounds::LoadSettings() {
 
 void GameSounds::SaveSettings() {
     DataHandler data("Boss", kSettingsFile);
+
+    // 差し替えた wav のキー。読む相手がいなくなっているので、保存のついでに掃除しておく
+    // （回避の音は SE/player/slime.wav から Slime_Dodge.wav へ差し替えた）
+    for (const char *legacyKey : {"SE/player/slime.wav_volume", "SE/player/slime.wav_minInterval"}) {
+        data.Remove(legacyKey);
+    }
+
     for (const SoundDesc &desc : kSoundDescs) {
         const Sound &sound = Get(desc.id);
         const std::string key = desc.path;
