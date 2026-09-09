@@ -58,6 +58,20 @@ bool PlayerHealthComponent::ApplyDamage(const DamageInfo& info) {
 	return true;
 }
 
+bool PlayerHealthComponent::Heal(int amount) {
+	if (amount <= 0 || IsDead()) {
+		return false;
+	}
+
+	const int healed = std::min(hp_ + amount, params_.maxHp);
+	if (healed == hp_) {
+		return false; // すでに満タン。呼び出し側はこれを見て「効かなかった」と分かる
+	}
+
+	hp_ = healed;
+	return true;
+}
+
 bool PlayerHealthComponent::ConsumeHit() {
 	const bool wasHit = hitPending_;
 	hitPending_ = false;
@@ -100,6 +114,11 @@ void PlayerHealthComponent::DrawImGui() {
 		info.amount = static_cast<float>(params_.damagePerHit);
 		info.hitPoint = lastDamage_.hitPoint;
 		ApplyDamage(info);
+	}
+	ImGui::SameLine();
+	// 回復の導線（HPが1増える）をアイテム抜きで確かめるためのボタン
+	if (ImGui::Button("1回復")) {
+		Heal(1);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("全回復")) {
