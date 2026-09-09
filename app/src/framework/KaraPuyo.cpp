@@ -1,11 +1,13 @@
-#include "GJ4App.h"
+#include "KaraPuyo.h"
 #include "src/Settings/GameSettings.h"
+#include "src/Boss/Data/BossColorPalette.h"
+#include "src/UI/Pause/PauseMenu.h"
 #include <Frame.h>
 #include <collider/ColliderTagManager.h>
 
 using namespace Hagine;
 
-void GJ4App::Initialize() {
+void KaraPuyo::Initialize() {
     this->Framework::Initialize();
     Framework::LoadResource();
     Framework::PlaySounds();
@@ -21,21 +23,39 @@ void GJ4App::Initialize() {
     // ここに無いタグはシーンデータやコードから設定しても無視されるので、シーンを作る前に登録しておく
     ColliderTagManager::GetInstance()->RegisterGameTags({"player", "floor"});
 
+    // シーン切り替えの幕（六角形で埋めるやつ）を、ゲームの色マスタと同じ色にそろえる。
+    // エンジンは ColorStruct を知らないので、色はこちらから配る
+    {
+        BossColorPalette palette{};
+        palette.LoadMaster();
+        std::vector<Hagine::Vector4> transitionColors;
+        transitionColors.reserve(kGameColorCount);
+        for (int index = 0; index < kGameColorCount; ++index) {
+            transitionColors.push_back(palette.GetRgba(BossColorPalette::FromIndex(index)));
+        }
+        pSceneManager_->GetSceneTransition()->SetColors(transitionColors);
+    }
+
     // 最初のシーンを予約（シーンは REGISTER_SCENE で自己登録済み）
     pSceneManager_->NextSceneReservation("GAME");
 
     // -----------------------
 }
 
-void GJ4App::Finalize() {
+void KaraPuyo::Finalize() {
     // -----ゲーム固有の処理-----
+
+    // ポーズ画面はシングルトンなので、シーンを閉じても中身が残る。
+    // 抱えているスプライト（板・数値・文字ラベル）をここで手放しておかないと、
+    // 終了時のリークチェックに数百個の残存リソースとして並ぶ
+    PauseMenu::GetInstance()->Finalize();
 
     // -----------------------
 
     Framework::Finalize();
 }
 
-void GJ4App::Update() {
+void KaraPuyo::Update() {
     Framework::Update();
 
     // -----ゲーム固有の処理-----
@@ -71,7 +91,7 @@ void GJ4App::Update() {
     // -----------------------
 }
 
-void GJ4App::Draw() {
+void KaraPuyo::Draw() {
     pDrawSystem_->Draw(*pSceneManager_->GetBaseScene()->GetViewProjection());
 
 #ifdef _DEBUG

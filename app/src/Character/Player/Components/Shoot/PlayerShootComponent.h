@@ -3,6 +3,7 @@
 #include "src/Character/Player/Core/PlayerAimReport.h"
 #include "src/Character/Player/Core/PlayerContext.h"
 #include "src/Interface/IBossTargetQuery.h"
+#include "src/Interface/IShootableTargetQuery.h"
 #include <functional>
 
 #include <src/Character/Player/Weapon/PlayerWeapon.h>
@@ -42,6 +43,20 @@ public:
     // 撃つ相手の提供元をセットする（配線はシーン側で行う）
     void SetTargetProvider(TargetProvider provider) { targetProvider_ = std::move(provider); }
 
+    /// <summary>いま撃てる、ボス以外の的を返す関数の型（回復アイテムの膜など）</summary>
+    using ExtraTargetProvider = std::function<IShootableTargetQuery *()>;
+
+    /// <summary>
+    /// ボス以外の的の提供元をセットする（配線はシーン側で行う）。
+    ///
+    /// 着弾・照準・ソフトロックオンのいずれもボスと同じ問い合わせを投げ、
+    /// 手前にあるほう・照準に近いほうを選ぶ。未配線なら今までどおりボスだけを見るので、
+    /// 繋がなくても射撃は成立する
+    /// </summary>
+    void SetExtraTargetProvider(ExtraTargetProvider provider) {
+        extraTargetProvider_ = std::move(provider);
+    }
+
     // 撃つ色（ボスは IColorProvider 越しにこの色を見て、同じ色かどうかを判定する）
     Color GetSelectedColor() const { return selectedColor_; }
     void SetSelectedColor(Color color) { selectedColor_ = color; }
@@ -72,16 +87,35 @@ private:
     /// <summary>いま撃つ相手（提供元が未設定・相手不在なら nullptr）</summary>
     IBossTargetQuery* ActiveTarget() const;
 
+    /// <summary>いま撃てるボス以外の的（提供元が未設定なら nullptr）</summary>
+    IShootableTargetQuery* ActiveExtraTarget() const;
+
+    /// <summary>
+    /// 線分をボスとボス以外の的の両方へ飛ばし、手前で当たったほうを返す。
+    /// 照準・発射レティクル・エイムアシストの寄せ先が、すべてここ1か所から決まる
+    /// </summary>
+    /// <param name="target">いま撃つ相手（nullptr 可）</param>
+    /// <param name="extraTarget">ボス以外の的（nullptr 可）</param>
+    /// <param name="start">線分の始点（ワールド）</param>
+    /// <param name="end">線分の終点（ワールド）</param>
+    /// <param name="outHit">当たった点と、その的の中心</param>
+    /// <returns>bool: どちらかに当たれば true</returns>
+    bool ResolveNearestAimHit(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
+                              const Hagine::Vector3& start, const Hagine::Vector3& end,
+                              AimHit& outHit);
+
     /// <summary>
     /// 画面中心の射線を飛ばして着弾地点を求める。
     /// 何にも当たらなければ射程の端（origin + direction * aimRayLength_）を返すので、
     /// 相手がいない方向へ撃っても弾は素直に真っ直ぐ飛ぶ
     /// </summary>
-    /// <param name="target">いま撃つ相手（nullptr なら射程の端をそのまま返す）</param>
+    /// <param name="target">いま撃つ相手（nullptr 可）</param>
+    /// <param name="extraTarget">ボス以外の的（nullptr 可）</param>
     /// <param name="origin">射線の起点（カメラ基準）</param>
     /// <param name="direction">射線の向き（＝画面中心）</param>
     /// <returns>Vector3: 着弾地点（ワールド）</returns>
-    Hagine::Vector3 ResolveAimPoint(IBossTargetQuery* target, const Hagine::Vector3& origin,
+    Hagine::Vector3 ResolveAimPoint(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
+                                    const Hagine::Vector3& origin,
                                     const Hagine::Vector3& direction);
 
     /// <summary>
@@ -111,16 +145,21 @@ private:
     /// 同じ一点を狙っていても起点が違うので、途中の球に先にぶつかることがある。
     /// そのズレを見せるのが発射レティクルの役目
     /// </summary>
-    /// <param name="target">いま撃つ相手（nullptr なら射程の端をそのまま返す）</param>
+    /// <param name="target">いま撃つ相手（nullptr 可）</param>
+    /// <param name="extraTarget">ボス以外の的（nullptr 可）</param>
     /// <param name="muzzle">射線の起点（プレイヤーの位置）</param>
     /// <param name="direction">射線の向き（＝発射方向）</param>
     /// <returns>Vector3: 弾が最初に当たる点（ワールド）</returns>
-    Hagine::Vector3 ResolveFirePoint(IBossTargetQuery* target, const Hagine::Vector3& muzzle,
+    Hagine::Vector3 ResolveFirePoint(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
+                                     const Hagine::Vector3& muzzle,
                                      const Hagine::Vector3& direction);
 
-    /// <summary>照準方向からロックオン対象を探し、強調表示を更新する</summary>
-    void UpdateLockOn(IBossTargetQuery* target, const Hagine::Vector3& origin,
-                      const Hagine::Vector3& aimDirection);
+    /// <summary>
+    /// 照準方向からロックオン対象を探し、強調表示を更新する。
+    /// ボスと膜の両方が候補になったら、照準に近いほうだけを残す
+    /// </summary>
+    void UpdateLockOn(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
+                      const Hagine::Vector3& origin, const Hagine::Vector3& aimDirection);
 
     /// <summary>弾を1発撃つ（狙う先は確定済みの aimPoint_）</summary>
     /// <returns>bool: 弾が出れば true（プールに空きが無ければ false）</returns>
@@ -132,10 +171,14 @@ private:
     PlayerWeapon* weapon_ = nullptr;
     TargetProvider targetProvider_{};
 
+    // ボス以外の的の提供元（未配線ならボスだけを見る）
+    ExtraTargetProvider extraTargetProvider_{};
+
     float cooldown_ = 0.0f;
     Color selectedColor_ = Color::RED;
 
     LockOnResult lockOn_{};     // 現在のロックオン結果（色の判定と強調表示にだけ使う）
+    ShootableLockOnResult itemLockOn_{}; // ボス以外の的のロックオン結果（同時に立つのはどちらか一方）
     BulletHitResult lastHit_{}; // 直近の着弾結果（デバッグUI表示用）
 
     Hagine::Vector3 aimPoint_{}; // いま画面中心が指している着弾地点（ワールド）

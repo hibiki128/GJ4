@@ -126,6 +126,16 @@
         "y": 0.6000000238418579,
         "z": 5.5
     },
+    "Player/Dash/Amplitude": 0.20000000298023224,
+    "Player/Dash/MoveSpeed": 15.0,
+    "Player/Dash/Period": 1.0,
+    "Player/Dash/Phase": 0.0,
+    "Player/Dash/Sharpness": 1.0,
+    "Player/Dodge/BurstTime": 0.05999999865889549,
+    "Player/Dodge/Duration": 0.20000000298023224,
+    "Player/Dodge/EndSpeed": 15.0,
+    "Player/Dodge/InvincibleTime": 0.30000001192092896,
+    "Player/Dodge/MaxSpeed": 25.0,
     "Player/Ammo/CostPerShot": 1,
     "Player/Ammo/MaxAmmo": 5,
     "Player/Ammo/RegenDelayAfterShot": 0.30000001192092896,
@@ -171,6 +181,14 @@
         "y": 3.5,
         "z": -11.399999618530273
     },
+    "Tutorial/CheckSize": 55.0,
+    "Tutorial/FinishHintSize": 30.0,
+    "Tutorial/FinishTitleSize": 65.0,
+    "Tutorial/GlyphSize": 68.0,
+    "Tutorial/PanelWidth": 660.0,
+    "Tutorial/RowHeight": 80.0,
+    "Tutorial/StageTitleSize": 60.0,
+    "Tutorial/TaskLabelSize": 50.0,
     "UI/ポーズメニュー/全体の大きさ": 1.0,
     "UI/ポーズメニュー/文字の大きさ": 1.2999999523162842
 }

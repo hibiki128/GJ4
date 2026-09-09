@@ -18,10 +18,12 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     cooldown_ -= Hagine::Frame::DeltaTime();
 
     IBossTargetQuery* target = ActiveTarget();
+    // ボス以外の的（回復アイテムの膜など）。ボスと同じ問い合わせを受ける
+    IShootableTargetQuery* extraTarget = ActiveExtraTarget();
 
     // 着弾地点は撃つ前から毎フレーム求めておく。
     // 発射の瞬間に計算すると、その1発だけ照準表示と食い違う可能性がある
-    aimPoint_ = ResolveAimPoint(target, context.aimOrigin_, context.aimDirection_);
+    aimPoint_ = ResolveAimPoint(target, extraTarget, context.aimOrigin_, context.aimDirection_);
 
     // エイムアシスト。レティクルが乗っている球の真ん中へ狙いを寄せる。
     // 照準そのもの（aimPoint_）は動かさないので、白い十字は画面中央に固定のまま。
@@ -32,7 +34,7 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     // カメラではなくマズルなので、途中の球に先にぶつかることがある。
     // このズレも発射レティクルに出る
     const Hagine::Vector3 muzzle = context.transform_->translation_;
-    firePoint_ = ResolveFirePoint(target, muzzle,
+    firePoint_ = ResolveFirePoint(target, extraTarget, muzzle,
                                   ResolveFireDirection(muzzle, context.aimDirection_));
 
     // 表示側へ渡す報告をここで作る。射撃が決めた値をそのまま入れるだけで、
@@ -43,11 +45,7 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     aimReport_.firePointHit = firePointHit_;
 
     // ロックオンは撃つ前から効かせる（狙っている的が見えていないと色を選べない）
-    if (target) {
-        UpdateLockOn(target, context.aimOrigin_, context.aimDirection_);
-    } else {
-        lockOn_ = LockOnResult{};
-    }
+    UpdateLockOn(target, extraTarget, context.aimOrigin_, context.aimDirection_);
 
     if (drawAimLine_) {
         DrawAimLine(context);
@@ -94,7 +92,41 @@ IBossTargetQuery* PlayerShootComponent::ActiveTarget() const {
     return targetProvider_ ? targetProvider_() : nullptr;
 }
 
+IShootableTargetQuery* PlayerShootComponent::ActiveExtraTarget() const {
+    return extraTargetProvider_ ? extraTargetProvider_() : nullptr;
+}
+
+bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
+                                                IShootableTargetQuery* extraTarget,
+                                                const Hagine::Vector3& start,
+                                                const Hagine::Vector3& end, AimHit& outHit) {
+    bool found = false;
+    float nearestDistanceSq = 0.0f;
+
+    // 着弾判定（RaycastAttach / RaycastHit）と同じ形状・同じ色の扱いを通るので、
+    // 「照準では当たる表示なのに弾は素通りする」というズレが出ない
+    AimHit bossHit{};
+    if (target && target->RaycastPoint(start, end, selectedColor_, bossHit)) {
+        outHit = bossHit;
+        nearestDistanceSq = (bossHit.point - start).LengthSq();
+        found = true;
+    }
+
+    // ボスの手前に膜があればそちらが当たる。逆もまた然りなので、必ず両方へ聞いて比べる
+    AimHit extraHit{};
+    if (extraTarget && extraTarget->RaycastPoint(start, end, selectedColor_, extraHit)) {
+        const float distanceSq = (extraHit.point - start).LengthSq();
+        if (!found || distanceSq < nearestDistanceSq) {
+            outHit = extraHit;
+            found = true;
+        }
+    }
+
+    return found;
+}
+
 Hagine::Vector3 PlayerShootComponent::ResolveAimPoint(IBossTargetQuery* target,
+                                                      IShootableTargetQuery* extraTarget,
                                                       const Hagine::Vector3& origin,
                                                       const Hagine::Vector3& direction) {
     const Hagine::Vector3 aim = (direction.LengthSq() > 0.0001f)
@@ -103,19 +135,14 @@ Hagine::Vector3 PlayerShootComponent::ResolveAimPoint(IBossTargetQuery* target,
     const Hagine::Vector3 farPoint = origin + aim * aimRayLength_;
 
     aimPointHit_ = false;
-    if (!target) {
-        return farPoint;
-    }
 
-    // 着弾判定（RaycastAttach）と同じ形状・同じ色の扱いを通るので、
-    // 「照準では当たる表示なのに弾は素通りする」というズレが出ない
     AimHit hit{};
-    if (!target->RaycastPoint(origin, farPoint, selectedColor_, hit)) {
+    if (!ResolveNearestAimHit(target, extraTarget, origin, farPoint, hit)) {
         return farPoint; // 何にも当たらない方向。射程の端を狙って真っ直ぐ飛ばす
     }
 
     aimPointHit_ = true;
-    aimHitCenter_ = hit.center; // エイムアシストの寄せ先（当たった球の真ん中）
+    aimHitCenter_ = hit.center; // エイムアシストの寄せ先（当たった的の真ん中）
     return hit.point;
 }
 
@@ -141,19 +168,16 @@ Hagine::Vector3 PlayerShootComponent::ResolveFireDirection(const Hagine::Vector3
 }
 
 Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
+                                                       IShootableTargetQuery* extraTarget,
                                                        const Hagine::Vector3& muzzle,
                                                        const Hagine::Vector3& direction) {
     const Hagine::Vector3 farPoint = muzzle + direction * aimRayLength_;
 
     firePointHit_ = false;
-    if (!target) {
-        return farPoint;
-    }
 
-    // 弾の着弾判定（RaycastAttach）と同じ形状・同じ色の扱いを通る問い合わせ。
-    // 副作用は起こさないので、毎フレーム呼んでも付着や消去は発生しない
+    // 副作用は起こさない問い合わせなので、毎フレーム呼んでも付着や消去・膜の消耗は起きない
     AimHit hit{};
-    if (!target->RaycastPoint(muzzle, farPoint, selectedColor_, hit)) {
+    if (!ResolveNearestAimHit(target, extraTarget, muzzle, farPoint, hit)) {
         return farPoint; // 弾は何にも当たらずに飛んでいく
     }
 
@@ -161,9 +185,12 @@ Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
     return hit.point;
 }
 
-void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target, const Hagine::Vector3& origin,
+void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target,
+                                        IShootableTargetQuery* extraTarget,
+                                        const Hagine::Vector3& origin,
                                         const Hagine::Vector3& aimDirection) {
-    const LockOnRange range = target->GetLockOnRange();
+    // 許容範囲はボスのデータが持っている。ボスがいない場面では既定値のまま探す
+    const LockOnRange range = target ? target->GetLockOnRange() : LockOnRange{};
 
     LockOnRequest request{};
     request.origin = origin;
@@ -172,11 +199,30 @@ void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target, const Hagine::
     request.maxAngleDegrees = range.maxAngleDegrees;
     request.maxDistance = range.maxDistance;
 
-    if (!target->FindLockOnTarget(request, lockOn_)) {
+    if (!target || !target->FindLockOnTarget(request, lockOn_)) {
         lockOn_ = LockOnResult{};
     }
+    if (!extraTarget || !extraTarget->FindLockOnTarget(request, itemLockOn_)) {
+        itemLockOn_ = ShootableLockOnResult{};
+    }
+
+    // 両方が候補になったら、照準に近い（なす角の小さい）ほうだけを残す。
+    // 強調表示が2つ同時に出ると、どちらを狙っているのか分からなくなる
+    if (lockOn_.found && itemLockOn_.found) {
+        if (itemLockOn_.angleDegrees < lockOn_.angleDegrees) {
+            lockOn_ = LockOnResult{};
+        } else {
+            itemLockOn_ = ShootableLockOnResult{};
+        }
+    }
+
     // 強調表示を持たない形態（蜘蛛）では何も起きない
-    target->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
+    if (target) {
+        target->SetLockOnHighlight(lockOn_.cell, lockOn_.found);
+    }
+    if (extraTarget) {
+        extraTarget->SetLockOnHighlight(itemLockOn_.targetId, itemLockOn_.found);
+    }
 }
 
 bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* target) {
@@ -205,17 +251,22 @@ bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
         return true;
     };
 
-    // 撃つ相手がいなければ、ただ飛んで消えるだけの弾になる
-    if (!target) {
-        return weapon_->Fire(*context.bullets, request);
-    }
-
-    // 着弾は IBossTargetQuery::RaycastAttach へ「動いた線分」を渡して判定してもらう
+    // 着弾は IBossTargetQuery::RaycastAttach へ「動いた線分」を渡して判定してもらう。
+    //
+    // 当てる先はボスだけとは限らない。回復アイテムの膜のように、ボスの外にも
+    // 撃って壊せるものがあるので、まずそちらへ聞いてからボスへ回す。
+    // ボスがいない場面でも膜は割れてほしいので、相手不在での早期 return はここには置かない
     const Color shotColor = selectedColor_;
     request.hitTester = [this, shotColor](const Hagine::Vector3& from, const Hagine::Vector3& to) {
+        // ボス以外の的。当たったなら弾はそこで役目を終える
+        IShootableTargetQuery* extraTarget = ActiveExtraTarget();
+        if (extraTarget && extraTarget->RaycastHit(from, to, shotColor)) {
+            return true;
+        }
+
         IBossTargetQuery* hitTarget = ActiveTarget();
         if (!hitTarget) {
-            return false;
+            return false; // 撃つ相手がいない。弾は寿命が尽きるまで飛ぶ
         }
 
         const BulletHitResult result = hitTarget->RaycastAttach(from, to, shotColor);
@@ -329,14 +380,17 @@ void PlayerShootComponent::DrawImGui() {
     }
 
     ImGui::SeparatorText("ロックオン（色の判定・強調表示のみ。弾は誘導しない）");
-    if (!target) {
-        ImGui::TextDisabled("撃つ相手が配線されていません");
-    } else if (lockOn_.IsValid()) {
-        ImGui::Text("対象セル: 頂点%d 層%d  角度 %.1f度  距離 %.1f",
+    if (lockOn_.IsValid()) {
+        ImGui::Text("ボスの球: 頂点%d 層%d  角度 %.1f度  距離 %.1f",
                     lockOn_.cell.vertex, lockOn_.cell.layer,
                     lockOn_.angleDegrees, lockOn_.distance);
+    } else if (itemLockOn_.IsValid()) {
+        ImGui::Text("アイテムの膜: 角度 %.1f度  距離 %.1f",
+                    itemLockOn_.angleDegrees, itemLockOn_.distance);
+    } else if (!target) {
+        ImGui::TextDisabled("撃つ相手が配線されていません");
     } else {
-        ImGui::TextDisabled("対象なし（照準内に同色の球がありません）");
+        ImGui::TextDisabled("対象なし（照準内に同色の的がありません）");
     }
     ImGui::Checkbox("照準線・着弾地点を表示", &drawAimLine_);
 

@@ -147,6 +147,32 @@ PauseMenu *PauseMenu::GetInstance()
     return &instance;
 }
 
+void PauseMenu::Finalize()
+{
+    // 板・数値・文字ラベルが抱えているスプライトをすべて手放す。
+    // ここを通さないと、シングルトンなので終了時まで生き残る
+    rects_.Finalize();
+    number_.Finalize();
+
+    titleRoot_.Finalize();
+    titleSettings_.Finalize();
+    for (GameUi::UiText &item : rootItems_)
+    {
+        item.Finalize();
+    }
+    for (GameUi::UiText &label : settingLabels_)
+    {
+        label.Finalize();
+    }
+    valueOn_.Finalize();
+    valueOff_.Finalize();
+    hintRoot_.Finalize();
+    hintSettings_.Finalize();
+
+    // 作り直せる状態へ戻しておく
+    isInitialized_ = false;
+}
+
 void PauseMenu::Initialize()
 {
     if (isInitialized_)

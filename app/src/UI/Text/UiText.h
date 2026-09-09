@@ -17,10 +17,13 @@
 namespace GameUi {
 
 /// <summary>
-/// 使用するフォント。エンジンが起動時にサイズ60でロード済み（Framework::LoadResource）
+/// 使用するフォント。読み込みとサイズ指定はエンジン側（Framework::LoadResource）で行う。
+///
+/// サイズはここに持たない。持つと LoadFontTexture 側と2箇所で一致させる必要があり、
+/// 片方だけ変えるとフォントが引けずにテキスト生成が落ちる。
+/// 実際に読み込まれたサイズは FontKey() がファイル名から引き当てる
 /// </summary>
 inline constexpr const char *kFontFile = "Buildingsandundertherailwaytracksfree_ver.otf";
-inline constexpr float kFontSize = 60.0f;
 
 /// <summary>
 /// このUIで使うフォントキーを返す
@@ -51,6 +54,13 @@ public:
     /// 生成済みか
     /// </summary>
     bool IsReady() const { return sprite_ != nullptr; }
+
+    /// <summary>
+    /// 抱えているスプライトを解放する（アプリの終了処理から呼ぶ）。
+    /// スプライト1枚につきGPUのバッファを4本持っているので、
+    /// 手放さないと終了時のリークチェックまで残り続ける
+    /// </summary>
+    void Finalize() { sprite_.reset(); }
 
     /// <summary>
     /// テクスチャ本来の大きさ（ピクセル）
@@ -95,6 +105,13 @@ public:
     /// </summary>
     bool IsReady() const { return !sprites_.empty(); }
 
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize()
+    {
+        sprites_.clear();
+        used_ = 0;
+    }
+
     /// <summary>
     /// テクスチャ本来の大きさ（ピクセル）
     /// </summary>
@@ -122,6 +139,9 @@ public:
     /// 使用位置を先頭へ戻す。毎フレーム描き始めに呼ぶ
     /// </summary>
     void BeginFrame() { pool_.BeginFrame(); }
+
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize() { pool_.Finalize(); }
 
     /// <summary>
     /// 中心・大きさ・色を指定して1枚描く
@@ -204,12 +224,16 @@ public:
     /// </summary>
     bool IsReady() const { return pool_.IsReady(); }
 
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize() { pool_.Finalize(); }
+
 private:
     // アトラスに並べる文字。ここに無い文字は描けない
     static constexpr const char *kChars = "0123456789.%";
-    // 1文字あたりのセルの大きさ（フォントサイズ60に対して余裕を持たせた値）
-    static constexpr int kCellWidth = 44;
-    static constexpr int kCellHeight = 76;
+    // 1文字あたりのセルの大きさ。読み込んだフォントサイズから Create で決める。
+    // 固定値にしておくと、フォントを高解像度で読み込んだときに字がセルからはみ出て欠ける
+    int cellWidth_ = 44;
+    int cellHeight_ = 76;
 
     UiSpritePool pool_; // 1文字ぶんのスプライトの置き場
 };

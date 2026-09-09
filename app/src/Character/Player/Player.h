@@ -50,6 +50,15 @@ public:
 		shoot_.SetTargetProvider(std::move(provider));
 	}
 
+	/// <summary>
+	/// ボス以外の的の提供元を渡す（回復アイテムの膜など）。
+	/// 着弾・照準・ソフトロックオンのいずれもボスと同じように扱われる。
+	/// プレイヤーはアイテムの正体を知らないので、配線はシーンが受け持つ
+	/// </summary>
+	void SetItemTargetProvider(PlayerShootComponent::ExtraTargetProvider provider) {
+		shoot_.SetExtraTargetProvider(std::move(provider));
+	}
+
 	/// <summary>被弾した瞬間に呼ばれる関数の型</summary>
 	using DamagedCallback = std::function<void(const DamageInfo&)>;
 
@@ -159,6 +168,16 @@ public:
 
 	/// <summary>残弾の参照（弾数ゲージなど、表示側が最大値や割合を見るのに使う）</summary>
 	const PlayerAmmoComponent& GetAmmo() const { return ammo_; }
+
+	/// <summary>
+	/// 体力を回復する（回復アイテムを拾ったときに呼ばれる）。
+	///
+	/// 戻り値を返すのは、満タンで効かなかったときにアイテムを消さずに残せるようにするため。
+	/// 弾の回復倍率と同じく、プレイヤーはギミックの正体を知らなくてよい
+	/// </summary>
+	/// <param name="amount">回復量</param>
+	/// <returns>bool: 実際にHPが増えれば true（満タン・死亡後は false）</returns>
+	bool Heal(int amount = 1) { return health_.Heal(amount); }
 
 	/// <summary>
 	/// この1フレームだけ弾の回復倍率を要求する。乗っている間だけ効く床のような
