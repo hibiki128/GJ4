@@ -98,11 +98,12 @@ private:
     /// <param name="extraTarget">ボス以外の的（nullptr 可）</param>
     /// <param name="start">線分の始点（ワールド）</param>
     /// <param name="end">線分の終点（ワールド）</param>
+    /// <param name="rayRadius">射線の太さ（弾の判定と同じ太さ／アシストの掴み幅を渡し分ける）</param>
     /// <param name="outHit">当たった点と、その的の中心</param>
     /// <returns>bool: どちらかに当たれば true</returns>
     bool ResolveNearestAimHit(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
                               const Hagine::Vector3& start, const Hagine::Vector3& end,
-                              AimHit& outHit);
+                              float rayRadius, AimHit& outHit);
 
     /// <summary>
     /// 判定に使う弾の太さ（武器が持っている弾の半径）。
@@ -111,6 +112,26 @@ private:
     /// </summary>
     /// <returns>float: 弾の半径（武器が未設定なら 0＝太さ無し）</returns>
     float BulletRadius() const;
+
+    /// <summary>
+    /// エイムアシストが的を掴みにいく射線の太さ。
+    /// 弾より太い射線を画面中心から飛ばすことで、遠くて的が小さく見えるときでも
+    /// 「近くを通っただけ」の的を掴めるようにする（＝アシストの強さそのもの）
+    /// </summary>
+    /// <returns>float: 掴み幅（弾の半径を下回らないよう丸めた値）</returns>
+    float AimAssistRadius() const;
+
+    /// <summary>
+    /// アシストの吸着先を決める。画面中心から太い射線を飛ばし、
+    /// 最初に当たった「撃って意味のある的」の中心を寄せ先にする。
+    /// 胴やコアのような無敵の的しか無い方向では吸着しない
+    /// </summary>
+    /// <param name="target">いま撃つ相手（nullptr 可）</param>
+    /// <param name="extraTarget">ボス以外の的（nullptr 可）</param>
+    /// <param name="origin">射線の起点（カメラ基準）</param>
+    /// <param name="direction">射線の向き（＝画面中心）</param>
+    void ResolveAssistTarget(IBossTargetQuery* target, IShootableTargetQuery* extraTarget,
+                             const Hagine::Vector3& origin, const Hagine::Vector3& direction);
 
     /// <summary>
     /// 画面中心の射線を飛ばして着弾地点を求める。
@@ -192,7 +213,12 @@ private:
     Hagine::Vector3 aimPoint_{}; // いま画面中心が指している着弾地点（ワールド）
     bool aimPointHit_ = false;   // 着弾地点が相手にヒットして決まったか（false なら射程の端）
 
-    Hagine::Vector3 aimHitCenter_{}; // 照準が乗っている球の中心（エイムアシストの寄せ先）
+    Hagine::Vector3 assistCenter_{}; // アシストが掴んだ的の中心（寄せ先）
+    // 掴んだ的に射線が触れた点（寄せの起点）。照準の点ではなくここから寄せるので、
+    // 強さを 1 未満にしても寄せ先が的の外へ出ない
+    Hagine::Vector3 assistFrom_{};
+    bool assistHit_ = false;         // 掴める的があったか（false ならアシストは効かない）
+    float assistAngleDegrees_ = 0.0f; // 画面中心と掴んだ的のなす角（デバッグ表示用）
     Hagine::Vector3 assistPoint_{};  // アシストを効かせた後の、実際に狙う一点
 
     Hagine::Vector3 firePoint_{}; // いま撃ったら弾が最初に当たる点（ワールド。マズル基準）
@@ -202,10 +228,12 @@ private:
 
     float aimRayLength_ = 200.0f; // 照準レイの長さ＝当たらなかったときの着弾距離
 
-    // エイムアシスト。照準が球に乗っているときだけ効くので、乗せるところまでは自分で狙う。
-    // 強さ 1 で球の真ん中ぴったり、0 で寄せない
+    // エイムアシスト。画面中心から「弾より太い射線」を飛ばして的を掴み、その中心へ狙いを寄せる。
+    // 掴み幅（半径）が実質のアシストの強さで、遠くて的が小さく見えるときほど効く。
+    // 強さ 1 で掴んだ的の真ん中ぴったり、0 で寄せない
     bool aimAssistEnabled_ = true;
     float aimAssistStrength_ = 1.0f;
+    float aimAssistRadius_ = 1.5f;
 
     bool drawAimLine_ = true; // 照準線・着弾地点を線で表示する
 
