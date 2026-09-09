@@ -53,6 +53,13 @@ public:
     bool IsReady() const { return sprite_ != nullptr; }
 
     /// <summary>
+    /// 抱えているスプライトを解放する（アプリの終了処理から呼ぶ）。
+    /// スプライト1枚につきGPUのバッファを4本持っているので、
+    /// 手放さないと終了時のリークチェックまで残り続ける
+    /// </summary>
+    void Finalize() { sprite_.reset(); }
+
+    /// <summary>
     /// テクスチャ本来の大きさ（ピクセル）
     /// </summary>
     const Hagine::Vector2 &GetBaseSize() const { return baseSize_; }
@@ -95,6 +102,13 @@ public:
     /// </summary>
     bool IsReady() const { return !sprites_.empty(); }
 
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize()
+    {
+        sprites_.clear();
+        used_ = 0;
+    }
+
     /// <summary>
     /// テクスチャ本来の大きさ（ピクセル）
     /// </summary>
@@ -122,6 +136,9 @@ public:
     /// 使用位置を先頭へ戻す。毎フレーム描き始めに呼ぶ
     /// </summary>
     void BeginFrame() { pool_.BeginFrame(); }
+
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize() { pool_.Finalize(); }
 
     /// <summary>
     /// 中心・大きさ・色を指定して1枚描く
@@ -203,6 +220,9 @@ public:
     /// 生成済みか
     /// </summary>
     bool IsReady() const { return pool_.IsReady(); }
+
+    /// <summary>抱えているスプライトをすべて解放する</summary>
+    void Finalize() { pool_.Finalize(); }
 
 private:
     // アトラスに並べる文字。ここに無い文字は描けない

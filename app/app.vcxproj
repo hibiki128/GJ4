@@ -158,7 +158,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\framework\GJ4App.cpp" />
+    <ClCompile Include="src\framework\KaraPuyo.cpp" />
     <ClCompile Include="src\scene\GameScene.cpp" />
     <ClCompile Include="src\Boss\Attack\BossAttackScheduler.cpp" />
     <ClCompile Include="src\Boss\Attack\BossAttackSlam.cpp" />
@@ -201,6 +201,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\UI\Pause\PauseMenu.cpp" />
     <ClCompile Include="src\UI\Text\UiText.cpp" />
     <ClCompile Include="src\scene\TitleScene.cpp" />
+    <ClCompile Include="src\scene\TutorialScene.cpp" />
+    <ClCompile Include="src\Tutorial\TutorialDirector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\scene\GameOverScene.h" />
@@ -221,7 +223,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Clear\ClearPlayerActor.h" />
     <ClInclude Include="src\Clear\ClearStaging.h" />
     <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\framework\GJ4App.h" />
+    <ClInclude Include="src\framework\KaraPuyo.h" />
     <ClInclude Include="src\scene\GameScene.h" />
     <ClInclude Include="src\Boss\Attack\BossAttackScheduler.h" />
     <ClInclude Include="src\Boss\Attack\BossAttackSlam.h" />
@@ -276,6 +278,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Interface\IFieldBounds.h" />
     <ClInclude Include="src\Interface\ITargetLocator.h" />
     <ClInclude Include="src\scene\TitleScene.h" />
+    <ClInclude Include="src\scene\TutorialScene.h" />
+    <ClInclude Include="src\Tutorial\TutorialDirector.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
