@@ -6,6 +6,8 @@
 #include "src/Character/Player/Components/Ammo/PlayerAmmoComponent.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 #include <string>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -25,9 +27,10 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     // 発射の瞬間に計算すると、その1発だけ照準表示と食い違う可能性がある
     aimPoint_ = ResolveAimPoint(target, extraTarget, context.aimOrigin_, context.aimDirection_);
 
-    // エイムアシスト。レティクルが乗っている球の真ん中へ狙いを寄せる。
+    // エイムアシスト。画面中心から弾より太い射線を飛ばして的を掴み、その真ん中へ狙いを寄せる。
     // 照準そのもの（aimPoint_）は動かさないので、白い十字は画面中央に固定のまま。
     // 動くのは「実際に狙う一点」だけで、その結果は発射レティクルとして画面に出る
+    ResolveAssistTarget(target, extraTarget, context.aimOrigin_, context.aimDirection_);
     assistPoint_ = ResolveAssistPoint();
 
     // 弾が本当に当たる点も撃つ前から求めておく。狙う先が同じでも、射線を飛ばす起点が
@@ -107,19 +110,24 @@ float PlayerShootComponent::BulletRadius() const {
     return weapon_ ? weapon_->GetParams().radius : 0.0f;
 }
 
+float PlayerShootComponent::AimAssistRadius() const {
+    // 弾より細い掴み幅には意味が無い（弾のほうが当たり判定が太くなってしまう）ので、
+    // 弾の半径を下限にする
+    return (std::max)(aimAssistRadius_, BulletRadius());
+}
+
 bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
                                                 IShootableTargetQuery* extraTarget,
                                                 const Hagine::Vector3& start,
-                                                const Hagine::Vector3& end, AimHit& outHit) {
+                                                const Hagine::Vector3& end, float rayRadius,
+                                                AimHit& outHit) {
     bool found = false;
     float nearestDistanceSq = 0.0f;
 
-    // 着弾判定（RaycastAttach / RaycastHit）と同じ形状・同じ太さ・同じ色の扱いを通るので、
-    // 「照準では当たる表示なのに弾は素通りする」というズレが出ない
-    const float bulletRadius = BulletRadius();
-
+    // 着弾判定（RaycastAttach / RaycastHit）と同じ形状・同じ色の扱いを通るので、
+    // 弾の半径を渡せば「照準では当たる表示なのに弾は素通りする」というズレが出ない
     AimHit bossHit{};
-    if (target && target->RaycastPoint(start, end, selectedColor_, bulletRadius, bossHit)) {
+    if (target && target->RaycastPoint(start, end, selectedColor_, rayRadius, bossHit)) {
         outHit = bossHit;
         nearestDistanceSq = (bossHit.point - start).LengthSq();
         found = true;
@@ -127,7 +135,7 @@ bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
 
     // ボスの手前に膜があればそちらが当たる。逆もまた然りなので、必ず両方へ聞いて比べる
     AimHit extraHit{};
-    if (extraTarget && extraTarget->RaycastPoint(start, end, selectedColor_, bulletRadius, extraHit)) {
+    if (extraTarget && extraTarget->RaycastPoint(start, end, selectedColor_, rayRadius, extraHit)) {
         const float distanceSq = (extraHit.point - start).LengthSq();
         if (!found || distanceSq < nearestDistanceSq) {
             outHit = extraHit;
@@ -149,28 +157,72 @@ Hagine::Vector3 PlayerShootComponent::ResolveAimPoint(IBossTargetQuery* target,
 
     aimPointHit_ = false;
 
+    // 表示用の照準は弾と同じ太さで飛ばす。ここを太くすると
+    // 「レティクルは的に乗っているのに弾は素通りする」という嘘の表示になる
     AimHit hit{};
-    if (!ResolveNearestAimHit(target, extraTarget, origin, farPoint, hit)) {
+    if (!ResolveNearestAimHit(target, extraTarget, origin, farPoint, BulletRadius(), hit)) {
         return farPoint; // 何にも当たらない方向。射程の端を狙って真っ直ぐ飛ばす
     }
 
     aimPointHit_ = true;
-    aimHitCenter_ = hit.center; // エイムアシストの寄せ先（当たった的の真ん中）
     return hit.point;
 }
 
+void PlayerShootComponent::ResolveAssistTarget(IBossTargetQuery* target,
+                                               IShootableTargetQuery* extraTarget,
+                                               const Hagine::Vector3& origin,
+                                               const Hagine::Vector3& direction) {
+    assistHit_ = false;
+    assistAngleDegrees_ = 0.0f;
+
+    if (!aimAssistEnabled_) {
+        return;
+    }
+
+    const Hagine::Vector3 aim = (direction.LengthSq() > 0.0001f)
+                                    ? direction.Normalize()
+                                    : Hagine::Vector3{0.0f, 0.0f, 1.0f};
+
+    // 掴み用の射線は画面中心から飛ばす（狙う先は必ず「レティクルの先にある的」になる）。
+    // 弾より太くしてあるので、遠くて的が小さく見えていても、レティクルが的の近くを
+    // 通っていれば掴める。この太さがそのままアシストの強さになる
+    AimHit hit{};
+    if (!ResolveNearestAimHit(target, extraTarget, origin, origin + aim * aimRayLength_,
+                              AimAssistRadius(), hit)) {
+        return; // 掴める的が射線上に無い
+    }
+
+    // 胴やコアのような壊せない的は掴まない。ここへ寄せると狙いが無敵の的に吸われる
+    if (!hit.attackable) {
+        return;
+    }
+
+    assistHit_ = true;
+    assistCenter_ = hit.center;
+    assistFrom_ = hit.point;
+
+    // 画面中心からどれだけ寄せたかを角度で持っておく（デバッグ表示用）
+    const Hagine::Vector3 toCenter = assistCenter_ - origin;
+    if (toCenter.LengthSq() > 0.0001f) {
+        const float cosAngle = std::clamp(toCenter.Normalize().Dot(aim), -1.0f, 1.0f);
+        assistAngleDegrees_ = std::acos(cosAngle) * (180.0f / std::numbers::pi_v<float>);
+    }
+}
+
 Hagine::Vector3 PlayerShootComponent::ResolveAssistPoint() const {
-    // 何にも当たっていないならアシストのしようがない。照準の点をそのまま狙う
-    if (!aimPointHit_ || !aimAssistEnabled_) {
+    // 掴める的が無いならアシストのしようがない。照準の点をそのまま狙う
+    if (!assistHit_ || !aimAssistEnabled_) {
         return aimPoint_;
     }
 
-    // 照準が乗っている球の表面から、その球の真ん中へ寄せる。
-    // 強さ 1 で真ん中ぴったり、0 で寄せない（＝アシスト切）。
-    // 球の縁をかすっているときほど寄る距離が大きくなるので、
-    // 「当たってはいるが端」という一番外しやすい状況に効く
+    // 掴んだ的の真ん中へ寄せる。強さ 1 で真ん中ぴったり、0 で寄せない（＝アシスト切）。
+    // 太い射線で掴んでいるので、レティクルが的から少し外れていても真ん中へ引き込まれる。
+    //
+    // 寄せの起点は照準の点ではなく「射線が的に触れた点」。
+    // 照準が何にも当たっていないとき aimPoint_ は射程の端（200先）になるので、
+    // そこから寄せると強さ 1 未満で狙いが的から大きく外れた宙に落ちてしまう
     const float strength = std::clamp(aimAssistStrength_, 0.0f, 1.0f);
-    return aimPoint_ + (aimHitCenter_ - aimPoint_) * strength;
+    return assistFrom_ + (assistCenter_ - assistFrom_) * strength;
 }
 
 Hagine::Vector3 PlayerShootComponent::ResolveFireDirection(const Hagine::Vector3& muzzle,
@@ -188,9 +240,10 @@ Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
 
     firePointHit_ = false;
 
-    // 副作用は起こさない問い合わせなので、毎フレーム呼んでも付着や消去・膜の消耗は起きない
+    // 副作用は起こさない問い合わせなので、毎フレーム呼んでも付着や消去・膜の消耗は起きない。
+    // ここは「実際に弾が当たる点」なので、必ず弾と同じ太さで飛ばす
     AimHit hit{};
-    if (!ResolveNearestAimHit(target, extraTarget, muzzle, farPoint, hit)) {
+    if (!ResolveNearestAimHit(target, extraTarget, muzzle, farPoint, BulletRadius(), hit)) {
         return farPoint; // 弾は何にも当たらずに飛んでいく
     }
 
@@ -310,10 +363,11 @@ void PlayerShootComponent::DrawAimLine(const PlayerContext& context) const {
     lineRenderer->AddLine(context.aimOrigin_, aimPoint_, {0.4f, 0.4f, 0.45f, 1.0f});
     lineRenderer->AddSphere(aimPoint_, 0.7f, aimColor, 12);
 
-    // エイムアシストで寄せた先（球の真ん中）。上の黄色い点からここへ引っ張られている
-    if (aimPointHit_ && aimAssistEnabled_) {
+    // エイムアシストで寄せた先（掴んだ的の真ん中）。
+    // 射線が的に触れた点からここへ引っ張られている
+    if (assistHit_ && aimAssistEnabled_) {
         const Hagine::Vector4 assistColor = {0.3f, 1.0f, 0.6f, 1.0f};
-        lineRenderer->AddLine(aimPoint_, assistPoint_, assistColor);
+        lineRenderer->AddLine(assistFrom_, assistPoint_, assistColor);
         lineRenderer->AddSphere(assistPoint_, 0.35f, assistColor, 12);
     }
 
@@ -336,6 +390,8 @@ void PlayerShootComponent::RegisterParams() {
     hub->Register(paramOwnerLabel, "AimRayLength", &aimRayLength_, {1.0f, 10.0f, 1000.0f});
     hub->Register(paramOwnerLabel, "AimAssist", &aimAssistEnabled_);
     hub->Register(paramOwnerLabel, "AimAssistStrength", &aimAssistStrength_, {0.01f, 0.0f, 1.0f});
+    // 掴み幅。上げるほど遠くの小さい的でも掴めるようになる（＝アシストが強くなる）
+    hub->Register(paramOwnerLabel, "AimAssistRadius", &aimAssistRadius_, {0.05f, 0.0f, 10.0f});
 
     // 弾の飛び方は武器が持っている（Player::Init が SetWeapon を先に済ませている）
     if (!weapon_) {
@@ -375,12 +431,14 @@ void PlayerShootComponent::DrawImGui() {
     ImGui::SeparatorText("エイムアシスト");
     if (!aimAssistEnabled_) {
         ImGui::TextDisabled("切（照準の点をそのまま狙う）");
-    } else if (!aimPointHit_) {
-        ImGui::TextDisabled("照準が球に乗っていないので効かない");
+    } else if (!assistHit_) {
+        ImGui::TextDisabled("掴める的が射線上に無い（掴み幅 %.2f）", AimAssistRadius());
     } else {
-        // 表面から真ん中へ何メートル寄せたか。球の縁をかすっているときほど大きくなる
-        ImGui::Text("寄せた距離: %.2f （強さ %.2f）", (assistPoint_ - aimPoint_).Length(),
-                    aimAssistStrength_);
+        // 照準の点から掴んだ的の真ん中へ何メートル寄せたか。
+        // 遠くの的をレティクルの端で掴んでいるときほど大きくなる
+        ImGui::Text("寄せた距離: %.2f （強さ %.2f / 掴み幅 %.2f）",
+                    (assistPoint_ - assistFrom_).Length(), aimAssistStrength_, AimAssistRadius());
+        ImGui::Text("画面中心とのなす角: %.2f度", assistAngleDegrees_);
     }
 
     ImGui::SeparatorText("弾が実際に当たる点（発射レティクル）");

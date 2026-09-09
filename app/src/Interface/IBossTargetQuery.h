@@ -52,6 +52,13 @@ struct AimHit {
     /// 中心が取れない相手は表面の点と同じ値が入るので、寄せても何も起きない
     /// </summary>
     Hagine::Vector3 center{};
+
+    /// <summary>
+    /// 撃って意味のある的か。胴やコアのように弾は止めるが壊せない相手は false になる。
+    /// エイムアシストはここが false の相手には吸着しない
+    ///（無敵の的へ狙いを寄せてしまうと、アシストが当たらない方向へ働いてしまう）
+    /// </summary>
+    bool attackable = true;
 };
 
 /// <summary>

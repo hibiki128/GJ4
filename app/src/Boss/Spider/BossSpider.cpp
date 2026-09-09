@@ -1029,6 +1029,7 @@ bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd
         outHit.point = bodyPoint;
         // 胴は撃っても壊せないので、エイムアシストで吸い寄せない（寄せると狙いが胴に吸われる）
         outHit.center = bodyPoint;
+        outHit.attackable = false;
         return true;
     }
 

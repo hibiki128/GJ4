@@ -611,6 +611,7 @@ bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Colo
         outHit.point = corePoint;
         // コアは撃っても壊せないので、エイムアシストで吸い寄せない（寄せると狙いがコアに吸われる）
         outHit.center = corePoint;
+        outHit.attackable = false;
         return true;
     }
     if (!shellHit) {
