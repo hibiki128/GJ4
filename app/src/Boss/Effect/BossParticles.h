@@ -65,6 +65,16 @@ public:
     /// <summary>輪を止める（次に回し始めるとき、すぐ1周目が出るようにそろえる）</summary>
     void StopStaggerRing();
 
+    /// <summary>
+    /// ボスの大きさに合わせて効果も大きくする。
+    ///
+    /// エミッターの発生範囲と、頭上の輪の置き方に掛かる。
+    /// json の値には掛けず、読み込んだ値を基準に毎回掛け直すので二重にはならない
+    /// （粒そのものの大きさや飛び方は ParticleCS の json 側で決まる）
+    /// </summary>
+    /// <param name="scale">倍率</param>
+    void SetMasterScale(float scale);
+
     /// <summary>調整UI（エンジンのエミッター編集をそのまま出す）</summary>
     void DrawImGui();
 
@@ -83,6 +93,11 @@ private:
         // 同じ効果が同じフレームに重なっても取りこぼさないよう、必要な数だけ用意して順番に使う。
         // 実体は ParticleCSSpawner が持っているので、ここは参照するだけ
         std::vector<Hagine::ParticleCSEmitter *> emitters;
+        // json に書いてある発生範囲の大きさ。倍率はここから毎回掛け直す
+        std::vector<Hagine::Vector3> baseScales;
+        // json に書いてある飛び散る速さ。倍率はここから毎回掛け直す
+        Hagine::Vector3 baseVelocityMin{};
+        Hagine::Vector3 baseVelocityMax{};
         size_t next = 0;              // 次に使うエミッター
         const char *templateName = ""; // json のファイル名
         const char *label = "";        // 調整UIでの表示名
@@ -104,6 +119,9 @@ private:
     /// <summary>輪の置き方を json から読む</summary>
     void LoadRingLayout();
 
+    /// <summary>いまの倍率を、生きているエミッターの発生範囲へ掛け直す</summary>
+    void ApplyMasterScaleToEmitters();
+
     /// <summary>json を読み直したいときに、その効果のエミッターを出し直す</summary>
     /// <param name="id">効果</param>
     void Reload(Id id);
@@ -119,4 +137,5 @@ private:
     float ringAngle_ = 0.0f;       // 輪がいまどこまで回ったか（ラジアン）
     float ringEmitTimer_ = 0.0f;   // 次に粒を置くまでの計測
     bool ringPreview_ = false;     // 調整UIで輪を回して見ているか
+    float masterScale_ = 1.0f;     // ボスの大きさに合わせた倍率
 };

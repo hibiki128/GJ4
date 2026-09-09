@@ -28,6 +28,8 @@ void BossParameters::Load(const std::string &bossId) {
     Hagine::DataHandler data("Boss", bossId_);
 
     colorSeed_ = data.Load<uint32_t>("colorSeed", colorSeed_);
+    // 各値には倍率が適用済みなので、読み直しでは掛け直さない
+    masterScale_ = data.Load<float>("masterScale", masterScale_);
 
     // --- 使用色（識別子の配列）---
     std::vector<std::string> colorIds;
@@ -58,6 +60,7 @@ void BossParameters::Load(const std::string &bossId) {
     shell_.outerLayers = JsonValue(shell, "outerLayers", shell_.outerLayers);
     shell_.coreScale = JsonValue(shell, "coreScale", shell_.coreScale);
     shell_.extraCapacity = JsonValue(shell, "extraCapacity", shell_.extraCapacity);
+    shell_.groundOffset = JsonValue(shell, "groundOffset", shell_.groundOffset);
 
     // --- 殻の見た目（メタボール） ---
     const json metaBall = data.Load<json>("metaBall", json::object());
@@ -157,6 +160,7 @@ void BossParameters::Save() const {
     Hagine::DataHandler data("Boss", bossId_);
 
     data.Save("colorSeed", colorSeed_);
+    data.Save("masterScale", masterScale_);
 
     std::vector<std::string> colorIds;
     for (Color color : usedColors_) {
@@ -172,6 +176,7 @@ void BossParameters::Save() const {
     shell["outerLayers"] = shell_.outerLayers;
     shell["coreScale"] = shell_.coreScale;
     shell["extraCapacity"] = shell_.extraCapacity;
+    shell["groundOffset"] = shell_.groundOffset;
     data.Save("shell", shell);
 
     json metaBall = json::object();
@@ -515,4 +520,71 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
 
 
     data.Save("spider", spider);
+}
+
+void BossParameters::ScaleLengths(float ratio) {
+    // 長さ・半径・高さだけを掛ける。
+    // 時間・角度・速さ・ダメージ・個数・割合はそのまま（大きくしたら鈍くなる、を避ける）。
+    // 行動範囲（arenaRadius）は床の広さなので、ボスの大きさとは無関係に据え置く
+
+    // --- 見た目（殻）---
+    shell_.shellRadius *= ratio;
+    shell_.sphereRadius *= ratio; // 0（自動算出）なら 0 のまま
+    shell_.groundOffset *= ratio;
+
+    // --- 攻撃の届く範囲 ---
+    spin_.contactMargin *= ratio;
+    slam_.riseHeight *= ratio;
+    slam_.impactRadius *= ratio;
+
+    // --- ひるみのふらつき幅 ---
+    wallStagger_.wobbleAmount *= ratio;
+
+    // --- 演出（距離にあたるものだけ）---
+    effect_.vanishDrift *= ratio;
+    appear_.gatherRadius *= ratio;
+}
+
+void ScaleSpiderLengths(BossSpiderParams &out, float ratio) {
+    // --- 体の寸法 ---
+    out.bodyRadius *= ratio;
+    out.legSphereRadius *= ratio;
+    out.legLength *= ratio;
+    out.kneeLift *= ratio;
+    out.footRadius *= ratio;
+    out.bodyHeight *= ratio;
+
+    // --- 歩幅。体だけ大きくして歩幅を据え置くと、脚が長いのに小刻みに歩いてしまう ---
+    out.stepHeight *= ratio;
+    out.stepTrigger *= ratio;
+    out.stepLead *= ratio;
+    out.bodyBob *= ratio;
+    out.bodySway *= ratio;
+    out.stopDistance *= ratio;
+
+    // --- 変形演出（距離にあたるもの）---
+    out.collapseSway *= ratio;
+    out.introCameraDistance *= ratio;
+    out.introCameraHeight *= ratio;
+
+    // --- 攻撃の届く範囲 ---
+    out.attack.shootRange *= ratio;
+
+    out.attack.leap.crouchDepth *= ratio;
+    out.attack.leap.apexHeight *= ratio;
+    out.attack.leap.impactRadius *= ratio;
+    out.attack.leap.landAbsorbDepth *= ratio;
+    out.attack.leap.landSpread *= ratio;
+    out.attack.leap.maxLeapRange *= ratio;
+
+    out.attack.shoot.radius *= ratio;
+    out.attack.shoot.telegraphRise *= ratio;
+    out.attack.shoot.recoilDepth *= ratio;
+    out.attack.shoot.shakeAmount *= ratio;
+
+    // 回転攻撃の届く範囲は脚の長さそのものなので、ここでは高さだけでよい
+    out.attack.whirl.spinHeight *= ratio;
+
+    // --- 撃破演出（ふらつきの幅）---
+    out.defeat.swayAmount *= ratio;
 }

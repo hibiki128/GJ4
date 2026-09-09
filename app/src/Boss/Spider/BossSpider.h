@@ -235,6 +235,13 @@ public:
     float GetStandHeight() const { return standHeight_; }
 
     /// <summary>
+    /// 大きさに関わるパラメータをまとめて掛ける（球体形態と足並みをそろえるため）。
+    /// 倍率そのものは球体形態が1つだけ持っていて、ここへは比率だけが渡ってくる
+    /// </summary>
+    /// <param name="ratio">直前からの比率</param>
+    void ScaleSizesBy(float ratio);
+
+    /// <summary>
     /// しばらく動けなくする（回転攻撃のあとの隙）。
     /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る
     /// </summary>

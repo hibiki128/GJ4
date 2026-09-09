@@ -174,6 +174,19 @@ public:
     /// </summary>
     void RebuildShell();
 
+    /// <summary>
+    /// ボス全体の大きさの倍率を設定する。
+    ///
+    /// パラメータには適用済みの値が入っているので、直前の倍率との差分だけを掛ける。
+    /// 何度動かしても値が二重に膨らまないのと、保存した json をそのまま読み直せるのが狙い
+    /// </summary>
+    /// <param name="scale">新しい倍率</param>
+    /// <returns>float: 実際に掛けた比率（第2形態やパーティクルへ同じ比率を渡すのに使う）</returns>
+    float ApplyMasterScale(float scale);
+
+    /// <summary>いまの値を jsons/Boss/[id].json へ書き出す</summary>
+    void SaveParameters() { parameters_.Save(); }
+
     /// ===================================================
     /// 状態・攻撃（BossState / IBossAttack から使う操作）
     /// ===================================================

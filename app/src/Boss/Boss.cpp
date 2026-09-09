@@ -59,7 +59,7 @@ void Boss::Init(const std::string objectName) {
 
     // シーンに保存済みの配置があればそれを尊重し、無いときだけ既定値を入れる
     if (!objectData_ || !objectData_->Contains("translation")) {
-        transform_->translation_ = Vector3{0.0f, GetBodyRadius(), 0.0f};
+        transform_->translation_ = Vector3{0.0f, GetBodyRadius() + shell.groundOffset, 0.0f};
     }
     if (!objectData_ || !objectData_->Contains("scale")) {
         const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
@@ -91,6 +91,19 @@ void Boss::Update() {
     if (isPaused_) {
         // 止めているあいだも、殻の見た目だけは作り直しておく
         // （ImGui で殻の設定をいじったとき、その場で反映されるように）
+        cluster_.Update();
+        return;
+    }
+
+    // 第2形態が出ているあいだ、この形態は描いていない。
+    // 更新まで続けると、姿の見えないまま突進や落下でプレイヤーを殴ってしまい、
+    // 予告線や着弾の警告表示だけが地面に出る。描かないなら動きも止める
+    if (!formVisible_) {
+        if (pCurrentAttack_) {
+            // 進行中の攻撃を畳む（予告線・警告表示もここで消える）
+            EndCurrentAttack();
+            RequestState(BossStateId::Idle);
+        }
         cluster_.Update();
         return;
     }
@@ -549,13 +562,32 @@ void Boss::RebuildShell() {
     UpdateExposureScaling();
 }
 
+float Boss::ApplyMasterScale(float scale) {
+    const float next = std::clamp(scale, 0.1f, 5.0f);
+    const float previous = (std::max)(0.01f, parameters_.GetMasterScale());
+    const float ratio = next / previous;
+    if (std::abs(ratio - 1.0f) < 0.0001f) {
+        return 1.0f;
+    }
+
+    // 長さにあたる値をまとめて掛ける（殻の半径・攻撃の届く範囲・接地の余白など）。
+    // コアの大きさは (殻の半径 - 球の半径) × coreScale で出しているので一緒に付いてくる
+    parameters_.ScaleLengths(ratio);
+    parameters_.SetMasterScale(next);
+
+    // 球は作り直さず、格子の間隔と半径を引き直すだけ。
+    // 接地高さ（homePosition_.y）もここで新しい外周半径へ合わせ直される
+    ApplyShellChanges();
+    return ratio;
+}
+
 void Boss::ApplyCoreLayout() {
     const BossShellParams &shell = parameters_.Shell();
 
     // コアの大きさと接地高さを殻へ追従させる
     const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
     transform_->scale_ = Vector3{coreSize, coreSize, coreSize};
-    homePosition_.y = GetBodyRadius();
+    homePosition_.y = GetBodyRadius() + shell.groundOffset;
 
     // 攻撃で浮いている最中に高さを合わせると落下が破綻するので、そのときは触らない
     if (stateMachine_.GetCurrentId() != BossStateId::Attack) {
@@ -610,6 +642,13 @@ void Boss::RegisterTuningParameters() {
     coreOptions.max = 1.2f;
     coreOptions.onChange = [this] { ApplyShellChanges(); };
     params_.Register("殻:コアの大きさ", &shell.coreScale, coreOptions);
+
+    GameParamHub::Options groundOptions{};
+    groundOptions.speed = 0.01f;
+    groundOptions.min = -5.0f;
+    groundOptions.max = 20.0f;
+    groundOptions.onChange = [this] { ApplyCoreLayout(); };
+    params_.Register("殻:接地高さの調整", &shell.groundOffset, groundOptions);
 
     // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
     BossMetaBallParams &metaBall = parameters_.MetaBall();
@@ -897,6 +936,33 @@ void Boss::DrawGameplayImGui() {
     bandChanged |= ImGui::SliderInt("分割数(0=12/1=42/2=162)", &shell.subdivision, 0, 2);
     bandChanged |= ImGui::SliderInt("外側へ付着できる層数", &shell.outerLayers, 0, 5);
     bandChanged |= ImGui::SliderInt("内側へ付着できる層数", &shell.innerLayers, 0, 5);
+
+    // 見た目の外周は球の中心より外へ膨らむので、外周半径ちょうどだと下の球が床へ潜る。
+    // 大きさを変えるほど潜り方も増えるため、持ち上げ量を手で足せるようにしておく
+    if (ImGui::DragFloat("接地高さの調整", &shell.groundOffset, 0.01f, -5.0f, 20.0f)) {
+        ApplyCoreLayout();
+    }
+    HelpMarker("中心の高さは「外周半径 + この値」になります。\n"
+               "融合メッシュのふくらみや、外側へ積み上がった弾のぶんだけ\n"
+               "下の球が床に潜って見えるときに持ち上げてください。\n"
+               "全体の大きさを変えると、この値も一緒に掛かります");
+    // 基本殻の球は外周半径ちょうどで床に接するが、そこへ弾が外側の層まで積み上がると
+    // そのぶん下へはみ出す。融合メッシュが球より太る設定なら、その差も足りない。
+    // どちらも計算で出せるので、目分量で探さずに済むよう「必要な値」を出して入れられるようにする
+    const float sphereRadius = cluster_.GetSphereRadius();
+    const float stackDepth = sphereRadius * 2.0f * static_cast<float>(shell.outerLayers);
+    const float metaBallBulge =
+        sphereRadius * (std::max)(0.0f, parameters_.MetaBall().influenceScale * 0.5f - 1.0f);
+    const float suggested = stackDepth + metaBallBulge;
+    ImGui::TextDisabled("中心の高さ %.3f ／ 外周半径 %.3f ／ 弾が積もるぶん %.3f",
+                        transform_->translation_.y, GetBodyRadius(), suggested);
+    if (ImGui::Button("弾が積もるぶんまで持ち上げる")) {
+        shell.groundOffset = suggested;
+        ApplyCoreLayout();
+    }
+    HelpMarker("外側の層いっぱいまで弾が付いても床から出ない高さにします。\n"
+               "弾が少ないうちは浮いて見えるので、間を取りたいときは\n"
+               "上のスライダーで半分くらいに減らしてください");
 
     const bool rebuildPressed = ImGui::Button("殻を作り直す");
     if (bandChanged || rebuildPressed) {

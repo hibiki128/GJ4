@@ -80,10 +80,44 @@ void BossParticles::Init() {
             }
             effect.emitters.push_back(emitter);
         }
+        // 倍率を掛け直す基準は「json に書いてある値」。出し直すたびに取り直す。
+        // 発生範囲はエミッターから読めるが、飛び散る速さは読み出す口が無いので
+        // 同じ json をこちらでも開いて基準を取る（書き込みはしない）
+        effect.baseScales.clear();
+        for (const ParticleCSEmitter *emitter : effect.emitters) {
+            effect.baseScales.push_back(emitter->GetScale());
+        }
+        DataHandler source("ParticleCS", desc.templateName);
+        effect.baseVelocityMin = source.Load<Vector3>("group_0_minVelocity", Vector3{});
+        effect.baseVelocityMax = source.Load<Vector3>("group_0_maxVelocity", Vector3{});
         effect.next = 0;
     }
 
     LoadRingLayout();
+    ApplyMasterScaleToEmitters();
+}
+
+void BossParticles::SetMasterScale(float scale) {
+    masterScale_ = (std::max)(0.01f, scale);
+    ApplyMasterScaleToEmitters();
+}
+
+void BossParticles::ApplyMasterScaleToEmitters() {
+    ParticleCSSpawner *spawner = ParticleCSSpawner::GetInstance();
+    for (Effect &effect : effects_) {
+        for (size_t index = 0; index < effect.emitters.size() && index < effect.baseScales.size();
+             ++index) {
+            ParticleCSEmitter *emitter = effect.emitters[index];
+            if (!emitter || !spawner->IsAlive(emitter)) {
+                continue;
+            }
+            // 発生範囲だけ広げても粒がその場に固まるので、飛び散る速さも一緒に掛ける。
+            // ボスが2倍なら土煙も2倍の範囲へ広がる
+            emitter->SetScale(effect.baseScales[index] * masterScale_);
+            emitter->SetMinVelocity(effect.baseVelocityMin * masterScale_);
+            emitter->SetMaxVelocity(effect.baseVelocityMax * masterScale_);
+        }
+    }
 }
 
 void BossParticles::LoadRingLayout() {
@@ -122,9 +156,12 @@ void BossParticles::UpdateStaggerRing(const Vector3 &headCenter, float deltaTime
         // 体数で円周を等分して受け持つ。1体だと弧にしかならず、輪がつながらない
         const float angle = ringAngle_ + std::numbers::pi_v<float> * 2.0f *
                                              static_cast<float>(index) / static_cast<float>(count);
-        emitter->SetTranslate(Vector3{headCenter.x + std::cos(angle) * ring_.radius,
-                                      headCenter.y + ring_.height,
-                                      headCenter.z + std::sin(angle) * ring_.radius});
+        // 輪の大きさはボスに合わせる。json には倍率を掛ける前の値が入っている
+        const float radius = ring_.radius * masterScale_;
+        const float height = ring_.height * masterScale_;
+        emitter->SetTranslate(Vector3{headCenter.x + std::cos(angle) * radius,
+                                      headCenter.y + height,
+                                      headCenter.z + std::sin(angle) * radius});
         emitter->EmitOnce();
     }
 }
