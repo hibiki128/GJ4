@@ -140,9 +140,10 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <param name="outCell">当たった球の格子セル（不要なら省略可。球の中心を引くのに使う）</param>
     /// <returns>bool: 当たれば true</returns>
     bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                      Hagine::Vector3 &outPoint);
+                      Hagine::Vector3 &outPoint, ShellCell *outCell = nullptr);
 
     /// ===================================================
     /// 問い合わせ

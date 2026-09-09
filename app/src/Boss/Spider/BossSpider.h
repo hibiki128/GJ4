@@ -151,10 +151,10 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色違いの飛翔弾はすり抜ける）</param>
-    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <param name="outHit">最初に当たった点と、その球の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
-                      Hagine::Vector3 &outPoint) override;
+                      AimHit &outHit) override;
 
     /// <summary>ソフトロックオンの対象（脚の球）を探す</summary>
     /// <param name="request">問い合わせ内容</param>

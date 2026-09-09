@@ -47,9 +47,8 @@ void GameScene::Initialize()
         {
             pSpriteManager_->DrawAll();
             // 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
-            // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする。
-            // 止まっているとき（ポーズ）と倒れているときは狙いようがないので引っ込める
-            if (reticle_ && player_ && !PauseMenu::GetInstance()->IsPaused() && !player_->IsDead()) {
+            // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする
+            if (ShouldDrawReticle()) {
                 reticle_->Draw();
             }
             // 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
@@ -282,8 +281,15 @@ void GameScene::Update()
 	// 止めているあいだも範囲を見ながら大きさを詰められる
 	field_->DrawLine();
 
+	// プレイヤーもボスも、更新はオブジェクトマネージャーが回しているので、
+	// シーンが return するだけでは止まらない。入力を入れたままポーズすると滑っていったり、
+	// 止まっているあいだに殴られたりするので、止める・再開するは毎フレームここで伝える
+	const bool isPaused = PauseMenu::GetInstance()->IsPaused();
+	player_->SetPaused(isPaused);
+	ApplyBossPause(isPaused);
+
 	// ポーズ中はゲーム側の更新を止める（カメラだけは動かしておく）
-	if (PauseMenu::GetInstance()->IsPaused()) {
+	if (isPaused) {
 		CameraUpdate();
 		return;
 	}
@@ -295,10 +301,14 @@ void GameScene::Update()
 	damageVignette_->Update(Frame::DeltaTime());
 	perfectDodge_->Update(Frame::DeltaTime());
 
-	player_->CommandExecute(gameInput_->GetInputContext());
-
-	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
+	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す。
+	// 入力を配るより先に呼ぶのは、ムービーが始まったフレームからもう操作を切りたいため
 	UpdateFormChange();
+
+	// ムービー中は操作を受け付けない。入力を配るのをやめるのではなく「何も入れていない」ことにして
+	// 渡すので、走っている途中でも自然に減速して止まり、アイドルへ戻る。
+	// 止めるのは操作だけで、重力も演出も動いたままなので、空中にいれば着地する
+	player_->CommandExecute(IsCinematicPlaying() ? PlayerInput{} : gameInput_->GetInputContext());
 
 	followCamera_->Update(gameInput_->GetCameraContext());
 
@@ -310,6 +320,49 @@ void GameScene::Update()
 	// 射線はカメラから作る。カメラを動かした後に配り直すので、
 	// プレイヤーは「いま見ている向き」へ撃てる
 	UpdateAim();
+}
+
+void GameScene::ApplyBossPause(bool paused)
+{
+	/// ===================================================
+	/// 敵の更新を止めるかを配る
+	/// ===================================================
+
+	// ポーズとデバッグの一時停止は別々の理由なので、どちらか一方でも立っていれば止める
+	const bool stop = paused || isBossPaused_;
+
+	if (boss_) {
+		boss_->SetPaused(stop);
+	}
+	if (bossSpider_) {
+		bossSpider_->SetPaused(stop);
+	}
+}
+
+bool GameScene::IsCinematicPlaying() const
+{
+	/// ===================================================
+	/// ムービー中か（黒帯が出ているあいだ）
+	/// ===================================================
+
+	// 演出の始まりで黒帯が出て（Begin）、カメラをプレイヤーへ返し終えたところで下りる（Stop）。
+	// カメラが戻っている最中も「まだムービー」として扱うので、
+	// 構図が戻りきる前に動き出したり狙えたりはしない
+	return defeatDirector_ && defeatDirector_->IsActive();
+}
+
+bool GameScene::ShouldDrawReticle() const
+{
+	/// ===================================================
+	/// レティクルを出してよい場面か
+	/// ===================================================
+
+	if (!reticle_ || !player_) {
+		return false;
+	}
+
+	// 止まっているとき・ムービー中・倒れているときは狙いようがないので引っ込める
+	return !PauseMenu::GetInstance()->IsPaused() && !IsCinematicPlaying() && !player_->IsDead();
 }
 
 void GameScene::UpdateAim()
@@ -433,8 +486,9 @@ void GameScene::AddObjectSetting()
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
 	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
 	if (ImGui::Checkbox("敵を一時停止", &isBossPaused_)) {
-		boss_->SetPaused(isBossPaused_);
-		bossSpider_->SetPaused(isBossPaused_);
+		// 押した瞬間にも効かせる。ゲームを止めているあいだは Update が回らないので、
+		// 毎フレームの配り直しだけに任せると、止めた状態では切り替えられなくなる
+		ApplyBossPause(PauseMenu::GetInstance()->IsPaused());
 	}
 	if (isBossPaused_) {
 		ImGui::SameLine();

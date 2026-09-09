@@ -8,15 +8,11 @@ using namespace Hagine;
 
 namespace {
 
-/// <summary>
-/// 「+」1つに使う板の枚数（明るい線2本＋アウトライン2本）
-/// </summary>
-constexpr int kRectsPerCross = 4;
+/// <summary>照準レティクルの絵（色つきの十字）。images ルートからの相対パス</summary>
+constexpr const char* kAimTexturePath = "Hud/Reticle/reticle.png";
 
-/// <summary>
-/// 1フレームに描く「+」の数（照準・発射）
-/// </summary>
-constexpr int kCrossCount = 2;
+/// <summary>発射レティクルの絵（水色の円）。照準と形がはっきり違うものを選んである</summary>
+constexpr const char* kFiringTexturePath = "Hud/Reticle/reticle_assist.png";
 
 /// <summary>
 /// ワールドの一点をUIの座標（仮想解像度のピクセル）へ落とす。
@@ -49,12 +45,13 @@ bool WorldToScreen(const ViewProjection& viewProjection, const Vector3& world, V
 } // namespace
 
 void PlayerReticle::Init() {
-	if (initialized_) {
+	if (aimSprite_.IsReady()) {
 		return;
 	}
 
-	rects_.Initialize(kRectsPerCross * kCrossCount);
-	initialized_ = true;
+	// アンカーは中心。狙っている一点にレティクルの真ん中が乗る
+	aimSprite_.Initialize(kAimTexturePath, Vector2{0.5f, 0.5f});
+	firingSprite_.Initialize(kFiringTexturePath, Vector2{0.5f, 0.5f});
 
 	// 最初の狙いが届くまでの間、発射レティクルが画面の隅（座標0）に居座らないようにする
 	Reset();
@@ -66,15 +63,11 @@ void PlayerReticle::RegisterParams() {
 
 	hub->Register(paramOwnerLabel, "Enabled", &enabled_);
 
-	hub->Register(paramOwnerLabel, "AimSize", &aimSize_, {0.5f, 2.0f, 64.0f});
-	hub->Register(paramOwnerLabel, "FiringSize", &firingSize_, {0.5f, 2.0f, 64.0f});
-	hub->Register(paramOwnerLabel, "LineWidth", &lineWidth_, {0.1f, 1.0f, 8.0f});
-	hub->Register(paramOwnerLabel, "OutlineWidth", &outlineWidth_, {0.1f, 0.0f, 4.0f});
-	hub->Register(paramOwnerLabel, "OutlineAlpha", &outlineAlpha_, {0.01f, 0.0f, 1.0f});
+	hub->Register(paramOwnerLabel, "AimSize", &aimSize_, {0.5f, 4.0f, 256.0f});
+	hub->Register(paramOwnerLabel, "FiringSize", &firingSize_, {0.5f, 4.0f, 256.0f});
 
 	hub->Register(paramOwnerLabel, "DisplayThreshold", &displayThreshold_, {0.5f, 0.0f, 200.0f});
 	hub->Register(paramOwnerLabel, "MoveTime", &moveTime_, {0.005f, 0.0f, 0.5f});
-	hub->Register(paramOwnerLabel, "FadeTime", &fadeTime_, {0.005f, 0.0f, 0.5f});
 
 	GameParamHub::Options colorOptions{};
 	colorOptions.speed = 0.01f;
@@ -89,46 +82,41 @@ void PlayerReticle::Update(const PlayerAimReport& report, const ViewProjection& 
 	const Vector2 center = ScreenCenter();
 
 	/// ===================================================
-	/// 発射レティクルを出すか決める
+	/// 発射レティクルの行き先を決める
 	/// ===================================================
 
-	// 出す条件は2つ。
-	//  1. 弾が本当に何かへ当たること。当たらないなら見せるべき着弾点が無いので出さない（仕様書 9.2）
+	// 発射レティクルは常に出しておき、行き先だけを切り替える。
+	//  ・画面中央 … 弾は狙ったところに当たる。円が照準レティクルを囲んだ状態
+	//  ・着弾点   … 弾は別のところに当たる。円だけが離れていく
+	// 着弾点へ移るには2つとも満たすこと。
+	//  1. 弾が本当に何かへ当たること。当たらないなら指すべき着弾点が無い（仕様書 9.2）
 	//  2. その着弾点が画面中央から閾値ぶん離れていること（仕様書 6）
-	bool shouldShow = false;
+	bool diverged = false;
+	Vector2 target = center;
+
 	Vector2 firePoint{};
 	if (report.firePointHit && WorldToScreen(viewProjection, report.firePoint, firePoint)) {
-		shouldShow = ((firePoint - center).Length() >= displayThreshold_);
-	}
-
-	if (shouldShow) {
-		firingTarget_ = firePoint;
-		if (!firingVisible_) {
-			// 出た瞬間。いきなり最終位置へ跳ばすと目が追えないので、
-			// 画面中央から動かし始める（仕様書 7）
-			firingVisible_ = true;
-			firingStart_ = center;
-			firingCurrent_ = center;
-			firingMoveElapsed_ = 0.0f;
+		if ((firePoint - center).Length() >= displayThreshold_) {
+			diverged = true;
+			target = firePoint;
 		}
-	} else {
-		firingVisible_ = false;
 	}
 
-	/// ===================================================
-	/// 濃さと位置を進める
-	/// ===================================================
-
-	// ぱっと消すと点滅して見えるので、出るときも消えるときも同じ時間でフェードする
-	const float fadeStep = (fadeTime_ > 0.0f) ? (deltaTime / fadeTime_) : 1.0f;
-	firingAlpha_ = std::clamp(firingAlpha_ + (firingVisible_ ? fadeStep : -fadeStep), 0.0f, 1.0f);
-
-	if (!firingVisible_) {
-		return; // 消えていく間は最後の位置に置いたまま薄くする
+	// 行き先が入れ替わった瞬間だけ、いまいる場所から動かし直す。
+	// 中央へ戻るときも同じ時間をかけて滑らかに戻り、いきなり跳ばない（仕様書 7）
+	if (diverged != firingDiverged_) {
+		firingDiverged_ = diverged;
+		firingStart_ = firingCurrent_;
+		firingMoveElapsed_ = 0.0f;
 	}
+	firingTarget_ = target;
 
-	// 画面中央から着弾点へ移動する。経過時間で補間しているので moveTime_ を過ぎれば
-	// 必ず目標へ届き、以降は毎フレームの着弾点をそのまま指す。
+	/// ===================================================
+	/// 位置を進める
+	/// ===================================================
+
+	// 経過時間で補間しているので moveTime_ を過ぎれば必ず行き先へ届き、
+	// 以降は毎フレームの着弾点をそのまま指す。
 	// つまり「表示が追いつかないまま撃つ」時間は moveTime_ の間だけで済む（仕様書 7）
 	firingMoveElapsed_ += deltaTime;
 	const float rate = (moveTime_ > 0.0f) ? std::clamp(firingMoveElapsed_ / moveTime_, 0.0f, 1.0f) : 1.0f;
@@ -136,25 +124,22 @@ void PlayerReticle::Update(const PlayerAimReport& report, const ViewProjection& 
 }
 
 void PlayerReticle::Draw() {
-	if (!enabled_ || !initialized_) {
+	if (!enabled_) {
 		return;
 	}
 
-	rects_.BeginFrame();
+	// 発射レティクルは常に出す。ズレていなければ画面中央で照準レティクルを囲み、
+	// ズレていればその着弾点へ移っている。
+	// 先に描いて照準レティクルを手前に重ねるので、重なっても基準のほうが隠れない
+	DrawReticle(firingSprite_, firingCurrent_, firingSize_, firingColor_);
 
 	// 照準レティクルは常に画面中央（仕様書 3.1 / 11.2）。
 	// 補正が起きても動かさないことで、プレイヤーの操作基準がぶれない
-	DrawCross(ScreenCenter(), aimSize_, aimColor_, 1.0f);
-
-	// 発射レティクルはズレが出ているときだけ（仕様書 5.1 / 5.2）
-	if (firingAlpha_ > 0.0f) {
-		DrawCross(firingCurrent_, firingSize_, firingColor_, firingAlpha_);
-	}
+	DrawReticle(aimSprite_, ScreenCenter(), aimSize_, aimColor_);
 }
 
 void PlayerReticle::Reset() {
-	firingVisible_ = false;
-	firingAlpha_ = 0.0f;
+	firingDiverged_ = false;
 	firingMoveElapsed_ = 0.0f;
 	firingCurrent_ = ScreenCenter();
 	firingTarget_ = firingCurrent_;
@@ -167,21 +152,15 @@ Vector2 PlayerReticle::ScreenCenter() {
 	};
 }
 
-void PlayerReticle::DrawCross(const Vector2& center, float size, const Vector4& color, float alpha) {
-	if (alpha <= 0.0f || size <= 0.0f || lineWidth_ <= 0.0f) {
+void PlayerReticle::DrawReticle(GameUi::UiSprite& sprite, const Vector2& center, float height,
+                                const Vector4& color) {
+	if (!sprite.IsReady() || height <= 0.0f) {
 		return;
 	}
 
-	// アウトラインを先に敷く。明るい線と同じ形をひと回り大きく暗い色で描くので、
-	// 白い背景でも黒い背景でもレティクルの輪郭が消えない（仕様書 3.1 の「半透明のアウトライン」）
-	if (outlineWidth_ > 0.0f && outlineAlpha_ > 0.0f) {
-		const float grow = outlineWidth_ * 2.0f;
-		const Vector4 outlineColor = {0.0f, 0.0f, 0.0f, outlineAlpha_ * alpha};
-		rects_.Draw(center, Vector2{size + grow, lineWidth_ + grow}, outlineColor);
-		rects_.Draw(center, Vector2{lineWidth_ + grow, size + grow}, outlineColor);
-	}
+	// 横幅はテクスチャ本来の縦横比から決める。絵を差し替えて正方形でなくなっても歪まない
+	const Vector2& baseSize = sprite.GetBaseSize();
+	const float aspect = (baseSize.y > 0.0f) ? (baseSize.x / baseSize.y) : 1.0f;
 
-	const Vector4 lineColor = {color.x, color.y, color.z, color.w * alpha};
-	rects_.Draw(center, Vector2{size, lineWidth_}, lineColor); // 横棒
-	rects_.Draw(center, Vector2{lineWidth_, size}, lineColor); // 縦棒
+	sprite.Draw(center, Vector2{height * aspect, height}, color);
 }

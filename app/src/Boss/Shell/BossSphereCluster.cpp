@@ -521,7 +521,7 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
 }
 
 bool BossSphereCluster::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd,
-                                     Vector3 &outPoint) {
+                                     Vector3 &outPoint, ShellCell *outCell) {
     ShellCell hitCell{};
     Vector3 localHitPoint{};
     Matrix4x4 shellMatrix{};
@@ -530,6 +530,9 @@ bool BossSphereCluster::RaycastPoint(const Vector3 &worldStart, const Vector3 &w
     }
 
     outPoint = Transformation(localHitPoint, shellMatrix);
+    if (outCell) {
+        *outCell = hitCell;
+    }
     return true;
 }
 

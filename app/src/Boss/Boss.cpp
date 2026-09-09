@@ -526,7 +526,7 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
     return result;
 }
 
-bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, Vector3 &outPoint) {
+bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, AimHit &outHit) {
     // 当たり判定を持たない間は照準も素通りさせる（RaycastAttach と同じ条件にそろえる）
     if (IsAppearing()) {
         return false;
@@ -534,7 +534,17 @@ bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Colo
 
     // 殻の球は色に関係なく弾を止めるので、色は見ない
     (void)color;
-    return cluster_.RaycastPoint(worldStart, worldEnd, outPoint);
+    ShellCell hitCell{};
+    if (!cluster_.RaycastPoint(worldStart, worldEnd, outHit.point, &hitCell)) {
+        return false;
+    }
+
+    // エイムアシストの吸着先は当たった球の中心。
+    // 消える途中などで座標が引けなければ、表面の点をそのまま中心として返す（＝寄らない）
+    if (!cluster_.TryGetCellWorldPosition(hitCell, outHit.center)) {
+        outHit.center = outHit.point;
+    }
+    return true;
 }
 
 bool Boss::TryGetTargetPosition(const ShellCell &cell, Vector3 &out) {

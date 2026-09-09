@@ -5,6 +5,7 @@
 #include "line/LineRenderer.h"
 #include "src/Character/Player/Components/Ammo/PlayerAmmoComponent.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
+#include <algorithm>
 #include <string>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -22,9 +23,14 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     // 発射の瞬間に計算すると、その1発だけ照準表示と食い違う可能性がある
     aimPoint_ = ResolveAimPoint(target, context.aimOrigin_, context.aimDirection_);
 
-    // 弾が本当に当たる点も撃つ前から求めておく。狙う先は同じ aimPoint_ でも、
-    // 射線を飛ばす起点がカメラではなくマズルなので、途中の球に先にぶつかることがある。
-    // このズレが発射レティクルとして画面に出る
+    // エイムアシスト。レティクルが乗っている球の真ん中へ狙いを寄せる。
+    // 照準そのもの（aimPoint_）は動かさないので、白い十字は画面中央に固定のまま。
+    // 動くのは「実際に狙う一点」だけで、その結果は発射レティクルとして画面に出る
+    assistPoint_ = ResolveAssistPoint();
+
+    // 弾が本当に当たる点も撃つ前から求めておく。狙う先が同じでも、射線を飛ばす起点が
+    // カメラではなくマズルなので、途中の球に先にぶつかることがある。
+    // このズレも発射レティクルに出る
     const Hagine::Vector3 muzzle = context.transform_->translation_;
     firePoint_ = ResolveFirePoint(target, muzzle,
                                   ResolveFireDirection(muzzle, context.aimDirection_));
@@ -103,19 +109,35 @@ Hagine::Vector3 PlayerShootComponent::ResolveAimPoint(IBossTargetQuery* target,
 
     // 着弾判定（RaycastAttach）と同じ形状・同じ色の扱いを通るので、
     // 「照準では当たる表示なのに弾は素通りする」というズレが出ない
-    Hagine::Vector3 hitPoint{};
-    if (!target->RaycastPoint(origin, farPoint, selectedColor_, hitPoint)) {
+    AimHit hit{};
+    if (!target->RaycastPoint(origin, farPoint, selectedColor_, hit)) {
         return farPoint; // 何にも当たらない方向。射程の端を狙って真っ直ぐ飛ばす
     }
 
     aimPointHit_ = true;
-    return hitPoint;
+    aimHitCenter_ = hit.center; // エイムアシストの寄せ先（当たった球の真ん中）
+    return hit.point;
+}
+
+Hagine::Vector3 PlayerShootComponent::ResolveAssistPoint() const {
+    // 何にも当たっていないならアシストのしようがない。照準の点をそのまま狙う
+    if (!aimPointHit_ || !aimAssistEnabled_) {
+        return aimPoint_;
+    }
+
+    // 照準が乗っている球の表面から、その球の真ん中へ寄せる。
+    // 強さ 1 で真ん中ぴったり、0 で寄せない（＝アシスト切）。
+    // 球の縁をかすっているときほど寄る距離が大きくなるので、
+    // 「当たってはいるが端」という一番外しやすい状況に効く
+    const float strength = std::clamp(aimAssistStrength_, 0.0f, 1.0f);
+    return aimPoint_ + (aimHitCenter_ - aimPoint_) * strength;
 }
 
 Hagine::Vector3 PlayerShootComponent::ResolveFireDirection(const Hagine::Vector3& muzzle,
                                                            const Hagine::Vector3& fallback) const {
-    const Hagine::Vector3 toAimPoint = aimPoint_ - muzzle;
-    return (toAimPoint.LengthSq() > 0.0001f) ? toAimPoint.Normalize() : fallback;
+    // 狙う先はアシストを効かせた後の一点。照準の点（aimPoint_）ではない
+    const Hagine::Vector3 toAssistPoint = assistPoint_ - muzzle;
+    return (toAssistPoint.LengthSq() > 0.0001f) ? toAssistPoint.Normalize() : fallback;
 }
 
 Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
@@ -130,13 +152,13 @@ Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
 
     // 弾の着弾判定（RaycastAttach）と同じ形状・同じ色の扱いを通る問い合わせ。
     // 副作用は起こさないので、毎フレーム呼んでも付着や消去は発生しない
-    Hagine::Vector3 hitPoint{};
-    if (!target->RaycastPoint(muzzle, farPoint, selectedColor_, hitPoint)) {
+    AimHit hit{};
+    if (!target->RaycastPoint(muzzle, farPoint, selectedColor_, hit)) {
         return farPoint; // 弾は何にも当たらずに飛んでいく
     }
 
     firePointHit_ = true;
-    return hitPoint;
+    return hit.point;
 }
 
 void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target, const Hagine::Vector3& origin,
@@ -161,7 +183,9 @@ bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
     // 狙いは画面中心が指している着弾地点、弾が出るのはプレイヤーの位置。
     // 初速の時点でその一点を向けておくのが、狙ったところに当てるための要
     const Hagine::Vector3 muzzle = context.transform_->translation_;
-    const Hagine::Vector3 aimPoint = aimPoint_;
+    // 狙うのはエイムアシストを効かせた後の一点（球の真ん中）。
+    // 初速の向きも追尾先もここへそろえないと、アシストが効かない
+    const Hagine::Vector3 aimPoint = assistPoint_;
 
     // 発射レティクルが射線を飛ばすのに使ったものと同じ関数。
     // ここで別計算をすると、表示と弾の飛ぶ向きがずれる（仕様書 17.1 / 17.3）
@@ -221,9 +245,16 @@ void PlayerShootComponent::DrawAimLine(const PlayerContext& context) const {
     lineRenderer->AddLine(context.aimOrigin_, aimPoint_, {0.4f, 0.4f, 0.45f, 1.0f});
     lineRenderer->AddSphere(aimPoint_, 0.7f, aimColor, 12);
 
+    // エイムアシストで寄せた先（球の真ん中）。上の黄色い点からここへ引っ張られている
+    if (aimPointHit_ && aimAssistEnabled_) {
+        const Hagine::Vector4 assistColor = {0.3f, 1.0f, 0.6f, 1.0f};
+        lineRenderer->AddLine(aimPoint_, assistPoint_, assistColor);
+        lineRenderer->AddSphere(assistPoint_, 0.35f, assistColor, 12);
+    }
+
     // 実際に弾が通る線と、その先で最初に当たる点。
     // 同じ一点を狙っていても起点がマズルなので、途中の球へ先にぶつかることがある。
-    // 上の点とここがずれているときに、画面へ発射レティクル（赤い「+」）が出る
+    // 上の点とここがずれているときに、画面へ発射レティクル（水色の円）が出る
     const Hagine::Vector4 fireColor = firePointHit_ ? Hagine::Vector4{1.0f, 0.3f, 0.2f, 1.0f}
                                                     : Hagine::Vector4{0.4f, 0.4f, 0.45f, 1.0f};
     lineRenderer->AddLine(context.transform_->translation_, firePoint_, fireColor);
@@ -238,6 +269,8 @@ void PlayerShootComponent::RegisterParams() {
 
     hub->Register(paramOwnerLabel, "DrawAimLine", &drawAimLine_);
     hub->Register(paramOwnerLabel, "AimRayLength", &aimRayLength_, {1.0f, 10.0f, 1000.0f});
+    hub->Register(paramOwnerLabel, "AimAssist", &aimAssistEnabled_);
+    hub->Register(paramOwnerLabel, "AimAssistStrength", &aimAssistStrength_, {0.01f, 0.0f, 1.0f});
 
     // 弾の飛び方は武器が持っている（Player::Init が SetWeapon を先に済ませている）
     if (!weapon_) {
@@ -272,6 +305,17 @@ void PlayerShootComponent::DrawImGui() {
         ImGui::Text("命中: (%.1f, %.1f, %.1f)", aimPoint_.x, aimPoint_.y, aimPoint_.z);
     } else {
         ImGui::TextDisabled("何にも当たらない方向（射程 %.0f の端を狙う）", aimRayLength_);
+    }
+
+    ImGui::SeparatorText("エイムアシスト");
+    if (!aimAssistEnabled_) {
+        ImGui::TextDisabled("切（照準の点をそのまま狙う）");
+    } else if (!aimPointHit_) {
+        ImGui::TextDisabled("照準が球に乗っていないので効かない");
+    } else {
+        // 表面から真ん中へ何メートル寄せたか。球の縁をかすっているときほど大きくなる
+        ImGui::Text("寄せた距離: %.2f （強さ %.2f）", (assistPoint_ - aimPoint_).Length(),
+                    aimAssistStrength_);
     }
 
     ImGui::SeparatorText("弾が実際に当たる点（発射レティクル）");
