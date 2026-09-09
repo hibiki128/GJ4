@@ -5,6 +5,7 @@
 #include "src/Boss/Effect/BossDefeatDirector.h"
 #include "src/Character/Player/Player.h"
 #include "src/Field/Field.h"
+#include "src/Field/FieldSurround.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
@@ -92,6 +93,9 @@ private:
 
     // プレイヤーと敵を閉じ込める円柱の外周（見た目は線だけ）
     std::unique_ptr<Field> field_;
+
+    // その外側をぐるりと囲む飾りの柱（背景のクリアカラーを塞ぐ役も兼ねる）
+    std::unique_ptr<FieldSurround> fieldSurround_;
 
     // ----- ボス（プレイヤー側の処理には触らず、インターフェース経由で連携する）-----
     std::unique_ptr<Boss> boss_;

@@ -147,6 +147,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
+    <ClCompile Include="src\Field\FieldSurround.cpp" />
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverPlayerActor.cpp" />
     <ClCompile Include="src\GameOver\GameOverStaging.cpp" />
@@ -211,6 +212,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
     <ClInclude Include="src\Field\Field.h" />
+    <ClInclude Include="src\Field\FieldSurround.h" />
     <ClInclude Include="src\GameOver\GameOverBossActor.h" />
     <ClInclude Include="src\GameOver\GameOverContext.h" />
     <ClInclude Include="src\GameOver\GameOverPlayerActor.h" />
