@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseScene.h"
+#include "src/Field/FieldSurround.h"
 #include "src/GameOver/GameOverStaging.h"
 #include <memory>
 
@@ -66,4 +67,7 @@ public:
 private:
     // 置くもの（見下ろすボス・倒れたプレイヤー）と、その画角
     std::unique_ptr<GameOverStaging> staging_;
+
+    // 周りを囲む飾りの柱。ゲームシーンと同じ場所に立っているように見せる
+    std::unique_ptr<FieldSurround> fieldSurround_;
 };

@@ -28,6 +28,9 @@
     <ClCompile Include="src\Field\Field.cpp">
       <Filter>src\Field</Filter>
     </ClCompile>
+    <ClCompile Include="src\Field\FieldSurround.cpp">
+      <Filter>src\Field</Filter>
+    </ClCompile>
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp">
       <Filter>src\GameOver</Filter>
     </ClCompile>
@@ -351,6 +354,9 @@
       <Filter>src\UI\Damage</Filter>
     </ClInclude>
     <ClInclude Include="src\Field\Field.h">
+      <Filter>src\Field</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Field\FieldSurround.h">
       <Filter>src\Field</Filter>
     </ClInclude>
     <ClInclude Include="src\GameOver\GameOverBossActor.h">
