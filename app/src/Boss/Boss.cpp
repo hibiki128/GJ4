@@ -1,6 +1,7 @@
 #include "Boss.h"
 #include "src/Boss/Attack/BossAttackSlam.h"
 #include "src/Boss/Attack/BossAttackSpin.h"
+#include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/State/BossStates.h"
 #include "collider/ColliderTagManager.h"
 #include "debug/imgui/ImGuiNotification.h"
@@ -15,6 +16,24 @@
 #endif // USE_IMGUI
 
 using namespace Hagine;
+
+#ifdef USE_IMGUI
+namespace {
+
+/// <summary>直前の項目の右に「(?)」を出し、マウスを乗せたときだけ説明を見せる</summary>
+void HelpMarker(const char *description) {
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort) && ImGui::BeginTooltip()) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 28.0f);
+        ImGui::TextUnformatted(description);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
+} // namespace
+#endif // USE_IMGUI
 
 Boss::~Boss() {
     // GameParamHub の解除は params_ のデストラクタが行う
@@ -40,7 +59,7 @@ void Boss::Init(const std::string objectName) {
 
     // シーンに保存済みの配置があればそれを尊重し、無いときだけ既定値を入れる
     if (!objectData_ || !objectData_->Contains("translation")) {
-        transform_->translation_ = Vector3{0.0f, GetBodyRadius(), 0.0f};
+        transform_->translation_ = Vector3{0.0f, GetBodyRadius() + shell.groundOffset, 0.0f};
     }
     if (!objectData_ || !objectData_->Contains("scale")) {
         const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
@@ -77,6 +96,24 @@ void Boss::Update() {
     }
 
     const float deltaTime = Frame::DeltaTime();
+
+    // 第2形態が出ているあいだ、この形態は描いていない。
+    // 攻撃まで続けると、姿の見えないまま突進や落下でプレイヤーを殴ってしまい、
+    // 予告線や着弾の警告表示だけが地面に出る。動く処理はここで止める。
+    //
+    // ただし球まわりの後片付けは進める。ここを飛ばすと、消えかけの球が
+    // 消え切らないまま残ってプールへも戻らない
+    if (!formVisible_) {
+        if (pCurrentAttack_) {
+            // 進行中の攻撃を畳む（予告線・警告表示もここで消える）
+            EndCurrentAttack();
+            RequestState(BossStateId::Idle);
+        }
+        cluster_.SetEffectParams(parameters_.Effect());
+        cluster_.UpdateMotions(deltaTime);
+        cluster_.Update();
+        return;
+    }
 
     if (staggerTimer_ > 0.0f) {
         staggerTimer_ = (std::max)(0.0f, staggerTimer_ - deltaTime);
@@ -154,7 +191,8 @@ void Boss::SetupStatesAndAttacks() {
     stateMachine_.Register(std::make_unique<BossStateDead>());
 
     // 攻撃はパラメータを参照で受け取るので、実行時に値を変えると即反映される
-    scheduler_.AddAttack(std::make_unique<BossAttackSpin>(&parameters_.Spin(), &parameters_.Exposure()));
+    scheduler_.AddAttack(std::make_unique<BossAttackSpin>(&parameters_.Spin(), &parameters_.WallStagger(),
+                                                        &parameters_.Exposure()));
     scheduler_.AddAttack(std::make_unique<BossAttackSlam>(&parameters_.Slam(), &parameters_.Exposure()));
     UpdateExposureScaling();
     scheduler_.Reset();
@@ -206,11 +244,20 @@ void Boss::AddIdleSpin(float deltaTime) {
 }
 
 bool Boss::TickAttackCoolDown(float deltaTime) {
+    // 調整UIから攻撃を名指しされているときは、間隔を待たずに始める
+    if (forcedAttackIndex_ >= 0) {
+        return true;
+    }
     return scheduler_.TickCoolDown(deltaTime);
 }
 
 void Boss::StartScheduledAttack() {
-    pCurrentAttack_ = scheduler_.PickNext();
+    if (forcedAttackIndex_ >= 0) {
+        pCurrentAttack_ = scheduler_.GetAttack(static_cast<size_t>(forcedAttackIndex_));
+        forcedAttackIndex_ = -1;
+    } else {
+        pCurrentAttack_ = scheduler_.PickNext();
+    }
     if (pCurrentAttack_) {
         pCurrentAttack_->Start(MakeAttackContext(0.0f));
     }
@@ -258,24 +305,124 @@ void Boss::UpdateExposureScaling() {
                                 GetNormalizedExposure()));
 }
 
-void Boss::UpdateStaggerShake(float deltaTime) {
+void Boss::BeginWallStagger() {
+    const BossWallStaggerParams &wall = parameters_.WallStagger();
+    staggerKind_ = StaggerKind::Wall;
+    // 動きが途中で切れないよう、3つの段階の合計をそのまま怯み時間にする
+    staggerTimer_ = (std::max)(0.05f, wall.wobbleTime + wall.shakeTime + wall.settleTime);
+    staggerShakeTime_ = 0.0f;
+    // 連鎖のひるみと同じフレームに重なっても、揺らし方が混ざらないようにそろえる
+    SetOffset(Vector3{0.0f, 0.0f, 0.0f});
+}
+
+bool Boss::IsBeyondBounds(const Vector3 &position) const {
+    Vector3 fromHome{position.x - homePosition_.x, 0.0f, position.z - homePosition_.z};
+    if (fromHome.Length() > parameters_.Battle().arenaRadius) {
+        return true;
+    }
+    return pFieldBounds_ && !pFieldBounds_->Contains(position);
+}
+
+bool Boss::UpdateStaggerMotion(float deltaTime) {
+    if (staggerKind_ == StaggerKind::Wall) {
+        return UpdateWallStagger(deltaTime);
+    }
+
+    // --- 連鎖破壊のひるみ：小刻みに震えるだけ ---
     staggerShakeTime_ += deltaTime;
     // 描画オフセットだけを揺らす。当たり判定の位置は動かさない
     SetOffset(Vector3{std::sin(staggerShakeTime_ * 46.0f) * 0.25f, 0.0f,
                       std::cos(staggerShakeTime_ * 37.0f) * 0.18f});
+    return IsStaggered();
+}
+
+bool Boss::UpdateWallStagger(float deltaTime) {
+    const BossWallStaggerParams &wall = parameters_.WallStagger();
+
+    // 入った最初のフレームで、ぶつかった地点をふらつきの中心として覚える。
+    // 押し戻し（ClampToArena）が済んだあとの位置なので、壁にめり込まない
+    if (staggerShakeTime_ <= 0.0f) {
+        // 止まるのは「先端が壁に触れた」時点なので、中心は本体半径のぶん内側にある。
+        // ふらつきの幅より広く空いているため、ここを中心にしても押し戻しには当たらない
+        staggerAnchor_ = transform_->translation_;
+    }
+    staggerShakeTime_ += deltaTime;
+
+    const float wobbleTime = (std::max)(0.01f, wall.wobbleTime);
+    const float shakeTime = (std::max)(0.01f, wall.shakeTime);
+    const float settleTime = (std::max)(0.01f, wall.settleTime);
+    constexpr float kDegToRad = std::numbers::pi_v<float> / 180.0f;
+
+    // 首を振る角度。ここでは「振れ幅の係数」だけを段階ごとに決める
+    float swing = 0.0f;
+    // ふらつきの強さ（1で通常、0で止まっている）
+    float wobble = 0.0f;
+
+    if (staggerShakeTime_ < wobbleTime) {
+        // 1) ぶつかった地点でふらふら揺れる。狙いを付けられる程度にゆっくり
+        wobble = 1.0f;
+    } else if (staggerShakeTime_ < wobbleTime + shakeTime) {
+        // 2) 立ち直りの合図。首を横に振る（振り幅は減りながら収まる）
+        const float progress = (staggerShakeTime_ - wobbleTime) / shakeTime;
+        const float cycles = (std::max)(0.5f, wall.shakeCount);
+        swing = std::sin(progress * cycles * 2.0f * std::numbers::pi_v<float>) * (1.0f - progress);
+        // 振っているあいだにふらつきを引いていく
+        wobble = 1.0f - progress;
+    } else {
+        // 3) ゆっくり元の姿勢へ戻る。
+        // 「元の姿勢」＝止まっていた自転が通常の速さまで戻ること。
+        // 一気に回し始めると首を振った意味が消えるので、時間をかけて上げていく
+        const float progress =
+            std::clamp((staggerShakeTime_ - wobbleTime - shakeTime) / settleTime, 0.0f, 1.0f);
+        wobble = 0.0f;
+        const float idleSpin = parameters_.Battle().idleSpinSpeed;
+        AddSpin(ApplyEasing(EasingType::InQuad, 0.0f, idleSpin, progress, 1.0f) * deltaTime);
+    }
+
+    // 位置のふらつき。前後と左右で周期をずらすと、決まった円ではなく
+    // 定まらない揺れになって「立ちくらみ」に見える。
+    // どちらも sin なのは、ぶつかった瞬間に位置が飛ばないようにするため（0から始まる）。
+    // 描画オフセットではなく本体の位置を動かすので、球の当たり判定も一緒に動く
+    const float phase = staggerShakeTime_ * wall.wobbleSpeed;
+    const Vector3 sway{std::sin(phase) * wall.wobbleAmount * wobble, 0.0f,
+                       std::sin(phase * 0.73f) * wall.wobbleAmount * wobble};
+    transform_->translation_ = staggerAnchor_ + sway;
+
+    // 姿勢。ふらつきに合わせて傾け、立ち直りでは首を横（Y軸まわり）へ振る
+    const Quaternion tilt =
+        Quaternion::FromAxisAngle(Vector3{0.0f, 0.0f, 1.0f},
+                                  std::sin(phase) * wall.wobbleTilt * kDegToRad * wobble);
+    const Quaternion shake =
+        Quaternion::FromAxisAngle(Vector3{0.0f, 1.0f, 0.0f}, swing * wall.shakeAngle * kDegToRad);
+    staggerPosture_ = shake * tilt;
+    ApplyRotation();
+
+    // 頭の上を粒が回る。これが「いま殴っていい」の目印になる
+    BossParticles::GetInstance()->UpdateStaggerRing(GetHeadCenter(), deltaTime);
+
+    return staggerShakeTime_ < wobbleTime + shakeTime + settleTime;
 }
 
 void Boss::ClearStaggerShake() {
     staggerShakeTime_ = 0.0f;
+    staggerKind_ = StaggerKind::Chain;
+    staggerPosture_ = Quaternion::IdentityQuaternion();
     SetOffset(Vector3{0.0f, 0.0f, 0.0f});
+    ApplyRotation();
+    BossParticles::GetInstance()->StopStaggerRing();
 }
 
 void Boss::AddSpin(float degrees) {
     spinAngle_ += degrees * (std::numbers::pi_v<float> / 180.0f);
+    ApplyRotation();
+}
 
+void Boss::ApplyRotation() {
     // 真上を軸にすると極のパーツが永久に見えないので、軸を少し傾けて回す
     const Vector3 axis = Vector3{0.25f, 1.0f, 0.15f}.Normalize();
-    transform_->quaternionRotation_ = Quaternion::FromAxisAngle(axis, spinAngle_);
+    // 自転の上に姿勢（ひるみの傾き・首振り）を載せる。順番を逆にすると
+    // 首振りが自転に巻き込まれて、振っているのか回っているのか分からなくなる
+    transform_->quaternionRotation_ = staggerPosture_ * Quaternion::FromAxisAngle(axis, spinAngle_);
 }
 
 void Boss::SetBossPosition(const Vector3 &position) {
@@ -420,13 +567,32 @@ void Boss::RebuildShell() {
     UpdateExposureScaling();
 }
 
+float Boss::ApplyMasterScale(float scale) {
+    const float next = std::clamp(scale, 0.1f, 5.0f);
+    const float previous = (std::max)(0.01f, parameters_.GetMasterScale());
+    const float ratio = next / previous;
+    if (std::abs(ratio - 1.0f) < 0.0001f) {
+        return 1.0f;
+    }
+
+    // 長さにあたる値をまとめて掛ける（殻の半径・攻撃の届く範囲・接地の余白など）。
+    // コアの大きさは (殻の半径 - 球の半径) × coreScale で出しているので一緒に付いてくる
+    parameters_.ScaleLengths(ratio);
+    parameters_.SetMasterScale(next);
+
+    // 球は作り直さず、格子の間隔と半径を引き直すだけ。
+    // 接地高さ（homePosition_.y）もここで新しい外周半径へ合わせ直される
+    ApplyShellChanges();
+    return ratio;
+}
+
 void Boss::ApplyCoreLayout() {
     const BossShellParams &shell = parameters_.Shell();
 
     // コアの大きさと接地高さを殻へ追従させる
     const float coreSize = (shell.shellRadius - cluster_.GetSphereRadius()) * shell.coreScale;
     transform_->scale_ = Vector3{coreSize, coreSize, coreSize};
-    homePosition_.y = GetBodyRadius();
+    homePosition_.y = GetBodyRadius() + shell.groundOffset;
 
     // 攻撃で浮いている最中に高さを合わせると落下が破綻するので、そのときは触らない
     if (stateMachine_.GetCurrentId() != BossStateId::Attack) {
@@ -481,6 +647,13 @@ void Boss::RegisterTuningParameters() {
     coreOptions.max = 1.2f;
     coreOptions.onChange = [this] { ApplyShellChanges(); };
     params_.Register("殻:コアの大きさ", &shell.coreScale, coreOptions);
+
+    GameParamHub::Options groundOptions{};
+    groundOptions.speed = 0.01f;
+    groundOptions.min = -5.0f;
+    groundOptions.max = 20.0f;
+    groundOptions.onChange = [this] { ApplyCoreLayout(); };
+    params_.Register("殻:接地高さの調整", &shell.groundOffset, groundOptions);
 
     // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
     BossMetaBallParams &metaBall = parameters_.MetaBall();
@@ -551,6 +724,17 @@ void Boss::RegisterTuningParameters() {
     params_.Register("突進:硬直", &spin.recoverTime, {0.01f, 0.0f, 5.0f});
     params_.Register("突進:ダメージ", &spin.damage, {0.5f, 0.0f, 200.0f});
     params_.Register("突進:当たりの甘さ", &spin.contactMargin, {0.05f, 0.0f, 10.0f});
+
+    BossWallStaggerParams &wallStagger = parameters_.WallStagger();
+    params_.Register("壁ひるみ:ふらつく時間", &wallStagger.wobbleTime, {0.05f, 0.05f, 15.0f});
+    params_.Register("壁ひるみ:ふらつきの大きさ", &wallStagger.wobbleAmount, {0.01f, 0.0f, 5.0f});
+    params_.Register("壁ひるみ:ふらつきの速さ", &wallStagger.wobbleSpeed, {0.05f, 0.0f, 20.0f});
+    params_.Register("壁ひるみ:傾く角度", &wallStagger.wobbleTilt, {0.5f, 0.0f, 90.0f});
+    params_.Register("壁ひるみ:首を振る時間", &wallStagger.shakeTime, {0.05f, 0.05f, 5.0f});
+    params_.Register("壁ひるみ:首を振る角度", &wallStagger.shakeAngle, {0.5f, 0.0f, 120.0f});
+    params_.Register("壁ひるみ:首を振る回数", &wallStagger.shakeCount, {0.1f, 0.5f, 8.0f});
+    params_.Register("壁ひるみ:元へ戻る時間", &wallStagger.settleTime, {0.05f, 0.05f, 6.0f});
+    params_.Register("壁ひるみ:必要な突進距離", &wallStagger.minTravel, {0.1f, 0.0f, 60.0f});
 
     params_.Register("落下:飛び上がり時間", &slam.riseTime, {0.01f, 0.05f, 5.0f});
     params_.Register("落下:高さ", &slam.riseHeight, {0.2f, 1.0f, 80.0f});
@@ -663,6 +847,79 @@ void Boss::DrawGameplayImGui() {
         }
     }
 
+    ImGui::SeparatorText("攻撃");
+    BossSpinAttackParams &spin = parameters_.Spin();
+    BossSlamAttackParams &slam = parameters_.Slam();
+    for (size_t index = 0; index < scheduler_.GetAttackCount(); ++index) {
+        IBossAttack *attack = scheduler_.GetAttack(index);
+        if (!attack) {
+            continue;
+        }
+        if (index > 0) {
+            ImGui::SameLine();
+        }
+        if (ImGui::Button(attack->GetName())) {
+            // 次に始める攻撃をこれに決めて、いったん待機へ抜ける。
+            // 進行中のものは待機へ移るときに畳まれる（中断処理は EndCurrentAttack が持っている）
+            forcedAttackIndex_ = static_cast<int>(index);
+            RequestState(BossStateId::Idle);
+        }
+    }
+
+    if (ImGui::TreeNode("1. 回転突進")) {
+        ImGui::DragFloat("予兆の時間", &spin.telegraphTime, 0.01f, 0.05f, 5.0f);
+        HelpMarker("その場で自転を上げて溜める時間です。終盤で突進方向が固定されるので、\n"
+                   "長いほど横へ抜ける余裕が生まれます");
+        ImGui::DragFloat("予兆の自転速度", &spin.telegraphSpinSpeed, 5.0f, 0.0f, 2000.0f);
+        ImGui::DragFloat("突進の速さ", &spin.dashSpeed, 0.2f, 0.0f, 100.0f);
+        ImGui::DragFloat("突進の時間", &spin.dashTime, 0.01f, 0.05f, 5.0f);
+        ImGui::DragFloat("突進後の硬直", &spin.recoverTime, 0.01f, 0.0f, 5.0f);
+        ImGui::DragFloat("接触ダメージ", &spin.damage, 0.5f, 0.0f, 200.0f);
+        ImGui::DragFloat("当たりの甘さ", &spin.contactMargin, 0.05f, 0.0f, 10.0f);
+        HelpMarker("本体の半径への上乗せです。大きいほどかすっても当たります");
+        ImGui::TreePop();
+    }
+
+    if (ImGui::TreeNode("2. 飛び上がって落下")) {
+        ImGui::DragFloat("飛び上がる時間", &slam.riseTime, 0.01f, 0.05f, 5.0f);
+        ImGui::DragFloat("飛び上がる高さ", &slam.riseHeight, 0.2f, 1.0f, 80.0f);
+        ImGui::DragFloat("狙いを定める時間", &slam.aimTime, 0.01f, 0.0f, 5.0f);
+        HelpMarker("落下地点は動き出しの時点で決まっているので、ここは逃げるための猶予です");
+        ImGui::DragFloat("落下の時間", &slam.fallTime, 0.01f, 0.05f, 5.0f);
+        ImGui::DragFloat("着弾後の静止", &slam.impactTime, 0.01f, 0.0f, 5.0f);
+        ImGui::DragFloat("着弾の有効半径", &slam.impactRadius, 0.1f, 0.5f, 40.0f);
+        ImGui::DragFloat("着弾ダメージ", &slam.damage, 0.5f, 0.0f, 200.0f);
+        ImGui::DragFloat("最後の硬直", &slam.recoverTime, 0.01f, 0.0f, 5.0f);
+        ImGui::TreePop();
+    }
+
+    ImGui::SeparatorText("壁に激突したときのひるみ");
+    BossWallStaggerParams &wall = parameters_.WallStagger();
+    if (IsStaggered() || staggerShakeTime_ > 0.0f) {
+        ImGui::TextColored(ImVec4{1.0f, 0.85f, 0.3f, 1.0f}, "ひるみ中: %.2f 秒経過（狙い撃ちのチャンス）",
+                           staggerShakeTime_);
+    } else if (ImGui::Button("壁ひるみを再生")) {
+        BeginWallStagger();
+    }
+    HelpMarker("突進がフィールドの壁で止まると自動で起きます。\n"
+               "自転が止まるので、狙った色の球を撃ち抜けます");
+    ImGui::DragFloat("ふらつく時間", &wall.wobbleTime, 0.05f, 0.05f, 15.0f);
+    ImGui::DragFloat("ふらつきの大きさ", &wall.wobbleAmount, 0.01f, 0.0f, 5.0f);
+    HelpMarker("ぶつかった地点のまわりで、前後と左右の周期をずらして揺れます。\n"
+               "大きくすると狙いづらくなるので、ほんの少しで十分です（斜めには約1.4倍ずれます）");
+    ImGui::DragFloat("ふらつきの速さ", &wall.wobbleSpeed, 0.05f, 0.0f, 20.0f);
+    ImGui::DragFloat("ふらつきで傾く角度", &wall.wobbleTilt, 0.5f, 0.0f, 90.0f);
+    ImGui::DragFloat("首を振る時間", &wall.shakeTime, 0.05f, 0.05f, 5.0f);
+    HelpMarker("立ち直りの合図です。ここが終わるとチャンスも終わります");
+    ImGui::DragFloat("首を振る角度", &wall.shakeAngle, 0.5f, 0.0f, 120.0f);
+    ImGui::DragFloat("首を振る往復の回数", &wall.shakeCount, 0.1f, 0.5f, 8.0f);
+    ImGui::DragFloat("元の姿勢へ戻る時間", &wall.settleTime, 0.05f, 0.05f, 6.0f);
+    HelpMarker("止まっていた自転が通常の速さへ戻るまでの時間です");
+    ImGui::DragFloat("ひるむのに必要な突進距離", &wall.minTravel, 0.1f, 0.0f, 60.0f);
+    HelpMarker("これだけ進んでからぶつかった時だけひるみます。\n"
+               "壁際で突進を始めたときに、いきなりひるむのを防ぎます");
+    ImGui::TextDisabled("ひるみの合計: %.2f 秒", wall.wobbleTime + wall.shakeTime + wall.settleTime);
+
     ImGui::SeparatorText("色残量");
     for (Color color : palette_.GetUsedColors()) {
         const Vector4 rgba = palette_.GetRgba(color);
@@ -684,6 +941,33 @@ void Boss::DrawGameplayImGui() {
     bandChanged |= ImGui::SliderInt("分割数(0=12/1=42/2=162)", &shell.subdivision, 0, 2);
     bandChanged |= ImGui::SliderInt("外側へ付着できる層数", &shell.outerLayers, 0, 5);
     bandChanged |= ImGui::SliderInt("内側へ付着できる層数", &shell.innerLayers, 0, 5);
+
+    // 見た目の外周は球の中心より外へ膨らむので、外周半径ちょうどだと下の球が床へ潜る。
+    // 大きさを変えるほど潜り方も増えるため、持ち上げ量を手で足せるようにしておく
+    if (ImGui::DragFloat("接地高さの調整", &shell.groundOffset, 0.01f, -5.0f, 20.0f)) {
+        ApplyCoreLayout();
+    }
+    HelpMarker("中心の高さは「外周半径 + この値」になります。\n"
+               "融合メッシュのふくらみや、外側へ積み上がった弾のぶんだけ\n"
+               "下の球が床に潜って見えるときに持ち上げてください。\n"
+               "全体の大きさを変えると、この値も一緒に掛かります");
+    // 基本殻の球は外周半径ちょうどで床に接するが、そこへ弾が外側の層まで積み上がると
+    // そのぶん下へはみ出す。融合メッシュが球より太る設定なら、その差も足りない。
+    // どちらも計算で出せるので、目分量で探さずに済むよう「必要な値」を出して入れられるようにする
+    const float sphereRadius = cluster_.GetSphereRadius();
+    const float stackDepth = sphereRadius * 2.0f * static_cast<float>(shell.outerLayers);
+    const float metaBallBulge =
+        sphereRadius * (std::max)(0.0f, parameters_.MetaBall().influenceScale * 0.5f - 1.0f);
+    const float suggested = stackDepth + metaBallBulge;
+    ImGui::TextDisabled("中心の高さ %.3f ／ 外周半径 %.3f ／ 弾が積もるぶん %.3f",
+                        transform_->translation_.y, GetBodyRadius(), suggested);
+    if (ImGui::Button("弾が積もるぶんまで持ち上げる")) {
+        shell.groundOffset = suggested;
+        ApplyCoreLayout();
+    }
+    HelpMarker("外側の層いっぱいまで弾が付いても床から出ない高さにします。\n"
+               "弾が少ないうちは浮いて見えるので、間を取りたいときは\n"
+               "上のスライダーで半分くらいに減らしてください");
 
     const bool rebuildPressed = ImGui::Button("殻を作り直す");
     if (bandChanged || rebuildPressed) {

@@ -17,9 +17,11 @@ public:
     /// コンストラクタ
     /// </summary>
     /// <param name="params">パラメータ（ボスが保持するものを参照する。実行時調整が即反映される）</param>
+    /// <param name="wallStaggerParams">壁に激突したときのひるみのパラメータ</param>
     /// <param name="exposureParams">露出度スケーリングの係数</param>
-    BossAttackSpin(const BossSpinAttackParams *params, const BossExposureParams *exposureParams)
-        : pParams_(params), pExposureParams_(exposureParams) {}
+    BossAttackSpin(const BossSpinAttackParams *params, const BossWallStaggerParams *wallStaggerParams,
+                   const BossExposureParams *exposureParams)
+        : pParams_(params), pWallStaggerParams_(wallStaggerParams), pExposureParams_(exposureParams) {}
 
     /// ===================================================
     /// IBossAttack
@@ -60,6 +62,7 @@ private:
     /// ===================================================
 
     const BossSpinAttackParams *pParams_ = nullptr;
+    const BossWallStaggerParams *pWallStaggerParams_ = nullptr;
     const BossExposureParams *pExposureParams_ = nullptr;
     Phase phase_ = Phase::Finished;
     float timer_ = 0.0f;                                 // 現在段階の経過時間
@@ -67,6 +70,7 @@ private:
     float spinSpeed_ = 0.0f;                             // 現在の自転速度（度/秒）
     bool hitApplied_ = false;                            // この突進で既に当てたか
     float dustTimer_ = 0.0f;                             // 土煙を出す間隔の計測
+    float dashTravel_ = 0.0f;                            // この突進で進んだ距離（壁激突の判定に使う）
 
     // 露出度から決まる値。1回の攻撃の途中で変わらないよう開始時に確定させる
     float scaledTelegraphTime_ = 1.2f; // 予兆時間（露出度が上がるほど短い）

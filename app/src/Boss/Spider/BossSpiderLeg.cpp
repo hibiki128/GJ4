@@ -175,6 +175,17 @@ void BossSpiderLeg::SetHidden(bool hidden) {
     }
 }
 
+void BossSpiderLeg::ApplySphereRadius(float radius) {
+    // 連なりに並べ直すのは PlacePose が毎フレームやってくれるので、
+    // ここは持っている球すべてへ新しい半径を配るだけでよい
+    for (const std::unique_ptr<BossSphere> &sphere : spheres_) {
+        sphere->SetSphereRadius(radius);
+    }
+    for (const std::unique_ptr<BossSphere> &sphere : attachedPool_) {
+        sphere->SetSphereRadius(radius);
+    }
+}
+
 float BossSpiderLeg::CalcFootReach(const BossSpiderParams &params) const {
     // 脚が消されたぶん縮み、攻撃で広げたぶん伸びる。胴に食い込むほど短くはしない
     return (std::max)(params.bodyRadius * 1.1f,

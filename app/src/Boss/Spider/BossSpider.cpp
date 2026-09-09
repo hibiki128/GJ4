@@ -98,6 +98,15 @@ void BossSpider::RebuildLegs() {
     transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
     transform_->UpdateMatrix();
     SetColor(Vector4{0.16f, 0.16f, 0.20f, 1.0f});
+
+    // Configure は組み直した脚を必ず出す状態にするので、
+    // まだ出ていない（変形前の）ときは隠し直す。
+    // これをしないと、調整UIで大きさを触っただけで脚が胴のところに現れる
+    if (phase_ == Phase::Hidden) {
+        for (int index = 0; index < activeLegCount_; ++index) {
+            legs_[static_cast<size_t>(index)]->SetHidden(true);
+        }
+    }
 }
 
 void BossSpider::LoadParameters() {
@@ -142,6 +151,7 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 
     phase_ = Phase::Collapse;
     collapseTime_ = 0.0f;
+    staggerTimer_ = 0.0f;
     transformTime_ = 0.0f;
     SetIsAlive(true);
     SetIsModelDraw(true);
@@ -169,6 +179,7 @@ void BossSpider::Hide() {
 
     phase_ = Phase::Hidden;
     transformTime_ = 0.0f;
+    staggerTimer_ = 0.0f;
     for (int index = 0; index < activeLegCount_; ++index) {
         legs_[static_cast<size_t>(index)]->SetHidden(true);
     }
@@ -659,6 +670,35 @@ float BossSpider::GetFootReach() const {
     return Lerp(straight, bent, std::clamp(legBend_, 0.0f, 1.0f));
 }
 
+void BossSpider::ScaleSizesBy(float ratio) {
+    if (ratio <= 0.0f || std::abs(ratio - 1.0f) < 0.0001f) {
+        return;
+    }
+
+    // どの値が「長さ」なのかは BossParameters 側にまとめてある
+    ScaleSpiderLengths(parameters_, ratio);
+
+    // 脚の球の数は「長さ ÷ 球の直径」で決まり、比率で掛けている限り変わらない。
+    // なので組み直さず、半径を配り直すだけで足りる。
+    // ここで RebuildLegs を呼ぶと Configure が連なりを作り直してしまい、
+    // くっついた球も切り落とし中の球も消えるうえ、隠していた脚まで出てきてしまう
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->ApplySphereRadius(parameters_.legSphereRadius);
+    }
+    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+    transform_->UpdateMatrix();
+
+    // 足の置き場所は半径ぶん外へずれるので、立っているときだけ置き直して高さを取り直す。
+    // 変形中や跳躍中に置き直すと、動きの途中で足がワープする
+    if (phase_ == Phase::Active) {
+        ReplantFeet();
+        standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
+        bodyPosition_.y = standHeight_;
+    } else {
+        standHeight_ = parameters_.legSphereRadius + parameters_.bodyHeight;
+    }
+}
+
 void BossSpider::ReplantFeet() {
     for (int index = 0; index < activeLegCount_; ++index) {
         legs_[static_cast<size_t>(index)]->ResetFoot(bodyPosition_, bodyYaw_, parameters_);
@@ -697,6 +737,21 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
     context.spider = this;
     context.target = pTargetLocator_;
     context.deltaTime = deltaTime;
+
+    // 回転攻撃の回り終わりは目が回っていて動けない。頭上の輪がその目印になる。
+    // クールダウンもここでは進めないので、隙が終わってから次の攻撃までの間が始まる
+    if (staggerTimer_ > 0.0f) {
+        staggerTimer_ = (std::max)(0.0f, staggerTimer_ - deltaTime);
+        BossParticles::GetInstance()->UpdateStaggerRing(GetHeadCenter(), deltaTime);
+        if (staggerTimer_ <= 0.0f) {
+            BossParticles::GetInstance()->StopStaggerRing();
+        }
+        // 隙を作っているのが攻撃自身（回転攻撃の回り終わり）のこともあるので、
+        // 進行中の攻撃は止めない。止めると姿勢を持っている側が進まなくなる
+        if (!pCurrentAttack_) {
+            return Vector3{0.0f, 0.0f, 0.0f};
+        }
+    }
 
     if (!pCurrentAttack_) {
         // 攻撃と攻撃のあいだは歩いて間合いを取る
@@ -1263,7 +1318,11 @@ void BossSpider::DrawGameplayImGui() {
         ImGui::DragFloat("脚を広げる時間", &attack.whirl.telegraphTime, 0.05f, 0.05f, 8.0f);
         HelpMarker("予備動作です。遅いほど避ける余地が生まれます");
         ImGui::DragFloat("その場で回る時間", &attack.whirl.spinTime, 0.05f, 0.1f, 15.0f);
-        ImGui::DragFloat("回転の速さ", &attack.whirl.spinSpeed, 5.0f, 0.0f, 1440.0f);
+        ImGui::DragFloat("回り始めの速さ", &attack.whirl.spinSpeed, 5.0f, 0.0f, 1440.0f);
+        ImGui::SliderFloat("回り終わりの速さの割合", &attack.whirl.spinEndSpeedRatio, 0.0f, 1.0f);
+        HelpMarker("回り始めの速さに対する割合です。1で等速、小さいほど回りながら減速します。\n"
+                   "遅くなりきったところが「そろそろ隙ができる」の合図になります");
+        ImGui::TextDisabled("回り終わりの隙は下の「ひるみ」で調整します");
         ImGui::DragFloat("回るときの脚の高さ", &attack.whirl.spinHeight, 0.05f, 0.0f, 15.0f);
         HelpMarker("地面からの高さです。低いほど当たりやすくなります（胴が地面へ潜らない範囲で止まります）");
         ImGui::TextDisabled("いまの届く範囲: %.2f（真横に伸び切ると %.2f）", GetFootReach(),
@@ -1274,6 +1333,47 @@ void BossSpider::DrawGameplayImGui() {
         ImGui::TreePop();
     }
 
+
+    ImGui::SeparatorText("ひるみ（回転攻撃の回り終わり）");
+    ImGui::TextDisabled("回転が止まったあと、脚を真横に広げ切ったまま低い姿勢で静止します。");
+    ImGui::TextDisabled("立ち上がって脚を戻すのはこのあと。当たり判定も出ていないので狙い撃てます");
+    if (IsStaggered()) {
+        ImGui::TextColored(ImVec4{1.0f, 0.85f, 0.3f, 1.0f}, "ひるみ中: 残り %.2f 秒（狙い撃ちのチャンス）",
+                           staggerTimer_);
+    } else {
+        ImGui::Text("いまはひるんでいません");
+        if (ImGui::Button("ひるませる")) {
+            BeginStagger(parameters_.attack.whirl.staggerTime);
+        }
+        HelpMarker("回転攻撃を出さずに、その場でひるみだけを再生します。\n"
+                   "脚は広がっていないので、姿勢まで含めて見たいときは\n"
+                   "上の「回転して接近」から出してください");
+        ImGui::SameLine();
+        if (ImGui::Button("回転攻撃から出す") && attacks_.size() > kAttackWhirl) {
+            if (pCurrentAttack_) {
+                BossAttackContext cancel{};
+                cancel.spider = this;
+                cancel.target = pTargetLocator_;
+                pCurrentAttack_->Cancel(cancel);
+            }
+            pCurrentAttack_ = attacks_[kAttackWhirl].get();
+            BossAttackContext start{};
+            start.spider = this;
+            start.target = pTargetLocator_;
+            pCurrentAttack_->Start(start);
+        }
+    }
+    if (ImGui::Button("ひるみを止める")) {
+        ClearStagger();
+    }
+
+    ImGui::DragFloat("動けない時間", &parameters_.attack.whirl.staggerTime, 0.05f, 0.0f, 12.0f);
+    HelpMarker("脚を広げ切ったまま静止している時間です。0にすると隙が無くなります");
+    ImGui::SliderFloat("回り終わりの速さの割合##stagger", &parameters_.attack.whirl.spinEndSpeedRatio,
+                       0.0f, 1.0f);
+    HelpMarker("回り始めの速さに対する割合です。小さいほど回りながら減速し、\n"
+               "遅くなりきったところが「そろそろ隙ができる」の合図になります（1で等速）");
+    ImGui::TextDisabled("頭上を回る粒の見た目・置き方は「パーティクル設定」→「ボスの土煙」で調整します");
 
     ImGui::SeparatorText("撃破演出");
     BossSpiderDefeatParams &defeat = parameters_.defeat;
