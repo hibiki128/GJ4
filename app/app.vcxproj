@@ -146,6 +146,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.cpp" />
     <ClCompile Include="src\Character\Player\States\Damaged\PlayerStateDamaged.cpp" />
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
+    <ClCompile Include="src\UI\Reticle\PlayerReticle.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\Field\FieldSurround.cpp" />
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
@@ -168,6 +169,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Data\BossParameters.cpp" />
     <ClCompile Include="src\Boss\Effect\BossDefeatDirector.cpp" />
     <ClCompile Include="src\Boss\Effect\BossParticles.cpp" />
+    <ClCompile Include="src\Audio\GameSounds.cpp" />
+    <ClCompile Include="src\Boss\Zone\BossRecoveryZone.cpp" />
+    <ClCompile Include="src\Boss\Zone\BossRecoveryZoneManager.cpp" />
     <ClCompile Include="src\Boss\Effect\BossWarningMarker.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossIcosphere.cpp" />
     <ClCompile Include="src\Boss\Lattice\BossSphereLattice.cpp" />
@@ -213,6 +217,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Components\Ammo\PlayerAmmoComponent.h" />
     <ClInclude Include="src\Character\Player\States\Damaged\PlayerStateDamaged.h" />
     <ClInclude Include="src\UI\Damage\DamageVignette.h" />
+    <ClInclude Include="src\UI\Reticle\PlayerReticle.h" />
+    <ClInclude Include="src\Character\Player\Core\PlayerAimReport.h" />
     <ClInclude Include="src\Field\Field.h" />
     <ClInclude Include="src\Field\FieldSurround.h" />
     <ClInclude Include="src\GameOver\GameOverBossActor.h" />
@@ -235,6 +241,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Data\BossParameters.h" />
     <ClInclude Include="src\Boss\Effect\BossDefeatDirector.h" />
     <ClInclude Include="src\Boss\Effect\BossParticles.h" />
+    <ClInclude Include="src\Audio\GameSounds.h" />
+    <ClInclude Include="src\Boss\Zone\BossRecoveryZone.h" />
+    <ClInclude Include="src\Boss\Zone\BossRecoveryZoneManager.h" />
+    <ClInclude Include="src\Interface\IAmmoRecoverySink.h" />
     <ClInclude Include="src\Boss\Effect\BossWarningMarker.h" />
     <ClInclude Include="src\Boss\Lattice\BossIcosphere.h" />
     <ClInclude Include="src\Boss\Lattice\BossSphereLattice.h" />

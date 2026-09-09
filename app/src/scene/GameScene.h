@@ -3,12 +3,14 @@
 #include "src/Boss/Boss.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Boss/Effect/BossDefeatDirector.h"
+#include "src/Boss/Zone/BossRecoveryZoneManager.h"
 #include "src/Character/Player/Player.h"
 #include "src/Field/Field.h"
 #include "src/Field/FieldSurround.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
+#include "src/UI/Reticle/PlayerReticle.h"
 #include "src/Effect/PerfectDodgeDirector.h"
 
 /// <summary>
@@ -87,6 +89,31 @@ public:
     /// </summary>
     void ChangeScene();
 
+    /// <summary>
+    /// 敵の更新を止めるかを配る。
+    ///
+    /// 止めたい理由はポーズとデバッグの「敵を一時停止」の2つあり、どちらか一方でも
+    /// 立っていれば止める。別々に SetPaused を呼ぶと、あとから呼んだほうが
+    /// もう片方の指示を打ち消してしまうので、合成はここ1か所で行う
+    /// </summary>
+    /// <param name="paused">ポーズ中か</param>
+    void ApplyBossPause(bool paused);
+
+    /// <summary>
+    /// 形態変化や撃破のムービーが流れている最中か。
+    ///
+    /// 黒帯を出しているあいだと、そのあとカメラがプレイヤーへ戻ってくるまでを指す。
+    /// このあいだは操作を受け付けず、レティクルも引っ込める
+    /// </summary>
+    /// <returns>bool: ムービー中なら true</returns>
+    bool IsCinematicPlaying() const;
+
+    /// <summary>
+    /// レティクルを出してよい場面か（ポーズ中・ムービー中・倒れているときは出さない）
+    /// </summary>
+    /// <returns>bool: 出してよければ true</returns>
+    bool ShouldDrawReticle() const;
+
 private:
     std::unique_ptr<Player> player_;
     std::unique_ptr<GameInput> gameInput_;
@@ -104,6 +131,8 @@ private:
     // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
     std::unique_ptr<BossSpider> bossSpider_;
 std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）
+// 攻撃を終えるたびに出る、残弾を回復する円形エリア
+BossRecoveryZoneManager recoveryZones_;
     bool isBossPaused_ = false;                          // 敵の更新を止めているか（調整用）
 	std::unique_ptr<FollowCamera> followCamera_;
 	// 被弾したときに画面のふちを赤く染めるマスク
@@ -111,4 +140,7 @@ std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・
 
 	// ジャスト回避の画面演出（白フラッシュ）
 	std::unique_ptr<PerfectDodgeDirector> perfectDodge_;
+
+	// 照準レティクル（画面中央に固定する十字と、弾が本当に当たる先を指す水色の円）
+	std::unique_ptr<PlayerReticle> reticle_;
 };

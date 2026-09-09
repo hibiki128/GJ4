@@ -145,6 +145,27 @@ void BossParameters::Load(const std::string &bossId) {
     wallStagger_.settleTime = JsonValue(wallStagger, "settleTime", wallStagger_.settleTime);
     wallStagger_.minTravel = JsonValue(wallStagger, "minTravel", wallStagger_.minTravel);
 
+    // --- 残弾を回復するエリア ---
+    const json zone = data.Load<json>("recoveryZone", json::object());
+    recoveryZone_.enabled = JsonValue(zone, "enabled", recoveryZone_.enabled);
+    recoveryZone_.maxCount = JsonValue(zone, "maxCount", recoveryZone_.maxCount);
+    recoveryZone_.radius = JsonValue(zone, "radius", recoveryZone_.radius);
+    recoveryZone_.regenScale = JsonValue(zone, "regenScale", recoveryZone_.regenScale);
+    recoveryZone_.popTime = JsonValue(zone, "popTime", recoveryZone_.popTime);
+    recoveryZone_.popArcHeight = JsonValue(zone, "popArcHeight", recoveryZone_.popArcHeight);
+    recoveryZone_.openTime = JsonValue(zone, "openTime", recoveryZone_.openTime);
+    recoveryZone_.activeTime = JsonValue(zone, "activeTime", recoveryZone_.activeTime);
+    recoveryZone_.closeTime = JsonValue(zone, "closeTime", recoveryZone_.closeTime);
+    recoveryZone_.spawnDistanceMin = JsonValue(zone, "spawnDistanceMin", recoveryZone_.spawnDistanceMin);
+    recoveryZone_.spawnDistanceMax = JsonValue(zone, "spawnDistanceMax", recoveryZone_.spawnDistanceMax);
+    recoveryZone_.fieldMargin = JsonValue(zone, "fieldMargin", recoveryZone_.fieldMargin);
+    recoveryZone_.ringHeight = JsonValue(zone, "ringHeight", recoveryZone_.ringHeight);
+    recoveryZone_.fillHeight = JsonValue(zone, "fillHeight", recoveryZone_.fillHeight);
+    recoveryZone_.fillPulseAmount = JsonValue(zone, "fillPulseAmount", recoveryZone_.fillPulseAmount);
+    recoveryZone_.fillPulseSpeed = JsonValue(zone, "fillPulseSpeed", recoveryZone_.fillPulseSpeed);
+    recoveryZone_.auraInterval = JsonValue(zone, "auraInterval", recoveryZone_.auraInterval);
+    recoveryZone_.closeWhenFull = JsonValue(zone, "closeWhenFull", recoveryZone_.closeWhenFull);
+
     const json slam = JsonValue(attacks, "slam", json::object());
     slam_.riseTime = JsonValue(slam, "riseTime", slam_.riseTime);
     slam_.riseHeight = JsonValue(slam, "riseHeight", slam_.riseHeight);
@@ -258,6 +279,27 @@ void BossParameters::Save() const {
     wallStagger["settleTime"] = wallStagger_.settleTime;
     wallStagger["minTravel"] = wallStagger_.minTravel;
     data.Save("wallStagger", wallStagger);
+
+    json zone = json::object();
+    zone["enabled"] = recoveryZone_.enabled;
+    zone["maxCount"] = recoveryZone_.maxCount;
+    zone["radius"] = recoveryZone_.radius;
+    zone["regenScale"] = recoveryZone_.regenScale;
+    zone["popTime"] = recoveryZone_.popTime;
+    zone["popArcHeight"] = recoveryZone_.popArcHeight;
+    zone["openTime"] = recoveryZone_.openTime;
+    zone["activeTime"] = recoveryZone_.activeTime;
+    zone["closeTime"] = recoveryZone_.closeTime;
+    zone["spawnDistanceMin"] = recoveryZone_.spawnDistanceMin;
+    zone["spawnDistanceMax"] = recoveryZone_.spawnDistanceMax;
+    zone["fieldMargin"] = recoveryZone_.fieldMargin;
+    zone["ringHeight"] = recoveryZone_.ringHeight;
+    zone["fillHeight"] = recoveryZone_.fillHeight;
+    zone["fillPulseAmount"] = recoveryZone_.fillPulseAmount;
+    zone["fillPulseSpeed"] = recoveryZone_.fillPulseSpeed;
+    zone["auraInterval"] = recoveryZone_.auraInterval;
+    zone["closeWhenFull"] = recoveryZone_.closeWhenFull;
+    data.Save("recoveryZone", zone);
 
     json slam = json::object();
     slam["riseTime"] = slam_.riseTime;
@@ -522,6 +564,12 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     data.Save("spider", spider);
 }
 
+void BossParameters::ScaleAttackRanges(float ratio) {
+    spin_.contactMargin *= ratio;
+    slam_.riseHeight *= ratio;
+    slam_.impactRadius *= ratio;
+}
+
 void BossParameters::ScaleLengths(float ratio) {
     // 長さ・半径・高さだけを掛ける。
     // 時間・角度・速さ・ダメージ・個数・割合はそのまま（大きくしたら鈍くなる、を避ける）。
@@ -533,12 +581,16 @@ void BossParameters::ScaleLengths(float ratio) {
     shell_.groundOffset *= ratio;
 
     // --- 攻撃の届く範囲 ---
-    spin_.contactMargin *= ratio;
-    slam_.riseHeight *= ratio;
-    slam_.impactRadius *= ratio;
+    ScaleAttackRanges(ratio);
 
     // --- ひるみのふらつき幅 ---
     wallStagger_.wobbleAmount *= ratio;
+
+    // --- 回復エリア（距離にあたるものだけ）---
+    recoveryZone_.radius *= ratio;
+    recoveryZone_.popArcHeight *= ratio;
+    recoveryZone_.spawnDistanceMin *= ratio;
+    recoveryZone_.spawnDistanceMax *= ratio;
 
     // --- 演出（距離にあたるものだけ）---
     effect_.vanishDrift *= ratio;
@@ -568,6 +620,13 @@ void ScaleSpiderLengths(BossSpiderParams &out, float ratio) {
     out.introCameraHeight *= ratio;
 
     // --- 攻撃の届く範囲 ---
+    ScaleSpiderAttackRanges(out, ratio);
+
+    // --- 撃破演出（ふらつきの幅）---
+    out.defeat.swayAmount *= ratio;
+}
+
+void ScaleSpiderAttackRanges(BossSpiderParams &out, float ratio) {
     out.attack.shootRange *= ratio;
 
     out.attack.leap.crouchDepth *= ratio;
@@ -584,7 +643,4 @@ void ScaleSpiderLengths(BossSpiderParams &out, float ratio) {
 
     // 回転攻撃の届く範囲は脚の長さそのものなので、ここでは高さだけでよい
     out.attack.whirl.spinHeight *= ratio;
-
-    // --- 撃破演出（ふらつきの幅）---
-    out.defeat.swayAmount *= ratio;
 }

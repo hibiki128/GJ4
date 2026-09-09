@@ -1,6 +1,7 @@
 #include "Boss.h"
 #include "src/Boss/Attack/BossAttackSlam.h"
 #include "src/Boss/Attack/BossAttackSpin.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/State/BossStates.h"
 #include "collider/ColliderTagManager.h"
@@ -274,10 +275,17 @@ bool Boss::UpdateCurrentAttack(float deltaTime) {
 void Boss::EndCurrentAttack() {
     if (pCurrentAttack_) {
         // 怯みで割り込まれた場合はここが中断処理になる
-        if (!pCurrentAttack_->IsFinished()) {
+        const bool completed = pCurrentAttack_->IsFinished();
+        if (!completed) {
             pCurrentAttack_->Cancel(MakeAttackContext(0.0f));
         }
         pCurrentAttack_ = nullptr;
+
+        // やり切ったときだけ知らせる。中断（怯み・形態交代）で出してしまうと、
+        // ボスを止めるほど回復エリアが増えて的にならなくなる
+        if (completed && attackFinishedCallback_) {
+            attackFinishedCallback_();
+        }
     }
     scheduler_.NotifyAttackFinished();
 }
@@ -510,6 +518,8 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
 
     // 消去が起きたぶんだけ怯みが入る（付着しただけなら何も起きない）
     if (result.destroyed) {
+        // そろって消えた合図。短い間に何度も起きるので、鳴らし直しの間隔で重なりを防ぐ
+        GameSounds::GetInstance()->Play(GameSounds::Id::Break);
         DamageInfo info{};
         info.hitPoint = result.hitPoint;
         info.chainSize = result.clusterSize;
@@ -526,7 +536,7 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
     return result;
 }
 
-bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, Vector3 &outPoint) {
+bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, AimHit &outHit) {
     // 当たり判定を持たない間は照準も素通りさせる（RaycastAttach と同じ条件にそろえる）
     if (IsAppearing()) {
         return false;
@@ -534,7 +544,17 @@ bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Colo
 
     // 殻の球は色に関係なく弾を止めるので、色は見ない
     (void)color;
-    return cluster_.RaycastPoint(worldStart, worldEnd, outPoint);
+    ShellCell hitCell{};
+    if (!cluster_.RaycastPoint(worldStart, worldEnd, outHit.point, &hitCell)) {
+        return false;
+    }
+
+    // エイムアシストの吸着先は当たった球の中心。
+    // 消える途中などで座標が引けなければ、表面の点をそのまま中心として返す（＝寄らない）
+    if (!cluster_.TryGetCellWorldPosition(hitCell, outHit.center)) {
+        outHit.center = outHit.point;
+    }
+    return true;
 }
 
 bool Boss::TryGetTargetPosition(const ShellCell &cell, Vector3 &out) {
@@ -616,22 +636,13 @@ void Boss::RegisterTuningParameters() {
     BossLockOnParams &lockOn = parameters_.LockOn();
     BossShellParams &shell = parameters_.Shell();
 
-    // --- 殻の形（球の大きさは即反映。帯を変えたら作り直しが要る）---
-    GameParamHub::Options radiusOptions{};
-    radiusOptions.speed = 0.01f;
-    radiusOptions.min = 0.05f;
-    radiusOptions.max = 3.0f;
-    radiusOptions.onChange = [this] { ApplyShellChanges(); };
-    params_.Register("殻:球の半径", &shell.sphereRadius, radiusOptions);
-
-    GameParamHub::Options bandOptions{};
-    bandOptions.speed = 0.05f;
-    bandOptions.min = 0.1f;
-    bandOptions.max = 30.0f;
-    // 帯を動かすと球の数が変わるので、作り直す
-    bandOptions.onChange = [this] { RebuildShell(); };
-    params_.Register("殻:基本殻の半径", &shell.shellRadius, bandOptions);
-
+    // --- 殻の形 ---
+    //
+    // 大きさそのもの（基本殻の半径・球の半径・接地高さの調整）はここへ登録しない。
+    // GameParamHub は起動時に自分の保存値を書き戻すので、登録すると
+    // Boss01.json 側の「全体の倍率を掛けたあとの大きさ」が毎回上書きされ、
+    // 倍率の値だけ残って見た目が元に戻ってしまう。
+    // これらはボスのパネル（殻の形）から触れて、Boss01.json に保存される
     GameParamHub::Options layerOptions{};
     layerOptions.speed = 1.0f;
     layerOptions.min = 0.0f;
@@ -647,13 +658,6 @@ void Boss::RegisterTuningParameters() {
     coreOptions.max = 1.2f;
     coreOptions.onChange = [this] { ApplyShellChanges(); };
     params_.Register("殻:コアの大きさ", &shell.coreScale, coreOptions);
-
-    GameParamHub::Options groundOptions{};
-    groundOptions.speed = 0.01f;
-    groundOptions.min = -5.0f;
-    groundOptions.max = 20.0f;
-    groundOptions.onChange = [this] { ApplyCoreLayout(); };
-    params_.Register("殻:接地高さの調整", &shell.groundOffset, groundOptions);
 
     // --- 殻の見た目（メタボール）。変えた色のメッシュだけ作り直される ---
     BossMetaBallParams &metaBall = parameters_.MetaBall();
@@ -723,11 +727,9 @@ void Boss::RegisterTuningParameters() {
     params_.Register("突進:時間", &spin.dashTime, {0.01f, 0.05f, 5.0f});
     params_.Register("突進:硬直", &spin.recoverTime, {0.01f, 0.0f, 5.0f});
     params_.Register("突進:ダメージ", &spin.damage, {0.5f, 0.0f, 200.0f});
-    params_.Register("突進:当たりの甘さ", &spin.contactMargin, {0.05f, 0.0f, 10.0f});
 
     BossWallStaggerParams &wallStagger = parameters_.WallStagger();
     params_.Register("壁ひるみ:ふらつく時間", &wallStagger.wobbleTime, {0.05f, 0.05f, 15.0f});
-    params_.Register("壁ひるみ:ふらつきの大きさ", &wallStagger.wobbleAmount, {0.01f, 0.0f, 5.0f});
     params_.Register("壁ひるみ:ふらつきの速さ", &wallStagger.wobbleSpeed, {0.05f, 0.0f, 20.0f});
     params_.Register("壁ひるみ:傾く角度", &wallStagger.wobbleTilt, {0.5f, 0.0f, 90.0f});
     params_.Register("壁ひるみ:首を振る時間", &wallStagger.shakeTime, {0.05f, 0.05f, 5.0f});
@@ -736,12 +738,13 @@ void Boss::RegisterTuningParameters() {
     params_.Register("壁ひるみ:元へ戻る時間", &wallStagger.settleTime, {0.05f, 0.05f, 6.0f});
     params_.Register("壁ひるみ:必要な突進距離", &wallStagger.minTravel, {0.1f, 0.0f, 60.0f});
 
+    // 届く範囲（当たりの甘さ・落下の高さと有効半径）はここへ登録しない。
+    // 全体の倍率が掛かる値なので、登録すると起動のたびに GameParamHub の保存値へ
+    // 戻されて、倍率が効いていないように見える。触るのはボスのパネルの「攻撃」から
     params_.Register("落下:飛び上がり時間", &slam.riseTime, {0.01f, 0.05f, 5.0f});
-    params_.Register("落下:高さ", &slam.riseHeight, {0.2f, 1.0f, 80.0f});
     params_.Register("落下:狙いの時間", &slam.aimTime, {0.01f, 0.0f, 5.0f});
     params_.Register("落下:落下時間", &slam.fallTime, {0.01f, 0.05f, 5.0f});
     params_.Register("落下:着弾後の静止", &slam.impactTime, {0.01f, 0.0f, 5.0f});
-    params_.Register("落下:有効半径", &slam.impactRadius, {0.1f, 0.5f, 40.0f});
     params_.Register("落下:ダメージ", &slam.damage, {0.5f, 0.0f, 200.0f});
     params_.Register("落下:硬直", &slam.recoverTime, {0.01f, 0.0f, 5.0f});
 
@@ -750,7 +753,6 @@ void Boss::RegisterTuningParameters() {
     params_.Register("演出:吸着の時間", &effect.attachTime, {0.005f, 0.01f, 2.0f});
     params_.Register("演出:吸着開始の大きさ", &effect.attachStartScale, {0.01f, 0.01f, 1.0f});
     params_.Register("演出:消えるまでの時間", &effect.vanishTime, {0.005f, 0.02f, 2.0f});
-    params_.Register("演出:消えながら押し出す距離", &effect.vanishDrift, {0.01f, 0.0f, 5.0f});
     params_.Register("演出:消える順番の時間差", &effect.vanishSpread, {0.005f, 0.0f, 0.5f});
 
     // --- 登場演出 ---
@@ -758,7 +760,6 @@ void Boss::RegisterTuningParameters() {
     params_.Register("登場:集束の時間", &appear.gatherTime, {0.05f, 0.1f, 10.0f});
     params_.Register("登場:回転が収まる時間", &appear.settleTime, {0.01f, 0.0f, 5.0f});
     params_.Register("登場:膨らむ時間", &appear.expandTime, {0.01f, 0.05f, 5.0f});
-    params_.Register("登場:集まってくる距離", &appear.gatherRadius, {0.5f, 1.0f, 100.0f});
     params_.Register("登場:集束中の自転速度", &appear.gatherSpinSpeed, {5.0f, 0.0f, 3000.0f});
     params_.Register("登場:飛来中の大きさ", &appear.startScale, {0.01f, 0.01f, 1.0f});
     params_.Register("登場:到着時の大きさ", &appear.arriveScale, {0.01f, 0.01f, 1.0f});
@@ -929,6 +930,18 @@ void Boss::DrawGameplayImGui() {
 
     ImGui::SeparatorText("殻の形");
     BossShellParams &shell = parameters_.Shell();
+
+    // 全体の倍率は「値へ掛けたうえで、何倍ぶん掛けたかを覚える」作りなので、
+    // 倍率が1以外のときにここを手で書き換えると、その値まで倍率ぶん割り戻されてしまう。
+    // 気づかずに小さくなりすぎるのを防ぐため、そのときだけ注意を出す
+    if (std::abs(parameters_.GetMasterScale() - 1.0f) > 0.001f) {
+        ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f},
+                           "全体の倍率が %.2f 倍です。ここの値は 1.00 倍のときに触ってください",
+                           parameters_.GetMasterScale());
+        HelpMarker("倍率が掛かった状態で書き換えると、その数値が「倍率込みの値」として\n"
+                   "扱われます。等倍に戻したときに小さくなりすぎたら、\n"
+                   "「ボス全体の大きさ」の「いまの大きさを1倍にする」で基準を取り直せます");
+    }
     bool radiusChanged = false;
     bool bandChanged = false;
     radiusChanged |= ImGui::DragFloat("球の半径(0で自動)", &shell.sphereRadius, 0.01f, 0.0f, 3.0f);

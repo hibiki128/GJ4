@@ -288,6 +288,41 @@ struct BossSpiderParams {
 };
 
 /// <summary>
+/// 残弾を回復する円形エリアのパラメータ。
+///
+/// ボスがひと続きの攻撃を終えるたびに、その場から弾けるように1つ生まれてフィールドへ落ちる。
+/// 色は毎回ランダムで、乗っているあいだその色の弾だけが早く戻る。
+/// 「撃ちたい色のエリアが出るまで待つか、いま出ている色で戦うか」を選ばせるのが狙い
+/// </summary>
+struct BossRecoveryZoneParams {
+    bool enabled = true;       // エリアを出すか
+    int maxCount = 2;          // 同時に出しておける数（超えたら古いものから畳む）
+    float radius = 7.0f;       // エリアの半径
+    // 乗っているあいだの回復倍率。素が 2発/秒 なので 3倍で 6発/秒＝空から満タンまで約5秒。
+    // ここを上げすぎると「入った瞬間に満タン」になって、留まる判断そのものが無くなる
+    float regenScale = 3.0f;
+    float popTime = 0.7f;      // ボスから飛び出して着地するまでの時間（秒）
+    float popArcHeight = 9.0f; // 飛び出すときの弧の高さ
+    float openTime = 0.35f;    // 着地してから輪が開ききるまでの時間（秒）
+    // 開いてから消え始めるまでの時間（秒）。満タンにするのに要る時間＋走って来る時間ぶん。
+    // 攻撃の間隔よりわずかに長い程度にして、常時2つ並ばないようにしている
+    float activeTime = 8.0f;
+    float closeTime = 0.6f;    // 閉じて消えるまでの時間（秒）
+    // ボスからどれだけ離れたところへ落とすか。近すぎると攻撃を避けながら乗れず、
+    // 遠すぎると取りに行くだけで一往復してしまう
+    float spawnDistanceMin = 12.0f;
+    float spawnDistanceMax = 30.0f;
+    float fieldMargin = 3.0f;      // フィールドの縁からこれだけ内側に落とす
+    float ringHeight = 0.03f;      // 外枠を置く高さ（地面とのZ争いよけ）
+    float fillHeight = 0.02f;      // 内側の塗りを置く高さ
+    float fillPulseAmount = 0.12f; // 塗りが脈打つ大きさ（半径に対する割合）
+    float fillPulseSpeed = 2.4f;   // 脈打つ速さ
+    float auraInterval = 0.06f;    // 立ちのぼる粒を置く間隔（秒）
+    // 満タンになったエリアを自動で畳むか。畳まないと役目を終えた輪が残り続ける
+    bool closeWhenFull = true;
+};
+
+/// <summary>
 /// 戦闘全体の挙動に関するパラメータ
 /// </summary>
 struct BossBattleParams {
@@ -388,6 +423,13 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
 void ScaleSpiderLengths(BossSpiderParams &out, float ratio);
 
 /// <summary>
+/// 蜘蛛の「攻撃の届く範囲」だけへ比率を掛ける（BossParameters::ScaleAttackRanges と対になるもの）
+/// </summary>
+/// <param name="out">対象</param>
+/// <param name="ratio">掛ける比率</param>
+void ScaleSpiderAttackRanges(BossSpiderParams &out, float ratio);
+
+/// <summary>
 /// ソフトロックオンに関するパラメータ
 /// </summary>
 struct BossLockOnParams {
@@ -435,6 +477,16 @@ public:
     /// <param name="ratio">直前からの比率</param>
     void ScaleLengths(float ratio);
 
+    /// <summary>
+    /// 攻撃の届く範囲だけへ比率を掛ける。
+    ///
+    /// 大きさの倍率は ScaleLengths がまとめて面倒を見るが、
+    /// 攻撃範囲を対象へ入れる前に保存したデータは、体だけ大きくて範囲が置いていかれている。
+    /// その食い違いを1回で埋め直すために、この部分だけを取り出せるようにしてある
+    /// </summary>
+    /// <param name="ratio">掛ける比率</param>
+    void ScaleAttackRanges(float ratio);
+
     uint32_t GetColorSeed() const { return colorSeed_; }
     void SetColorSeed(uint32_t seed) { colorSeed_ = seed; }
 
@@ -454,6 +506,8 @@ public:
     const BossBattleParams &Battle() const { return battle_; }
     BossSpinAttackParams &Spin() { return spin_; }
     const BossSpinAttackParams &Spin() const { return spin_; }
+    BossRecoveryZoneParams &RecoveryZone() { return recoveryZone_; }
+    const BossRecoveryZoneParams &RecoveryZone() const { return recoveryZone_; }
     BossWallStaggerParams &WallStagger() { return wallStagger_; }
     const BossWallStaggerParams &WallStagger() const { return wallStagger_; }
     BossSlamAttackParams &Slam() { return slam_; }
@@ -482,6 +536,7 @@ private:
     BossBattleParams battle_{};
     BossSpinAttackParams spin_{};
     BossWallStaggerParams wallStagger_{};
+    BossRecoveryZoneParams recoveryZone_{};
     BossSlamAttackParams slam_{};
     BossExposureParams exposure_{};
     BossAppearParams appear_{};

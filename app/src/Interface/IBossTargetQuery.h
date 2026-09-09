@@ -40,6 +40,21 @@ struct LockOnResult {
 };
 
 /// <summary>
+/// 照準の射線が最初に当たった相手。
+/// 撃つ側はこれを見て「狙っている一点」と「その球の真ん中」の両方を知る
+/// </summary>
+struct AimHit {
+    /// <summary>線分が最初に当たった点（球の表面）。ここが照準の指している一点になる</summary>
+    Hagine::Vector3 point{};
+
+    /// <summary>
+    /// 当たった球の中心（ワールド）。エイムアシストはここへ狙いを寄せる。
+    /// 中心が取れない相手は表面の点と同じ値が入るので、寄せても何も起きない
+    /// </summary>
+    Hagine::Vector3 center{};
+};
+
+/// <summary>
 /// 弾1発ぶんの着弾結果
 /// </summary>
 struct BulletHitResult {
@@ -96,10 +111,10 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色によってすり抜ける相手がいるので着弾と同じ色を渡す）</param>
-    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <param name="outHit">最初に当たった点と、その球の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     virtual bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                              Color color, Hagine::Vector3 &outPoint) = 0;
+                              Color color, AimHit &outHit) = 0;
 
     /// <summary>
     /// 格子セルにある球の現在のワールド座標を取得する（飛翔中の弾が対象を追尾するのに使う）

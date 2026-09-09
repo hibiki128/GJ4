@@ -151,10 +151,10 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色違いの飛翔弾はすり抜ける）</param>
-    /// <param name="outPoint">最初に当たった点（ワールド）</param>
+    /// <param name="outHit">最初に当たった点と、その球の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
-                      Hagine::Vector3 &outPoint) override;
+                      AimHit &outHit) override;
 
     /// <summary>ソフトロックオンの対象（脚の球）を探す</summary>
     /// <param name="request">問い合わせ内容</param>
@@ -242,6 +242,12 @@ public:
     void ScaleSizesBy(float ratio);
 
     /// <summary>
+    /// 攻撃の届く範囲だけへ比率を掛ける（1回きりの埋め合わせ用）
+    /// </summary>
+    /// <param name="ratio">掛ける比率</param>
+    void ScaleAttackRangesBy(float ratio) { ScaleSpiderAttackRanges(parameters_, ratio); }
+
+    /// <summary>
     /// しばらく動けなくする（回転攻撃のあとの隙）。
     /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る
     /// </summary>
@@ -252,8 +258,16 @@ public:
         }
     }
 
+    /// <summary>
+    /// ひと続きの攻撃を終えたときに呼ばれる先を差す（残弾の回復エリア）。
+    /// 中断されたときは呼ばない（最後までやり切ったご褒美という位置づけのため）
+    /// </summary>
+    void SetAttackFinishedCallback(std::function<void()> callback) {
+        attackFinishedCallback_ = std::move(callback);
+    }
+
     /// <summary>動けない状態を打ち切る（攻撃を中断したときなど）</summary>
-    void ClearStagger() { staggerTimer_ = 0.0f; }
+    void ClearStagger();
 
     /// <summary>動けなくなっているか</summary>
     bool IsStaggered() const { return staggerTimer_ > 0.0f; }
@@ -283,6 +297,9 @@ public:
 
     /// <summary>足を今の胴のまわりへ置き直す（変形直後など、補間が要らないときだけ）</summary>
     void ReplantFeet();
+
+    /// <summary>脚の球の大きさを既定へ戻す（変形で小さくしていたぶんの後始末）</summary>
+    void RestoreLegSphereRadius();
 
     /// <summary>
     /// 変形を最後まで飛ばして、その場に立った状態にする。
@@ -455,6 +472,7 @@ private:
     float attackCoolDown_ = 0.0f;                         // 次の攻撃までの残り時間（秒）
     bool isAttackEnabled_ = true;                         // 新しい攻撃を選んでよいか（演出中は false）
     float staggerTimer_ = 0.0f;                           // 動けない残り時間（秒）
+    std::function<void()> attackFinishedCallback_{};      // 攻撃をやり切ったときの通知先
     HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
 
     // --- 弾 ---

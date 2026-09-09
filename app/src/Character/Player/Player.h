@@ -85,6 +85,32 @@ public:
 	/// </summary>
 	void SetOnPerfectDodge(PerfectDodgeCallback callback) { onPerfectDodge_ = std::move(callback); }
 
+	/// <summary>このフレームの狙いが決まったときに呼ばれる関数の型</summary>
+	using AimReportCallback = std::function<void(const PlayerAimReport&)>;
+
+	/// <summary>
+	/// 狙いの通知先を渡す。レティクルは画面の話なので、被弾や回避と同じくシーンが受け持つ。
+	///
+	/// 状態を持つだけなら getter で足りそうに見えるが、通知にしてあるのは更新の順番のため。
+	/// エンジンは「シーンの更新 → オブジェクトの更新」の順に回すので、シーンから引くと
+	/// 必ず1フレーム前の値になり、弾が飛ぶ先とレティクルの位置がずれてしまう。
+	/// 射撃の更新が終わった直後に知らせれば、両者が同じフレームの値でそろう
+	/// </summary>
+	void SetOnAimReport(AimReportCallback callback) { onAimReport_ = std::move(callback); }
+
+	/// <summary>
+	/// 更新を止める・再開する（ポーズ中に毎フレーム渡す）。
+	///
+	/// 止めているあいだは BaseObject::Update も呼ばない。エンジンは
+	/// 「シーンの更新 → オブジェクトの更新」の順に回すので、シーンが return するだけでは
+	/// プレイヤーの更新は止まらず、入力を入れたままポーズすると、その速度のまま
+	/// 座標へ積分され続けて滑っていってしまう。止めるならここで止める必要がある
+	/// </summary>
+	void SetPaused(bool paused) { isPaused_ = paused; }
+
+	/// <summary>更新を止めているか</summary>
+	bool IsPaused() const { return isPaused_; }
+
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
 
@@ -140,6 +166,15 @@ public:
 	/// </summary>
 	void RequestAmmoRegenScale(float scale) { ammo_.RequestRegenScale(scale); }
 
+	/// <summary>
+	/// この1フレームだけ、指定した色の回復倍率を要求する。
+	/// 色つきの回復エリアに乗っているあいだ、その色だけが早く戻る
+	/// </summary>
+	void RequestAmmoRegenScale(Color color, float scale) { ammo_.RequestRegenScale(color, scale); }
+
+	/// <summary>その色の弾が満タンか（回復エリアが役目を終えたかの判断に使う）</summary>
+	bool IsAmmoFull(Color color) const { return ammo_.IsFull(color); }
+
 	/// <summary>一定時間だけ効く弾の回復倍率を足す（拾って効く時限型のギミック用）</summary>
 	void AddAmmoRegenBoost(float scale, float duration) { ammo_.AddRegenBoost(scale, duration); }
 
@@ -178,8 +213,14 @@ private:
 	// ジャスト回避の通知先（未配線でも受け流しそのものは成立する）
 	PerfectDodgeCallback onPerfectDodge_{};
 
+	// 狙いの通知先（未配線ならレティクルが出ないだけで、射撃そのものは成立する）
+	AimReportCallback onAimReport_{};
+
 	// 動き回れる範囲（未配線ならどこまでも動ける）
 	const IFieldBounds* pFieldBounds_ = nullptr;
+
+	// 更新を止めているか（ポーズ中）。物理も演出も丸ごと止まる
+	bool isPaused_ = false;
 
 	// ぷにぷにの中心になるスケール（Init 時のスケールを基準にする）
 	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};

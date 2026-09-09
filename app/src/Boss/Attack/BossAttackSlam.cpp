@@ -1,5 +1,6 @@
 #include "BossAttackSlam.h"
 #include "src/Boss/Boss.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Interface/ITargetLocator.h"
 #include "Easing.h"
@@ -160,6 +161,7 @@ void BossAttackSlam::UpdateFall(const BossAttackContext &context) {
 
         // 着弾。地面を叩いた土煙を出し、輪の内側にいればダメージ
         BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::SlamDust, landingPoint_);
+        GameSounds::GetInstance()->Play(GameSounds::Id::Landing);
         UpdateMarker(false, 1.0f);
         if (boss->IsTargetWithin(landingPoint_, pParams_->impactRadius)) {
             boss->DealDamageToTarget(pParams_->damage, landingPoint_);

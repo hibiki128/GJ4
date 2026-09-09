@@ -1,5 +1,6 @@
 #include "BossAttackSpin.h"
 #include "src/Boss/Boss.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Interface/ITargetLocator.h"
 #include "Easing.h"
@@ -35,6 +36,9 @@ void BossAttackSpin::Start(const BossAttackContext &context) {
                            Lerp(1.0f, pExposureParams_->spinDashSpeedScaleAtFull, exposure);
     }
 
+    // 回っているあいだ鳴らし続ける。止めるのは終わったときと中断されたとき（ひるみ含む）
+    GameSounds::GetInstance()->StartLoop(GameSounds::Id::RotateSphere);
+
     AimAtTarget(context);
 }
 
@@ -68,6 +72,7 @@ void BossAttackSpin::Cancel(const BossAttackContext &context) {
     (void)context;
     phase_ = Phase::Finished;
     spinSpeed_ = 0.0f;
+    GameSounds::GetInstance()->StopLoop(GameSounds::Id::RotateSphere);
 }
 
 const char *BossAttackSpin::GetPhaseName() const {
@@ -128,6 +133,7 @@ void BossAttackSpin::UpdateDash(const BossAttackContext &context) {
         boss->BeginWallStagger();
         spinSpeed_ = 0.0f;
         phase_ = Phase::Finished;
+        GameSounds::GetInstance()->StopLoop(GameSounds::Id::RotateSphere);
         return;
     }
 
@@ -156,6 +162,7 @@ void BossAttackSpin::UpdateRecover(const BossAttackContext &context) {
 
     if (timer_ >= duration) {
         phase_ = Phase::Finished;
+        GameSounds::GetInstance()->StopLoop(GameSounds::Id::RotateSphere);
     }
 }
 

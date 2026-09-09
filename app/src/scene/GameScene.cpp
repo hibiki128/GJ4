@@ -1,8 +1,11 @@
 #include "GameScene.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "debug/imgui/ImGuiNotification.h"
+#include "debug/param/GameParamHub.h"
+#include "object/Object3dInstancing.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -31,6 +34,13 @@ void GameScene::Initialize()
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
 			pObjectManager_->Draw(vp);
+			// ポーズ中は回復エリアを描かない。
+			// ポーズからタイトルへ抜けるとき、閉じていく幕の上へエリアの円盤が
+			// 抜けて見えてしまうため（円盤はオブジェクトマネージャーに載せず
+			// ここから直に描いているので、止めるのもここでよい）
+			if (!PauseMenu::GetInstance()->IsPaused()) {
+				recoveryZones_.Draw(vp);
+			}
 		});
 
 	// ボスの殻（メタボール）をGPUで作り直す。
@@ -47,6 +57,11 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+            // 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
+            // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする
+            if (ShouldDrawReticle()) {
+                reticle_->Draw();
+            }
             // 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
             // 演出の帯やポーズ画面が赤く染まらないようにする
             if (damageVignette_) {
@@ -136,6 +151,15 @@ void GameScene::Initialize()
 	// 倒れたプレイヤーは狙わせない（ボスの攻撃は ITargetLocator::IsTargetValid を見ている）
 	playerBridge_->SetValidGetter([pPlayer = player_.get()] { return !pPlayer->IsDead(); });
 
+	// 残弾の回復エリアからプレイヤーへの導線。エリア側は Player の型を知らず、
+	// 「この色の回復を早めて」と頼むだけ（IAmmoRecoverySink）
+	playerBridge_->SetRegenRequester([pPlayer = player_.get()](Color color, float scale) {
+		pPlayer->RequestAmmoRegenScale(color, scale);
+		});
+	playerBridge_->SetAmmoFullGetter([pPlayer = player_.get()](Color color) {
+		return pPlayer->IsAmmoFull(color);
+		});
+
 	// 被弾の画面演出。プレイヤーはカメラも画面も知らないので、シーンがここで配る。
 	// プレイヤー自身の反動（少し後ろへ押される）は被弾ステートが受け持つ
 	damageVignette_ = std::make_unique<DamageVignette>();
@@ -146,6 +170,7 @@ void GameScene::Initialize()
 		(void)info;
 		followCamera_->AddImpact(1.0f);
 		damageVignette_->Play(1.0f);
+		GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDamaged);
 		});
 
 	// 回避の画面演出。飛び出した瞬間だけカメラを前へ押し出してスピード感を足す。
@@ -153,6 +178,7 @@ void GameScene::Initialize()
 	player_->SetOnDodge([this](const Vector3& direction) {
 		(void)direction;
 		followCamera_->AddDashPush(1.0f);
+GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 		});
 
 	// ジャスト回避の画面演出。プレイヤーは画面のことを知らないので、被弾と同じくここで配る
@@ -163,6 +189,18 @@ void GameScene::Initialize()
 	player_->SetOnPerfectDodge([this](const DamageInfo& info) {
 		(void)info;
 		perfectDodge_->Play();
+		});
+
+	// 照準レティクル。プレイヤーは画面もカメラも知らないので、射線を配るのと同じく
+	// 「狙いがどう決まったか」を受け取って、画面座標へ落とすのはシーンの仕事
+	reticle_ = std::make_unique<PlayerReticle>();
+	reticle_->Init();
+	reticle_->RegisterParams();
+
+	// 通知は射撃の更新が終わった直後に来る。シーンの Update から引くと1フレーム古くなり、
+	// 弾が飛ぶ先とレティクルの位置がずれてしまう（Player::SetOnAimReport のコメント参照）
+	player_->SetOnAimReport([this](const PlayerAimReport& report) {
+		reticle_->Update(report, *GetViewProjection(), Frame::DeltaTime());
 		});
 
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
@@ -198,6 +236,26 @@ void GameScene::Initialize()
 	// エミッターの発生範囲はボスの大きさに合わせるので、倍率も渡しておく
 	BossParticles::GetInstance()->Init();
 	BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+
+	// 残弾を回復するエリア。ボスがひと続きの攻撃を終えるたびに1つ生まれる。
+	// 調整値はボスデータ（Boss01.json の recoveryZone）に置いてあるので、そこを参照させる
+	recoveryZones_.Init("BossRecoveryZone", &boss_->GetMutableParameters().RecoveryZone());
+	recoveryZones_.SetTargetLocator(playerBridge_.get());
+	recoveryZones_.SetAmmoSink(playerBridge_.get());
+	recoveryZones_.SetFieldBounds(field_.get());
+
+	// どちらの形態でも、攻撃をやり切ったところで出す。
+	// 出る場所はそのときの本体の位置、色はボスが使っている色から毎回ランダム
+	boss_->SetAttackFinishedCallback([this] {
+		recoveryZones_.NotifyAttackFinished(boss_->GetBossPosition(), boss_->GetPalette());
+		});
+	bossSpider_->SetAttackFinishedCallback([this] {
+		recoveryZones_.NotifyAttackFinished(bossSpider_->GetBodyPosition(), boss_->GetPalette());
+		});
+
+	// 音をまとめて読み込む。BGM はここから鳴らし始めて、シーンを抜けるときに止める
+	GameSounds::GetInstance()->Init();
+	GameSounds::GetInstance()->StartLoop(GameSounds::Id::Bgm);
 
 	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
 	PlayerParticles::GetInstance()->Init();
@@ -260,6 +318,40 @@ void GameScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+
+	// ゲームパラメータの登録を外す。
+	//
+	// GameParamHub はシーンをまたいで生き続け、登録された「変数のアドレス」を
+	// そのまま持っている。ここで外さないと、このシーンのプレイヤーや画面演出が
+	// 破棄されたあとも解放済みのアドレスを指したままになり、
+	// 次のシーンでハブのウィンドウを描いた瞬間に落ちる。
+	//
+	// ボスやカメラのように GameParamOwner を持っている側は破棄時に自分で外すので、
+	// ここに並べるのは「GameParamHub へ直に登録している出所」だけでよい。
+	// 出所を増やしたときは、ここへも足すこと（Finalize はメンバの破棄より前に走る）
+	static constexpr const char *kDirectParamOwners[] = {
+		"Player",
+		"Player/Ammo",
+		"Player/Color",
+		"Player/Damaged",
+		"Player/DamageVignette",
+		"Player/Dash",
+		"Player/Dodge",
+		"Player/Health",
+		"Player/Idle",
+		"Player/Jump",
+		"Player/Move",
+		"Player/PerfectDodge",
+		"Player/Reaction",
+		"Player/Shoot",
+	};
+	// 鳴らし続けている音（BGM・回転・ひるみ）を残したままシーンを抜けない
+	GameSounds::GetInstance()->StopAll();
+
+	for (const char *owner : kDirectParamOwners) {
+		GameParamHub::GetInstance()->Unregister(owner);
+	}
+
 	BaseScene::Finalize();
 }
 
@@ -276,8 +368,15 @@ void GameScene::Update()
 	// 止めているあいだも範囲を見ながら大きさを詰められる
 	field_->DrawLine();
 
+	// プレイヤーもボスも、更新はオブジェクトマネージャーが回しているので、
+	// シーンが return するだけでは止まらない。入力を入れたままポーズすると滑っていったり、
+	// 止まっているあいだに殴られたりするので、止める・再開するは毎フレームここで伝える
+	const bool isPaused = PauseMenu::GetInstance()->IsPaused();
+	player_->SetPaused(isPaused);
+	ApplyBossPause(isPaused);
+
 	// ポーズ中はゲーム側の更新を止める（カメラだけは動かしておく）
-	if (PauseMenu::GetInstance()->IsPaused()) {
+	if (isPaused) {
 		CameraUpdate();
 		return;
 	}
@@ -294,9 +393,19 @@ void GameScene::Update()
 
 	player_->CommandExecute(gameInput_->GetInputContext());
 
+	// 出ている回復エリアを進める（乗っていれば、その色の回復がここで早くなる）
+	GameSounds::GetInstance()->Update(Frame::DeltaTime());
+
+recoveryZones_.Update(Frame::DeltaTime());
+
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
+	// 入力を配るより先に呼ぶのは、ムービーが始まったフレームからもう操作を切りたいため
 	UpdateFormChange();
 
+	// ムービー中は操作を受け付けない。入力を配るのをやめるのではなく「何も入れていない」ことにして
+	// 渡すので、走っている途中でも自然に減速して止まり、アイドルへ戻る。
+	// 止めるのは操作だけで、重力も演出も動いたままなので、空中にいれば着地する
+	player_->CommandExecute(IsCinematicPlaying() ? PlayerInput{} : gameInput_->GetInputContext());
 	// 負けた瞬間に出ていた形態を控えておく。ゲームオーバー画面はこれを見て、
 	// どちらの姿で見下ろしてくるかを決める（画面側からボスの中身は覗きにいかない）
 	if (player_->IsDead()) {
@@ -314,6 +423,49 @@ void GameScene::Update()
 	// 射線はカメラから作る。カメラを動かした後に配り直すので、
 	// プレイヤーは「いま見ている向き」へ撃てる
 	UpdateAim();
+}
+
+void GameScene::ApplyBossPause(bool paused)
+{
+	/// ===================================================
+	/// 敵の更新を止めるかを配る
+	/// ===================================================
+
+	// ポーズとデバッグの一時停止は別々の理由なので、どちらか一方でも立っていれば止める
+	const bool stop = paused || isBossPaused_;
+
+	if (boss_) {
+		boss_->SetPaused(stop);
+	}
+	if (bossSpider_) {
+		bossSpider_->SetPaused(stop);
+	}
+}
+
+bool GameScene::IsCinematicPlaying() const
+{
+	/// ===================================================
+	/// ムービー中か（黒帯が出ているあいだ）
+	/// ===================================================
+
+	// 演出の始まりで黒帯が出て（Begin）、カメラをプレイヤーへ返し終えたところで下りる（Stop）。
+	// カメラが戻っている最中も「まだムービー」として扱うので、
+	// 構図が戻りきる前に動き出したり狙えたりはしない
+	return defeatDirector_ && defeatDirector_->IsActive();
+}
+
+bool GameScene::ShouldDrawReticle() const
+{
+	/// ===================================================
+	/// レティクルを出してよい場面か
+	/// ===================================================
+
+	if (!reticle_ || !player_) {
+		return false;
+	}
+
+	// 止まっているとき・ムービー中・倒れているときは狙いようがないので引っ込める
+	return !PauseMenu::GetInstance()->IsPaused() && !IsCinematicPlaying() && !player_->IsDead();
 }
 
 void GameScene::UpdateAim()
@@ -442,12 +594,33 @@ void GameScene::AddObjectSetting()
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
 	// 止めているあいだも描画は続くので、位置や姿勢はそのまま観察できる
 	if (ImGui::Checkbox("敵を一時停止", &isBossPaused_)) {
-		boss_->SetPaused(isBossPaused_);
-		bossSpider_->SetPaused(isBossPaused_);
+		// 押した瞬間にも効かせる。ゲームを止めているあいだは Update が回らないので、
+		// 毎フレームの配り直しだけに任せると、止めた状態では切り替えられなくなる
+		ApplyBossPause(PauseMenu::GetInstance()->IsPaused());
 	}
 	if (isBossPaused_) {
 		ImGui::SameLine();
 		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
+	}
+
+	// 弾を撃つとボス以外がちらつくときの切り分け用。
+	// インスタンシングは全オブジェクトぶんのインスタンスを1本のアップロードバッファへ
+	// 毎フレーム書き込むが、エンジンは2フレーム同時進行なので、前フレームの描画が
+	// まだ読んでいる領域を書き換えてしまう。弾のように数が毎フレーム変わるものがあると
+	// 書き込み位置がずれて、前フレームぶんの絵が化ける。
+	// これを切ると1体ずつの描画に戻るので、ちらつきが消えれば原因はここだと分かる
+	{
+		bool instancing = Object3dInstancing::GetInstance()->IsEnabled();
+		if (ImGui::Checkbox("インスタンシングを使う", &instancing)) {
+			Object3dInstancing::GetInstance()->SetEnabled(instancing);
+		}
+		ImGui::SameLine();
+		ImGui::TextDisabled("(?)");
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("切ると全オブジェクトを1体ずつ描きます（描画コールは増えます）。\n"
+				"射撃中のちらつきがこれで止まるなら、原因はインスタンスバッファの\n"
+				"フレーム間の競合です");
+		}
 	}
 
 	// 形態をまたいだ大きさの倍率。球体・蜘蛛・パーティクルへ同じ比率で配る。
@@ -465,8 +638,50 @@ void GameScene::AddObjectSetting()
 		bossSpider_->ScaleSizesBy(ratio);
 		BossParticles::GetInstance()->SetMasterScale(1.0f);
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("いまの大きさを1倍にする")) {
+		// 値は1つも変えず、倍率の基準だけを取り直す。
+		// 倍率が1以外のときに個別の大きさを手で書き換えると、その値まで倍率ぶん割られてしまう。
+		// 見えている大きさが正しいときは、ここを押して基準をそろえ直す
+		boss_->RebaseMasterScale();
+		BossParticles::GetInstance()->SetMasterScale(1.0f);
+		ImGuiNotification::Post("いまの大きさを1倍として基準を取り直しました",
+			{0.4f, 0.8f, 1.0f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("(?)");
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("「等倍に戻す」は保存されている倍率で割り戻すので、\n"
+			"倍率が1以外のときに個別の大きさをいじっていると小さくなりすぎます。\n"
+			"いま見えている大きさが正しいなら、こちらで基準を取り直してください\n"
+			"（大きさは変わらず、倍率の表示だけが 1.00 になります）");
+	}
+
+	// 上の落とし穴に気づけるよう、1倍でないときは個別調整を控えるよう出しておく
+	if (std::abs(masterScale - 1.0f) > 0.001f) {
+		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f},
+			"倍率が %.2f 倍です。殻や脚の大きさを個別に触るのは 1.00 倍のときに",
+			masterScale);
+	}
 	ImGui::TextDisabled("殻・球・コア・脚・胴・歩幅・攻撃の届く範囲・土煙の広がり・ひるみの輪が");
 	ImGui::TextDisabled("まとめて変わります（時間・角度・速さ・ダメージ・フィールドの広さは据え置き）");
+
+	// 攻撃範囲を倍率の対象へ入れる前に保存したデータは、体だけ大きくて範囲が置いていかれている。
+	// 差分方式なのでスライダーを動かしても食い違いは埋まらないため、1回だけ掛け直す口を用意する
+	if (ImGui::Button("攻撃範囲だけ今の倍率へそろえ直す")) {
+		const float scale = boss_->GetParameters().GetMasterScale();
+		boss_->ApplyMasterScaleToAttackRanges();
+		bossSpider_->ScaleAttackRangesBy(scale);
+		ImGuiNotification::Post("攻撃範囲を " + std::to_string(scale) + " 倍へそろえました",
+			{0.4f, 0.8f, 1.0f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("(?)");
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("倍率が攻撃範囲に効くようになる前の値を保存していた場合の埋め合わせです。\n"
+			"「体は大きいのに攻撃範囲だけ元のまま」のときに1回だけ押してください。\n"
+			"押すたびに掛かるので、続けて押さないこと");
+	}
 	// 大きさは両形態にまたがるので、保存もここでまとめて押せるようにしておく
 	if (ImGui::Button("大きさを両形態とも保存")) {
 		boss_->SaveParameters();
@@ -492,6 +707,15 @@ void GameScene::AddParticleSetting()
 	// ボスの土煙まとめ。中身はエンジンのGPUパーティクルなので、
 	// ここで見た目を作って保存すれば Assets/jsons/ParticleCS 以下へ残る
 	BossParticles::GetInstance()->DrawImGui();
+
+	// 回復エリアの粒もここに並ぶので、置き方の調整は同じ窓でできる。
+	// 保存先はボスデータなので、書き出しはボスに頼む
+	GameSounds::GetInstance()->DrawImGui();
+
+recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
+		boss_->SaveParameters();
+		ImGuiNotification::Post("回復エリアの設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
+		});
 	PlayerParticles::GetInstance()->DrawImGui();
 }
 

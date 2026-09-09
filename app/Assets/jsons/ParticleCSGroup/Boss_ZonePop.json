@@ -1,0 +1,8 @@
+{
+    "blendMode": 2,
+    "groupName": "Boss_ZonePop",
+    "maxParticleCount": 4096,
+    "modelFilePath": "effects/ico.obj",
+    "primitiveType": 0,
+    "textureName": "debug/white1x1.png"
+}

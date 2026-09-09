@@ -1,5 +1,6 @@
 #pragma once
 #include "src/Character/ColorStruct.h"
+#include "src/Character/Player/Core/PlayerAimReport.h"
 #include "src/Character/Player/Core/PlayerContext.h"
 #include "src/Interface/IBossTargetQuery.h"
 #include <functional>
@@ -14,6 +15,13 @@
 /// 弾はプレイヤーの位置からその一点へ向けて撃つ。
 /// こうすると弾の誘導は「カメラとマズルの視差ぶんを詰める」だけの仕事になるので、
 /// ホーミングが弱くても狙ったところ（画面中心）に当たる。
+///
+/// 撃つ前にエイムアシストを一段はさむ。照準が球に乗っているときは、その表面ではなく
+/// 球の真ん中を狙う先にする。照準（aimPoint_）は動かさないので画面中央の十字は固定のまま。
+///
+/// また射線の起点がカメラとマズルで違うので、同じ一点を狙っていても弾は途中の球へ
+/// 先にぶつかることがある。その「弾が実際に当たる点」も毎フレーム求めて PlayerAimReport で
+/// 知らせており、照準とずれていれば画面に発射レティクル（水色の円）が出る。
 ///
 /// ソフトロックオンは色の判定と強調表示のためだけに残してあり、弾の誘導には使わない。
 /// 相手の具象クラス（Boss / BossSpider）は知らず、IBossTargetQuery 越しにだけ触る。
@@ -44,6 +52,12 @@ public:
     // 射撃の状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
     void DrawImGui();
 
+    /// <summary>
+    /// このフレームの狙いの決まり方（レティクルの表示に使う）。
+    /// 中身は弾を撃つのに使ったものと同じ値で、表示のために作り直した値は入っていない
+    /// </summary>
+    const PlayerAimReport& GetAimReport() const { return aimReport_; }
+
     // デバッグ表示用
     const LockOnResult& GetLockOnResult() const { return lockOn_; }
     const BulletHitResult& GetLastHitResult() const { return lastHit_; }
@@ -70,6 +84,40 @@ private:
     Hagine::Vector3 ResolveAimPoint(IBossTargetQuery* target, const Hagine::Vector3& origin,
                                     const Hagine::Vector3& direction);
 
+    /// <summary>
+    /// エイムアシストを効かせた「実際に狙う一点」を求める。
+    ///
+    /// 照準が球に乗っているとき、その球の表面（aimPoint_）ではなく真ん中を狙う。
+    /// 照準そのものは動かさないので画面中央の十字は固定のまま。動くのは弾の行き先だけで、
+    /// その結果は発射レティクルとして画面に出る（仕様書 9.1 の照準補正にあたる）
+    /// </summary>
+    /// <returns>Vector3: 実際に狙う一点（ワールド）</returns>
+    Hagine::Vector3 ResolveAssistPoint() const;
+
+    /// <summary>
+    /// マズルから狙う先へ向かう発射方向を求める。
+    /// 弾を撃つときと発射レティクルを出すときの両方がここを通るので、
+    /// 「表示している向きと実際に飛ぶ向きが違う」ことが起こりえない（仕様書 17.1 / 17.3）
+    /// </summary>
+    /// <param name="muzzle">弾が出る位置（プレイヤーの位置）</param>
+    /// <param name="fallback">狙う先とマズルが重なっているときに使う向き</param>
+    /// <returns>Vector3: 正規化された発射方向</returns>
+    Hagine::Vector3 ResolveFireDirection(const Hagine::Vector3& muzzle,
+                                         const Hagine::Vector3& fallback) const;
+
+    /// <summary>
+    /// 発射方向へ射線を飛ばして、弾が最初に当たる点を求める。
+    /// 照準（ResolveAimPoint）がカメラから飛ばすのに対し、こちらはマズルから飛ばす。
+    /// 同じ一点を狙っていても起点が違うので、途中の球に先にぶつかることがある。
+    /// そのズレを見せるのが発射レティクルの役目
+    /// </summary>
+    /// <param name="target">いま撃つ相手（nullptr なら射程の端をそのまま返す）</param>
+    /// <param name="muzzle">射線の起点（プレイヤーの位置）</param>
+    /// <param name="direction">射線の向き（＝発射方向）</param>
+    /// <returns>Vector3: 弾が最初に当たる点（ワールド）</returns>
+    Hagine::Vector3 ResolveFirePoint(IBossTargetQuery* target, const Hagine::Vector3& muzzle,
+                                     const Hagine::Vector3& direction);
+
     /// <summary>照準方向からロックオン対象を探し、強調表示を更新する</summary>
     void UpdateLockOn(IBossTargetQuery* target, const Hagine::Vector3& origin,
                       const Hagine::Vector3& aimDirection);
@@ -93,7 +141,20 @@ private:
     Hagine::Vector3 aimPoint_{}; // いま画面中心が指している着弾地点（ワールド）
     bool aimPointHit_ = false;   // 着弾地点が相手にヒットして決まったか（false なら射程の端）
 
+    Hagine::Vector3 aimHitCenter_{}; // 照準が乗っている球の中心（エイムアシストの寄せ先）
+    Hagine::Vector3 assistPoint_{};  // アシストを効かせた後の、実際に狙う一点
+
+    Hagine::Vector3 firePoint_{}; // いま撃ったら弾が最初に当たる点（ワールド。マズル基準）
+    bool firePointHit_ = false;   // 発射の点が相手にヒットして決まったか
+
+    PlayerAimReport aimReport_{}; // 上をひとまとめにした、表示側への報告
+
     float aimRayLength_ = 200.0f; // 照準レイの長さ＝当たらなかったときの着弾距離
+
+    // エイムアシスト。照準が球に乗っているときだけ効くので、乗せるところまでは自分で狙う。
+    // 強さ 1 で球の真ん中ぴったり、0 で寄せない
+    bool aimAssistEnabled_ = true;
+    float aimAssistStrength_ = 1.0f;
 
     bool drawAimLine_ = true; // 照準線・着弾地点を線で表示する
 
