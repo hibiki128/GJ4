@@ -1,5 +1,7 @@
 #include "TitleStartPrompt.h"
 #include "src/Boss/Data/BossEasing.h"
+#include "data/DataHandler.h"
+#include "debug/imgui/ImGuiNotification.h"
 #include <cmath>
 #include <numbers>
 #ifdef USE_IMGUI
@@ -15,22 +17,48 @@ constexpr const char *kTexturePath = "Tutorial/btn_a.png";
 
 constexpr float kPi = std::numbers::pi_v<float>;
 
+/// <summary>
+/// 調整値の保存先（Assets/jsons/Title/StartPrompt.json）。
+///
+/// ゲームパラメータのハブではなく自前のファイルに持っている。
+/// 触る場所（オブジェクト設定のパネル）と保存する場所が同じほうが、
+/// 「調整したのに保存されない」が起きない
+/// </summary>
+constexpr const char *kDataFolder = "Title";
+constexpr const char *kDataFile = "StartPrompt";
+
 } // namespace
 
 void TitleStartPrompt::Init() {
     sprite_.Initialize(kTexturePath);
     elapsed_ = 0.0f;
+    Load();
 }
 
-void TitleStartPrompt::RegisterParams() {
-    params_.Register("Position", &position_, {1.0f});
-    params_.Register("Size", &size_, {1.0f, 8.0f, 800.0f});
-    params_.Register("Scale", &scale_, {0.01f, 0.05f, 8.0f});
-    params_.Register("AlphaMin", &alphaMin_, {0.01f, 0.0f, 1.0f});
-    params_.Register("AlphaMax", &alphaMax_, {0.01f, 0.0f, 1.0f});
-    params_.Register("Period", &period_, {0.05f, 0.2f, 10.0f});
-    params_.Register("AppearDelay", &appearDelay_, {0.05f, 0.0f, 10.0f});
-    params_.Register("FadeInTime", &fadeInTime_, {0.05f, 0.0f, 5.0f});
+void TitleStartPrompt::Load() {
+    // 読めなければコードの既定値がそのまま残る（Load の第2引数が今の値）
+    DataHandler data(kDataFolder, kDataFile);
+    position_ = data.Load<Vector2>("position", position_);
+    size_ = data.Load<Vector2>("size", size_);
+    scale_ = data.Load<float>("scale", scale_);
+    alphaMin_ = data.Load<float>("alphaMin", alphaMin_);
+    alphaMax_ = data.Load<float>("alphaMax", alphaMax_);
+    period_ = data.Load<float>("period", period_);
+    appearDelay_ = data.Load<float>("appearDelay", appearDelay_);
+    fadeInTime_ = data.Load<float>("fadeInTime", fadeInTime_);
+}
+
+void TitleStartPrompt::Save() const {
+    DataHandler data(kDataFolder, kDataFile);
+    data.Save<Vector2>("position", position_);
+    data.Save<Vector2>("size", size_);
+    data.Save<float>("scale", scale_);
+    data.Save<float>("alphaMin", alphaMin_);
+    data.Save<float>("alphaMax", alphaMax_);
+    data.Save<float>("period", period_);
+    data.Save<float>("appearDelay", appearDelay_);
+    data.Save<float>("fadeInTime", fadeInTime_);
+    data.Flush();
 }
 
 void TitleStartPrompt::Update(float deltaTime) {
@@ -60,6 +88,13 @@ void TitleStartPrompt::DrawImGui() {
 #ifdef USE_IMGUI
     ImGui::SeparatorText("スタートの案内（Aボタン）");
 
+    if (ImGui::Button("保存")) {
+        Save();
+        ImGuiNotification::Post("スタートの案内の設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("Assets/jsons/Title/StartPrompt.json");
+
     ImGui::DragFloat2("位置", &position_.x, 1.0f);
     ImGui::DragFloat2("もとの大きさ(px)", &size_.x, 1.0f, 8.0f, 800.0f, "%.0f");
     ImGui::DragFloat("倍率(縦横同時)", &scale_, 0.01f, 0.05f, 8.0f, "%.2f 倍");
@@ -85,6 +120,5 @@ void TitleStartPrompt::DrawImGui() {
     const Vector2 &base = sprite_.GetBaseSize();
     ImGui::TextDisabled("元絵 %.0fx%.0f  →  いま %.0fx%.0f px", base.x, base.y,
                         size_.x * scale_, size_.y * scale_);
-    ImGui::TextDisabled("保存は ゲームパラメータ > Title/StartPrompt の [保存]");
 #endif // USE_IMGUI
 }

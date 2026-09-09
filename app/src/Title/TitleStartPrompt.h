@@ -1,6 +1,5 @@
 #pragma once
 #include "src/UI/Text/UiText.h"
-#include "debug/param/GameParamHub.h"
 #include "type/Vector2.h"
 
 /// <summary>
@@ -20,11 +19,11 @@ public:
     /// public method
     /// ===================================================
 
-    /// <summary>絵を読み込む（シーンの初期化から1回だけ）</summary>
+    /// <summary>絵を読み込み、保存してある調整値を読み戻す（シーンの初期化から1回だけ）</summary>
     void Init();
 
-    /// <summary>調整パラメータをデバッグUIへ登録する（Init の後に一度だけ）</summary>
-    void RegisterParams();
+    /// <summary>いまの調整値を Assets/jsons/Title/StartPrompt.json へ書き出す</summary>
+    void Save() const;
 
     /// <summary>明滅を進める</summary>
     /// <param name="deltaTime">前フレームからの経過（秒）</param>
@@ -39,7 +38,17 @@ public:
     /// <summary>出はじめからやり直す</summary>
     void Restart() { elapsed_ = 0.0f; }
 
+    /// <summary>もう画面に出ているか（出る前に押されても進ませないための判断に使う）</summary>
+    bool IsShown() const { return elapsed_ >= appearDelay_; }
+
 private:
+    /// ===================================================
+    /// private method
+    /// ===================================================
+
+    /// <summary>保存してある調整値を読み戻す（無ければコードの既定値のまま）</summary>
+    void Load();
+
     /// ===================================================
     /// private variables
     /// ===================================================
@@ -62,6 +71,4 @@ private:
     float period_ = 1.6f;        // 薄い→濃い→薄いの1往復（秒）
     float appearDelay_ = 1.0f;   // 出てくるまでの待ち（秒。ロゴが落ちきるのが0.86秒）
     float fadeInTime_ = 0.5f;    // 出てくるのにかける時間（秒）
-
-    Hagine::GameParamOwner params_{"Title/StartPrompt"};
 };

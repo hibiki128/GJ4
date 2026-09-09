@@ -83,7 +83,7 @@
         "activeTime": 8.0,
         "auraInterval": 0.05999999865889549,
         "closeTime": 0.6000000238418579,
-        "closeWhenFull": true,
+        "closeWhenFull": false,
         "enabled": true,
         "fieldMargin": 3.0,
         "fillHeight": 0.019999999552965164,

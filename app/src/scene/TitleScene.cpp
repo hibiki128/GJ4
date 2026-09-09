@@ -2,6 +2,7 @@
 #include "MyMath.h"
 #include "frame/Frame.h"
 #include "src/UI/Pause/PauseMenu.h"
+#include <Input.h>
 #include <numbers>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
@@ -60,8 +61,12 @@ void TitleScene::Initialize()
 			if (logo_) {
 				logo_->Draw();
 			}
-			if (startPrompt_) {
+			// 問いかけが出ているあいだは案内を引っ込める（押す先はもう問いかけの中なので）
+			if (startPrompt_ && tutorialDialog_ && !tutorialDialog_->IsOpen()) {
 				startPrompt_->Draw();
+			}
+			if (tutorialDialog_) {
+				tutorialDialog_->Draw();
 			}
 		});
 
@@ -116,7 +121,10 @@ void TitleScene::Initialize()
 	// 中央下のAボタンの案内。ロゴが落ちきってから現れる
 	startPrompt_ = std::make_unique<TitleStartPrompt>();
 	startPrompt_->Init();
-	startPrompt_->RegisterParams();
+
+	// Aを押したときの問いかけ。答えによって行き先が変わる
+	tutorialDialog_ = std::make_unique<TitleTutorialDialog>();
+	tutorialDialog_->Init();
 
 	// 構図はデバッグUIから触れるようにしておく
 	params_.Register("BossPosition", &bossPosition_, {0.1f});
@@ -176,10 +184,57 @@ void TitleScene::Update()
 		if (startPrompt_) {
 			startPrompt_->Update(Frame::DeltaTime());
 		}
+		UpdateStart();
 	}
 
 	CameraUpdate();
 
+	ChangeScene();
+}
+
+void TitleScene::UpdateStart()
+{
+	/// ===================================================
+	/// Aを押してから行き先が決まるまで
+	/// ===================================================
+
+	if (!tutorialDialog_ || isNextSceneReserved_) {
+		return;
+	}
+
+	// 問いかけを先に進める。ここで答えが返ってきたら、そのまま行き先を決める
+	const TitleTutorialDialog::Result result = tutorialDialog_->Update(Frame::DeltaTime());
+	if (result == TitleTutorialDialog::Result::Yes) {
+		nextSceneName_ = "TUTORIAL";
+	} else if (result == TitleTutorialDialog::Result::No) {
+		nextSceneName_ = "GAME";
+	}
+
+	// 案内が出るより前に押されても始めない。
+	// 問いかけを開いた A をそのまま決定に使わせないための待ちは問いかけ側が持っている
+	if (tutorialDialog_->IsOpen() || !startPrompt_ || !startPrompt_->IsShown()) {
+		return;
+	}
+	if (IsDecidePressed()) {
+		tutorialDialog_->Open();
+	}
+}
+
+bool TitleScene::IsDecidePressed()
+{
+	/// ===================================================
+	/// 「はじめる」を押したか
+	/// ===================================================
+
+	Input *pInput = Input::GetInstance();
+
+	// パッドが無い環境でも触れるよう、キーボードも見ている（ポーズ画面と同じ扱い）
+	if (pInput->TriggerKey(DIK_RETURN) || pInput->TriggerKey(DIK_SPACE)) {
+		return true;
+	}
+
+	GamePad *gamePad = pInput->GetGamePad();
+	return gamePad && gamePad->IsConnected() && gamePad->IsTrigger(XINPUT_GAMEPAD_A);
 }
 
 void TitleScene::ApplyLayout()
@@ -222,6 +277,11 @@ void TitleScene::AddObjectSetting()
 	// 中央下のAボタンの案内
 	if (startPrompt_) {
 		startPrompt_->DrawImGui();
+	}
+
+	// チュートリアルへ行くかの問いかけ
+	if (tutorialDialog_) {
+		tutorialDialog_->DrawImGui();
 	}
 
 	if (field_) {
@@ -269,5 +329,11 @@ void TitleScene::ChangeScene() {
 	/// シーン切り替え
 	/// ===================================================
 
-	//pSceneManager_->NextSceneReservation();
+	// 「する」ならチュートリアル、「しない」なら本編。
+	// 予約は1回だけ（予約後は幕が下りきるまでこのシーンの更新が続く）
+	if (nextSceneName_.empty() || isNextSceneReserved_) {
+		return;
+	}
+	isNextSceneReserved_ = true;
+	pSceneManager_->NextSceneReservation(nextSceneName_);
 }

@@ -1,0 +1,16 @@
+{
+    "alphaMax": 1.0,
+    "alphaMin": 0.25,
+    "appearDelay": 1.0,
+    "fadeInTime": 0.5,
+    "period": 1.600000023841858,
+    "position": {
+        "x": 880.0,
+        "y": 725.0
+    },
+    "scale": 1.0,
+    "size": {
+        "x": 158.0,
+        "y": 158.0
+    }
+}

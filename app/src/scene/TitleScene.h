@@ -6,8 +6,10 @@
 #include "src/Title/TitleLogo.h"
 #include "src/Title/TitlePlayerActor.h"
 #include "src/Title/TitleStartPrompt.h"
+#include "src/Title/TitleTutorialDialog.h"
 #include "debug/param/GameParamHub.h"
 #include <memory>
+#include <string>
 
 /// <summary>
 /// タイトルシーン
@@ -77,6 +79,12 @@ private:
     /// <summary>置き場所と向きをいまのパラメータへ合わせ直す</summary>
     void ApplyLayout();
 
+    /// <summary>Aを押してから行き先が決まるまでを進める</summary>
+    void UpdateStart();
+
+    /// <summary>「はじめる」を押したか（パッドのA・Enter・スペース）</summary>
+    static bool IsDecidePressed();
+
     /// ===================================================
     /// private variables
     /// ===================================================
@@ -99,6 +107,13 @@ private:
 
     // 中央下のAボタンの案内。透明度をゆっくり上げ下げする
     std::unique_ptr<TitleStartPrompt> startPrompt_;
+
+    // Aを押したら出す「チュートリアルをプレイしますか？」
+    std::unique_ptr<TitleTutorialDialog> tutorialDialog_;
+
+    // 行き先（決まるまで空）と、予約済みかどうか（二重予約を防ぐ）
+    std::string nextSceneName_{};
+    bool isNextSceneReserved_ = false;
 
     // --- 構図（デバッグUIから触って保存できる）---
     Hagine::Vector3 bossPosition_ = {6.0f, 0.0f, 6.0f};      // ボスの立ち位置（高さは自動）
