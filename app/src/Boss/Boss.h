@@ -373,6 +373,21 @@ public:
     /// <param name="paused">止めるなら true</param>
     void SetPaused(bool paused) { isPaused_ = paused; }
 
+    /// <summary>
+    /// 攻撃するかどうかを切り替える。false のあいだは新しい攻撃を選ばない。
+    ///
+    /// SetPaused と違って状態遷移は動いたままなので、登場演出はきちんと終わるし、
+    /// 撃たれれば怯みも撃破も起きる。チュートリアルのように
+    /// 「反撃してこないが、的としては生きている」ボスが欲しいときに使う。
+    /// 止めてしまうと登場状態から抜けられず、当たり判定が無敵のままになる
+    /// （RaycastAttach が IsAppearing() で弾く）
+    /// </summary>
+    /// <param name="enabled">攻撃させるなら true</param>
+    void SetAttackEnabled(bool enabled) { isAttackEnabled_ = enabled; }
+
+    /// <summary>攻撃してよい状態か</summary>
+    bool IsAttackEnabled() const { return isAttackEnabled_; }
+
     /// <summary>更新を止めているか</summary>
     bool IsPaused() const { return isPaused_; }
 
@@ -439,6 +454,7 @@ private:
     bool coreHandedOver_ = false;   // コアを第2形態へ渡したか
     bool formVisible_ = true;       // この形態を描くか（第2形態が出ていれば false）
     bool isPaused_ = false;         // 更新を止めているか（調整用）
+    bool isAttackEnabled_ = true;   // 新しい攻撃を選んでよいか（チュートリアル等で false）
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 

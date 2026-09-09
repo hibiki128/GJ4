@@ -94,7 +94,9 @@ void TutorialDirector::Init() {
     taskLabels_[kTaskShoot].Create("Tutorial_TaskShoot", "RT で うつ", 3.0f);
     taskLabels_[kTaskColor].Create("Tutorial_TaskColor", "十字ボタンで 色をかえる", 3.0f);
     taskLabels_[kTaskChain].Create("Tutorial_TaskChain", "同じ色を 3つつなげて消す", 3.0f);
-    taskLabels_[kTaskStrip].Create("Tutorial_TaskStrip", "殻を ぜんぶ はがす", 3.0f);
+    // 「殻」はUIフォント（Buildingsandundertherailwaytracks）に入っておらず豆腐になる。
+    // 意味も伝わりやすいので、まとっている色つきの球そのものを指す言い方にした
+    taskLabels_[kTaskStrip].Create("Tutorial_TaskStrip", "いろだまを ぜんぶ はがす", 3.0f);
 
     finishTitle_.Create("Tutorial_FinishTitle", "チュートリアル かんりょう！");
     finishHint_.Create("Tutorial_FinishHint", "ほんばんへ すすみます", 3.0f);

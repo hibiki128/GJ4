@@ -245,6 +245,10 @@ void Boss::AddIdleSpin(float deltaTime) {
 }
 
 bool Boss::TickAttackCoolDown(float deltaTime) {
+    // 攻撃を止められているあいだは、待ち時間も進めず新しい攻撃も選ばない
+    if (!isAttackEnabled_) {
+        return false;
+    }
     // 調整UIから攻撃を名指しされているときは、間隔を待たずに始める
     if (forcedAttackIndex_ >= 0) {
         return true;
