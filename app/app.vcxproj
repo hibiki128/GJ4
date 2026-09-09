@@ -151,6 +151,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\UI\Reticle\PlayerReticle.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
     <ClCompile Include="src\Field\FieldSurround.cpp" />
+    <ClCompile Include="src\Field\FieldParticles.cpp" />
     <ClCompile Include="src\Item\HealItem.cpp" />
     <ClCompile Include="src\Item\HealItemManager.cpp" />
     <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
@@ -227,6 +228,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Character\Player\Core\PlayerAimReport.h" />
     <ClInclude Include="src\Field\Field.h" />
     <ClInclude Include="src\Field\FieldSurround.h" />
+    <ClInclude Include="src\Field\FieldParticles.h" />
     <ClInclude Include="src\Item\HealItem.h" />
     <ClInclude Include="src\Item\HealItemManager.h" />
     <ClInclude Include="src\GameOver\GameOverBossActor.h" />

@@ -1,0 +1,8 @@
+{
+    "blendMode": 2,
+    "groupName": "Field_Particle",
+    "maxParticleCount": 50000,
+    "modelFilePath": "effects/ico.obj",
+    "primitiveType": 0,
+    "textureName": "debug/white1x1.png"
+}
