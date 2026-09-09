@@ -18,6 +18,8 @@
 #include "src/Character/Player/Weapon/PlayerWeapon.h"
 #include "src/Character/Player/Weapon/Bullet/Manager/PlayerBulletManager.h"
 
+class PlayerStateDefeated;
+
 class Player : public Hagine::BaseObject, public IColorProvider, public IDamageable {
 public:
 	Player() = default;
@@ -126,6 +128,30 @@ public:
 	/// <summary>ジャスト回避が決まったときの演出をまとめて出す（Update から呼ぶ）</summary>
 	/// <param name="info">受け流した攻撃（当たるはずだった位置を向きに使う）</param>
 	void PlayPerfectDodgeEffects(const DamageInfo& info);
+
+	/// <summary>
+	/// やられて弾ける瞬間の演出をまとめて出す（やられステートから1回だけ）。
+	/// 体を消して、体と同じ色の粒を撒き散らす
+	/// </summary>
+	void PlayDefeatBurst();
+
+	/// <summary>
+	/// 見た目だけを揺らす（震えの演出用）。
+	///
+	/// 動かすのは描画オフセットだけで、座標そのものは動かさない。
+	/// こうしておくと重力・フィールドの押し戻し・当たり判定と喧嘩しない。
+	/// オフセットの書き手をここ1か所にまとめてあるので、
+	/// モデルの原点合わせ（Init で入れているぶん）を上書きしてしまうこともない
+	/// </summary>
+	/// <param name="shake">揺らす量（ワールド）。ゼロで揺れなし</param>
+	void SetRenderShake(const Hagine::Vector3& shake) { SetOffset(baseOffset_ + shake); }
+
+	/// <summary>
+	/// やられ演出をやり切ったか。
+	/// シーンはこれが立ってからゲームオーバーへ送る（倒れた瞬間に画面を切り替えない）
+	/// </summary>
+	/// <returns>bool: 震え〜はじけ〜余韻まで終わっていれば true</returns>
+	bool IsDefeatFinished() const;
 
 	/// <summary>いま見えている体の色（回避の飛沫など、演出の色合わせに使う）</summary>
 	const Hagine::Vector4& GetDisplayColor() const { return color_.GetDisplayColor(); }
@@ -252,6 +278,14 @@ private:
 
 	// ぷにぷにの中心になるスケール（Init 時のスケールを基準にする）
 	Hagine::Vector3 baseScale_ = {1.0f, 1.0f, 1.0f};
+
+	// モデルの原点合わせに使っている描画オフセット（Init で入れたぶん）。
+	// 震えの揺れはここへ足す形で出すので、揺れが終われば元の位置へ戻る
+	Hagine::Vector3 baseOffset_ = {0.0f, 0.0f, 0.0f};
+
+	// やられステートの実体（IsDefeatFinished から演出の進み具合を引くため）。
+	// 所有は states_ 側なので、ここは参照するだけ
+	PlayerStateDefeated* defeatedState_ = nullptr;
 
 	bool isJumping_ = false;
 };

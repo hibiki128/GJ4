@@ -42,9 +42,10 @@ void PlayerStateDamaged::Update(Player& player, PlayerContext& context) {
 	context.jumpComponent_->UpdateJump(context);
 	context.jumpComponent_->ConsumeLanded();
 
-	// 倒れたときはこのステートに留める。ダウン演出やゲームオーバーへの導線を
-	// 足すならここから分岐させる（シーン側は Player::IsDead() を見ればよい）
+	// 倒れたらやられステートへ渡す。震えてはじけるところまではあちらの仕事で、
+	// ゲームオーバーへ送る間合いはシーンが Player::IsDefeatFinished() を見て決める
 	if (context.healthComponent_ && context.healthComponent_->IsDead()) {
+		player.ChangeState("Defeated");
 		return;
 	}
 

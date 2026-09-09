@@ -6,8 +6,10 @@
 #include "States/Dodge/PlayerStateDodge.h"
 #include "States/Jump/PlayerStateJump.h"
 #include "States/Damaged/PlayerStateDamaged.h"
+#include "States/Defeated/PlayerStateDefeated.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "Effect/PlayerParticles.h"
+#include "src/Audio/GameSounds.h"
 
 namespace {
 // 色をそのまま出すための白テクスチャ。
@@ -20,7 +22,11 @@ void Player::Init(const std::string objectName) {
 	//CreatePrimitiveModel(Hagine::PrimitiveType::Cube);
 	CreateModel("slime/slime.obj");
 	SetTexture(kPlayerTexturePath);
-	SetOffset({ 0.0f,-0.45f,0.0f });
+
+	// モデルの原点合わせ。やられ演出の震えはこの値へ揺れを足す形で出すので、
+	// 基準としてここで控えておく（書き手は SetRenderShake の1か所）
+	baseOffset_ = Hagine::Vector3{ 0.0f,-0.45f,0.0f };
+	SetOffset(baseOffset_);
 
 	// ステートを登録
 	states_["Idle"] = std::make_unique<PlayerStateIdle>();
@@ -29,6 +35,11 @@ void Player::Init(const std::string objectName) {
 	states_["Dodge"] = std::make_unique<PlayerStateDodge>();
 	states_["Jump"] = std::make_unique<PlayerStateJump>();
 	states_["Damaged"] = std::make_unique<PlayerStateDamaged>();
+
+	auto defeated = std::make_unique<PlayerStateDefeated>();
+	defeatedState_ = defeated.get(); // 演出の進み具合を引くために控えておく
+	states_["Defeated"] = std::move(defeated);
+
 	currentState_ = states_["Idle"].get();
 
 	// 弾のプールを生成してオブジェクトマネージャーに登録する
@@ -195,6 +206,23 @@ void Player::PlayPerfectDodgeEffects(const DamageInfo& info) {
 	if (onPerfectDodge_) {
 		onPerfectDodge_(info);
 	}
+}
+
+void Player::PlayDefeatBurst() {
+	// 体をはじけさせる。モデルを消すだけで実体は残すので、
+	// 座標を見ている相手（カメラの注視点など）が飛ばずに済む
+	SetIsModelDraw(false);
+
+	// 撒き散らすゼリー粒。体と同じ色にして「自分がはじけた」と分かるようにする
+	PlayerParticles::GetInstance()->BurstDefeat(GetWorldPosition(), color_.GetDisplayColor());
+
+	// はじける音。プレイヤー専用の音はまだ無いので、
+	// ボスの球がそろって消えるときと同じ「はじける」音を借りている
+	GameSounds::GetInstance()->Play(GameSounds::Id::Break);
+}
+
+bool Player::IsDefeatFinished() const {
+	return defeatedState_ && defeatedState_->IsFinished();
 }
 
 void Player::ChangeState(const std::string& stateName) {
