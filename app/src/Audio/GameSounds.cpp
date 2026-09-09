@@ -42,6 +42,10 @@ constexpr SoundDesc kSoundDescs[] = {
     {GameSounds::Id::PlayerMove, "SE/player/Slime_Move.wav", "プレイヤーの足音", 0.20f, 0.1f},
     {GameSounds::Id::PlayerFire, "SE/player/Slime_Fire.wav", "プレイヤーの射撃", 0.24f, 0.05f},
     {GameSounds::Id::Bgm, "BGM/gameScene.wav", "戦闘中のBGM", 0.25f, 0.0f},
+    // BGMはファイル名をシーン名に合わせてある（BGM/<シーン名>.wav）。
+    // 既定の音量を戦闘中より低くしているのは、調整済みの戦闘BGM（0.09）に近づけるため。
+    // 0.25 のままだと、チュートリアルだけ3倍近く大きく鳴る
+    {GameSounds::Id::BgmTutorial, "BGM/tutorialScene.wav", "チュートリアル中のBGM", 0.10f, 0.0f},
 };
 
 } // namespace

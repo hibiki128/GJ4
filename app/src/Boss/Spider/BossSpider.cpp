@@ -3,6 +3,7 @@
 #include "MyMath.h"
 #include "Random.h"
 #include "src/Audio/GameSounds.h"
+#include "src/Boss/Data/BossItemDrop.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackLeap.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackShoot.h"
@@ -678,6 +679,21 @@ float BossSpider::GetFootReach() const {
     const float straight = parameters_.bodyRadius * 0.85f + BossSpiderLeg::ResolvePathLength(parameters_);
     const float bent = legs_[0]->CalcFootReach(parameters_);
     return Lerp(straight, bent, std::clamp(legBend_, 0.0f, 1.0f));
+}
+
+void BossSpider::BeginStagger(float seconds) {
+    // すでにひるんでいるところへ重ねて呼ばれても、アイテムは1回だけにする
+    const bool wasStaggered = staggerTimer_ > 0.0f;
+
+    if (seconds > staggerTimer_) {
+        staggerTimer_ = seconds;
+    }
+
+    // ひるんでいるあいだに拾ってもらう回復アイテムを足元へ落とす。
+    // 落とし方は球体形態と同じ（狙っている相手のほうへ体の大きさぶんずらす）
+    if (!wasStaggered && staggerTimer_ > 0.0f) {
+        DropHealItemOnStagger(bodyPosition_, parameters_.bodyRadius, pTargetLocator_, pFieldBounds_);
+    }
 }
 
 void BossSpider::ClearStagger() {

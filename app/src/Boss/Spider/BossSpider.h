@@ -252,14 +252,11 @@ public:
 
     /// <summary>
     /// しばらく動けなくする（回転攻撃のあとの隙）。
-    /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る
+    /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る。
+    /// ひるみ始めには、隙のあいだに拾ってもらう回復アイテムを足元へ落とす
     /// </summary>
     /// <param name="seconds">動けない時間（秒）</param>
-    void BeginStagger(float seconds) {
-        if (seconds > staggerTimer_) {
-            staggerTimer_ = seconds;
-        }
-    }
+    void BeginStagger(float seconds);
 
     /// <summary>
     /// ひと続きの攻撃を終えたときに呼ばれる先を差す（残弾の回復エリア）。

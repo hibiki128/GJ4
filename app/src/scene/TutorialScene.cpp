@@ -1,6 +1,7 @@
 #include "TutorialScene.h"
 #include "MyMath.h"
 #include <algorithm>
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <frame/Frame.h>
@@ -128,6 +129,13 @@ void TutorialScene::Initialize() {
     BossParticles::GetInstance()->Init();
     BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
 
+    // 音をまとめて読み込み、このシーンのBGMを鳴らし始める。
+    // Init は2回目以降は読み直さず、前のシーンで鳴らしっぱなしの音だけ止めるので、
+    // 本編から入り直しても戦闘中のBGMが重なったままにはならない。
+    // 読み込みはここで済ませておくこと。読んでいないと射撃や着地のSEも鳴らない
+    GameSounds::GetInstance()->Init();
+    GameSounds::GetInstance()->StartLoop(GameSounds::Id::BgmTutorial);
+
     // カメラが柱の中へ下がらないようにする（本編と同じ）
     followCamera_->SetObstacleProvider([this]() {
         static const char *kObstacleNames[] = {"plane"};
@@ -190,6 +198,8 @@ void TutorialScene::Finalize() {
         hud_->Finalize();
     }
     recoveryZones_.ClearAll();
+    // 鳴らし続けている音（BGM）を残したままシーンを抜けない
+    GameSounds::GetInstance()->StopAll();
     BaseScene::Finalize();
 }
 
@@ -207,6 +217,10 @@ void TutorialScene::Update() {
     }
 
     const float deltaTime = Frame::DeltaTime();
+
+    // 鳴らし直しの間隔を進める。これを回さないと、一度鳴らしたSEの待ち時間が
+    // 明けないままになり、2回目以降が鳴らなくなる
+    GameSounds::GetInstance()->Update(deltaTime);
 
     gameInput_->UpdateInputState();
     fieldSurround_->Update();

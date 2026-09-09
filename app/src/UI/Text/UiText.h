@@ -48,7 +48,7 @@ public:
     /// <summary>
     /// 位置・大きさ・色を指定して1枚描く
     /// </summary>
-    /// <param name="rotation">傾き（ラジアン）。既定は傾けない</param>
+    /// <param name="rotation">傾き（ラジアン。中心まわり）</param>
     void Draw(const Hagine::Vector2 &position, const Hagine::Vector2 &size, const Hagine::Vector4 &color,
               float rotation = 0.0f);
 
@@ -165,9 +165,13 @@ public:
     /// テキストからスプライトを作る
     /// </summary>
     /// <param name="id">スプライト名（生成されるPNGのファイル名にもなる）</param>
-    /// <param name="text">描く文字列（フォントのベイク範囲の都合でASCIIのみ）</param>
+    /// <param name="text">描く文字列。ひらがな・漢字も使える
+    /// （TextRenderer は焼き置きのASCIIアトラスではなく、フォントを直接読んで
+    ///  1文字ずつ字形を起こしているため）</param>
     /// <param name="outlineThickness">アウトラインの太さ。0以下でアウトラインなし</param>
-    void Create(const std::string &id, const std::string &text, float outlineThickness = 4.0f);
+    /// <param name="outlineColor">アウトラインの色</param>
+    void Create(const std::string &id, const std::string &text, float outlineThickness = 4.0f,
+                const Hagine::Vector4 &outlineColor = {0.05f, 0.05f, 0.09f, 1.0f});
 
     /// <summary>
     /// 中央揃えで描く
@@ -187,6 +191,16 @@ public:
     /// <param name="height">描画したい高さ（ピクセル）</param>
     /// <param name="color">色</param>
     void DrawLeft(float left, float centerY, float height, const Hagine::Vector4 &color);
+
+    /// <summary>
+    /// 大きさと傾きを直に指定して1枚描く（潰したり傾けたりしたいとき用）
+    /// </summary>
+    /// <param name="center">中心座標</param>
+    /// <param name="size">描く大きさ（ピクセル）</param>
+    /// <param name="color">色</param>
+    /// <param name="rotation">傾き（ラジアン。中心まわり）</param>
+    void DrawTransformed(const Hagine::Vector2 &center, const Hagine::Vector2 &size,
+                         const Hagine::Vector4 &color, float rotation);
 
     /// <summary>
     /// 指定した高さで描いたときの横幅を返す
