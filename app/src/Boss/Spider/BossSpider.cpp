@@ -923,20 +923,32 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
 }
 
 bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
-                              Vector3 &outPoint) {
+                              AimHit &outHit) {
     if (phase_ != Phase::Active) {
         return false;
     }
 
     // 当たる順番も RaycastAttach とそろえる（飛翔弾が手前を塞いでいれば照準もそこで止まる）
     int bulletIndex = -1;
-    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, outPoint)) {
+    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, outHit.point)) {
+        // 飛翔弾は FindBulletHit が中心をそのまま返すので、寄せ先も同じ点でよい
+        outHit.center = outHit.point;
         return true;
     }
 
     int hitLeg = -1;
     int hitIndex = -1;
-    return FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, outPoint);
+    if (!FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, outHit.point)) {
+        return false;
+    }
+
+    // エイムアシストの吸着先は当たった脚の球の中心。
+    // 引けなければ表面の点をそのまま中心として返す（＝寄らない）
+    if (hitLeg < 0 || hitLeg >= static_cast<int>(legs_.size()) ||
+        !legs_[static_cast<size_t>(hitLeg)]->TryGetSpherePosition(hitIndex, outHit.center)) {
+        outHit.center = outHit.point;
+    }
+    return true;
 }
 
 bool BossSpider::FindBulletHit(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,

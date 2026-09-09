@@ -81,6 +81,13 @@ void Player::Init(const std::string objectName) {
 }
 
 void Player::Update() {
+	// ポーズ中は時間ごと止める。ここで抜けると BaseObject::Update も走らないので、
+	// 速度を持ったままポーズしても座標へ積分されず、その場で止まったままになる
+	// （入力を入れながらポーズすると滑っていってしまうのを防ぐ）
+	if (isPaused_) {
+		return;
+	}
+
 	// 読み込み直後などでフレーム間隔が極端に空いたフレームは、重力が一気に積分されて
 	// 1フレームで床をすり抜けてしまう。10FPS 相当より遅いフレームは進めずに捨てる
 	if (Hagine::Frame::DeltaTime() > 0.1f) {
@@ -140,6 +147,12 @@ void Player::Update() {
 	// そのまま撃てる。回復倍率を要求するギミックは、この Update までに呼んでおけば同じフレームで効く
 	ammo_.Update();
 	shoot_.Update(context_);
+
+	// 狙いの決まり方を画面へ知らせる（レティクルの表示に使う）。
+	// 射撃の更新が終わった直後に出すので、弾が飛ぶ先とレティクルが同じフレームの値でそろう
+	if (onAimReport_) {
+		onAimReport_(shoot_.GetAimReport());
+	}
 
 	// 選択色を持っているのは射撃コンポーネント。見た目はそれを追いかけるだけ。
 	// モデルへ色を書くのもここ1か所だけにしてある
