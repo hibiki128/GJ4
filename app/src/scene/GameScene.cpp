@@ -4,6 +4,7 @@
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include "debug/param/GameParamHub.h"
+#include "object/Object3dInstancing.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -496,6 +497,26 @@ void GameScene::AddObjectSetting()
 	if (isBossPaused_) {
 		ImGui::SameLine();
 		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "停止中");
+	}
+
+	// 弾を撃つとボス以外がちらつくときの切り分け用。
+	// インスタンシングは全オブジェクトぶんのインスタンスを1本のアップロードバッファへ
+	// 毎フレーム書き込むが、エンジンは2フレーム同時進行なので、前フレームの描画が
+	// まだ読んでいる領域を書き換えてしまう。弾のように数が毎フレーム変わるものがあると
+	// 書き込み位置がずれて、前フレームぶんの絵が化ける。
+	// これを切ると1体ずつの描画に戻るので、ちらつきが消えれば原因はここだと分かる
+	{
+		bool instancing = Object3dInstancing::GetInstance()->IsEnabled();
+		if (ImGui::Checkbox("インスタンシングを使う", &instancing)) {
+			Object3dInstancing::GetInstance()->SetEnabled(instancing);
+		}
+		ImGui::SameLine();
+		ImGui::TextDisabled("(?)");
+		if (ImGui::IsItemHovered()) {
+			ImGui::SetTooltip("切ると全オブジェクトを1体ずつ描きます（描画コールは増えます）。\n"
+				"射撃中のちらつきがこれで止まるなら、原因はインスタンスバッファの\n"
+				"フレーム間の競合です");
+		}
 	}
 
 	// 形態をまたいだ大きさの倍率。球体・蜘蛛・パーティクルへ同じ比率で配る。
