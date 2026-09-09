@@ -79,10 +79,69 @@ void BossSphereCluster::ApplyRadius(const BossShellParams &shell) {
     }
     // 格子定数が変わるので、置かれている球の位置も引き直す（色はそのまま）
     for (auto &[cell, slot] : occupied_) {
-        slot.sphere->SetLocalPosition(lattice_.ToLocal(cell));
+        slot.sphere->SetLocalPosition(CellLocalPosition(cell));
     }
 
     // 位置と半径が変わったので、殻のメッシュは全色作り直す
+    MarkAllColorsDirty();
+}
+
+Vector3 BossSphereCluster::CellLocalPosition(const ShellCell &cell) const {
+    return lattice_.ToLocal(cell) * shellExpansion_;
+}
+
+void BossSphereCluster::SetShellExpansion(float scale) {
+    // 毎フレーム呼ばれる想定なので、動いていないなら全球を触らずに帰る。
+    // ただし波で球ごとにずらしたあとは、倍率が同じでも並べ直しが要る
+    if (!shellExpansionWave_ && std::abs(scale - shellExpansion_) < 0.0005f) {
+        return;
+    }
+    shellExpansionWave_ = false;
+    shellExpansion_ = scale;
+
+    // 演出で動いている球は定位置へ戻す。広がりと吸着・消滅が同時に動くと
+    // どちらの位置が正しいのか決まらなくなる
+    FlushVanishing();
+
+    for (auto &[cell, slot] : occupied_) {
+        slot.sphere->SetLocalPosition(CellLocalPosition(cell));
+    }
+
+    // 球の位置が変わったので、殻のメッシュは全色作り直す
+    MarkAllColorsDirty();
+}
+
+void BossSphereCluster::SetShellExpansionWave(const Vector3 &upAxis, float minScale, float maxScale,
+                                              float phase, float waveCount) {
+    Vector3 axis = upAxis;
+    if (axis.LengthSq() <= 0.0001f) {
+        axis = Vector3{0.0f, 1.0f, 0.0f};
+    }
+    axis = axis.Normalize();
+
+    // 一律の広がりと同じく、演出で動いている球は先に片付ける。
+    // どちらの位置が正しいのか決まらなくなるため
+    FlushVanishing();
+
+    shellExpansionWave_ = true;
+    shellExpansion_ = (minScale + maxScale) * 0.5f;
+
+    const float span = waveCount * 2.0f * std::numbers::pi_v<float>;
+    for (auto &[cell, slot] : occupied_) {
+        const Vector3 local = lattice_.ToLocal(cell);
+        if (local.LengthSq() <= 0.0001f) {
+            slot.sphere->SetLocalPosition(local);
+            continue;
+        }
+
+        // 上端で0・下端で1。層が違っても向きだけで決まるので、内側の層も同じ波に乗る
+        const float depth = std::clamp(0.5f - 0.5f * local.Normalize().Dot(axis), 0.0f, 1.0f);
+        // 下ほど位相が遅れる＝膨らみが上から下へ流れていく
+        const float height = std::sin(phase - depth * span) * 0.5f + 0.5f;
+        slot.sphere->SetLocalPosition(local * (minScale + (maxScale - minScale) * height));
+    }
+
+    // 球の位置が変わったので、殻のメッシュは全色作り直す
     MarkAllColorsDirty();
 }
 
@@ -210,7 +269,7 @@ bool BossSphereCluster::PlaceSphere(const ShellCell &cell, Color color, const Bo
     BossSphere *sphere = freeSpheres_.back();
     freeSpheres_.pop_back();
 
-    sphere->Place(cell, lattice_.ToLocal(cell), color, palette.GetRgba(color));
+    sphere->Place(cell, CellLocalPosition(cell), color, palette.GetRgba(color));
     occupied_[cell] = SphereSlot{color, sphere};
 
     if (attachFrom) {

@@ -148,6 +148,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\UI\Damage\DamageVignette.cpp" />
     <ClCompile Include="src\UI\Reticle\PlayerReticle.cpp" />
     <ClCompile Include="src\Field\Field.cpp" />
+    <ClCompile Include="src\Field\FieldSurround.cpp" />
+    <ClCompile Include="src\GameOver\GameOverBossActor.cpp" />
+    <ClCompile Include="src\GameOver\GameOverPlayerActor.cpp" />
+    <ClCompile Include="src\GameOver\GameOverStaging.cpp" />
     <ClCompile Include="src\Clear\ClearBossRemains.cpp" />
     <ClCompile Include="src\Clear\ClearPlayerActor.cpp" />
     <ClCompile Include="src\Clear\ClearStaging.cpp" />
@@ -211,6 +215,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\UI\Reticle\PlayerReticle.h" />
     <ClInclude Include="src\Character\Player\Core\PlayerAimReport.h" />
     <ClInclude Include="src\Field\Field.h" />
+    <ClInclude Include="src\Field\FieldSurround.h" />
+    <ClInclude Include="src\GameOver\GameOverBossActor.h" />
+    <ClInclude Include="src\GameOver\GameOverContext.h" />
+    <ClInclude Include="src\GameOver\GameOverPlayerActor.h" />
+    <ClInclude Include="src\GameOver\GameOverStaging.h" />
     <ClInclude Include="src\Clear\ClearBossRemains.h" />
     <ClInclude Include="src\Clear\ClearPlayerActor.h" />
     <ClInclude Include="src\Clear\ClearStaging.h" />

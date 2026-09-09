@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include "src/Boss/Effect/BossParticles.h"
+#include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include <frame/Frame.h>
@@ -83,6 +84,12 @@ void GameScene::Initialize()
 	// 中身はエンジンの円柱コライダー1本で、見た目は線だけ（大きさは ゲームパラメータ > Field）
 	field_ = std::make_unique<Field>();
 	field_->Init();
+
+	// その外側を囲む飾りの柱。行動範囲の外は床だけで背景が素通しなので、ここで塞ぐ。
+	// 柱はシーンのオブジェクトとして SceneData/GameScene/ObjectDatas に保存されており、
+	// 上の LoadAll で並んだものをそのまま引き取る（無ければここで作って保存する）
+	fieldSurround_ = std::make_unique<FieldSurround>();
+	fieldSurround_->Init(field_->GetRadius(), pObjectManager_, "GameScene");
 
 	// プレイヤーの生成初期化
 	player_ = std::make_unique<Player>();
@@ -248,6 +255,11 @@ void GameScene::Initialize()
 				obstacles.push_back(pObject);
 			}
 		}
+		// 外周の柱も遮蔽物に含める。含めないとカメラが柱の中まで下がってしまい、
+		// 裏面が抜けて背景のクリアカラーが見えてしまう
+		if (fieldSurround_) {
+			fieldSurround_->AppendObstacles(obstacles);
+		}
 		return obstacles;
 		});
 
@@ -297,6 +309,9 @@ void GameScene::Update()
 	// ゲーム入力の更新
 	gameInput_->UpdateInputState();
 
+	// 外周の柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
+	fieldSurround_->Update();
+
 	// 被弾の赤いマスクを進める（ポーズ中は止まったままにしたいのでこの位置）
 	damageVignette_->Update(Frame::DeltaTime());
 	perfectDodge_->Update(Frame::DeltaTime());
@@ -309,6 +324,12 @@ void GameScene::Update()
 	// 渡すので、走っている途中でも自然に減速して止まり、アイドルへ戻る。
 	// 止めるのは操作だけで、重力も演出も動いたままなので、空中にいれば着地する
 	player_->CommandExecute(IsCinematicPlaying() ? PlayerInput{} : gameInput_->GetInputContext());
+	// 負けた瞬間に出ていた形態を控えておく。ゲームオーバー画面はこれを見て、
+	// どちらの姿で見下ろしてくるかを決める（画面側からボスの中身は覗きにいかない）
+	if (player_->IsDead()) {
+		GameOverContext::GetInstance()->SetBossForm(
+			bossSpider_->IsActive() ? BossFormId::Spider : BossFormId::Sphere);
+	}
 
 	followCamera_->Update(gameInput_->GetCameraContext());
 
@@ -481,6 +502,11 @@ void GameScene::AddObjectSetting()
 	// プレイヤーと敵を閉じ込めている円柱の外周
 	if (field_) {
 		field_->DrawImGui();
+	}
+
+	// その外側を囲む飾りの柱
+	if (fieldSurround_) {
+		fieldSurround_->DrawImGui();
 	}
 
 	// 調整中に敵が動き回ると見づらいので、まとめて止められるようにしておく。
