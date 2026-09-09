@@ -112,7 +112,7 @@ bool HealItemManager::RaycastPoint(const Vector3 &worldStart, const Vector3 &wor
 
     outHit.point = point;
     // エイムアシストの寄せ先は膜の真ん中。縁をかすっているときほど大きく寄る
-    outHit.center = item->GetCenter();
+    outHit.center = item->GetSealCenter();
     return true;
 }
 
@@ -137,7 +137,7 @@ bool HealItemManager::FindLockOnTarget(const LockOnRequest &request, ShootableLo
             continue; // 割れた後の中身は撃つものではないので狙わせない
         }
 
-        const Vector3 toItem = item.GetCenter() - request.origin;
+        const Vector3 toItem = item.GetSealCenter() - request.origin;
         const float distance = toItem.Length();
         if (distance <= 0.0001f || distance > request.maxDistance) {
             continue;
@@ -151,7 +151,7 @@ bool HealItemManager::FindLockOnTarget(const LockOnRequest &request, ShootableLo
         bestCos = angleCos;
         out.found = true;
         out.targetId = static_cast<int>(i);
-        out.worldPosition = item.GetCenter();
+        out.worldPosition = item.GetSealCenter();
         out.distance = distance;
         out.angleDegrees =
             std::acos(std::clamp(angleCos, -1.0f, 1.0f)) * 180.0f / std::numbers::pi_v<float>;

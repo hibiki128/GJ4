@@ -3,6 +3,7 @@
 #include "type/Vector3.h"
 #include "type/Vector4.h"
 #include <functional>
+#include <memory>
 #include <string>
 
 /// <summary>
@@ -12,22 +13,23 @@
 /// </summary>
 struct HealItemParams {
     float sealRadius = 1.2f;   // 膜の半径（黄色い弾を当てる的の大きさ）
-    float coreRadius = 0.5f;   // 中身の半径
+    float coreRadius = 0.5f;   // ハートの大きさ（モデルの半径にかかる倍率）
     int sealHitPoints = 3;     // 膜を割るのに必要な弾数（1発ごとに薄くなる）
     float hitFlashTime = 0.12f;   // 膜に当たった瞬間に白く光っている時間（秒）
     float highlightScale = 1.08f; // ロックオン中に膜を大きく見せる倍率
-    float breakTime = 0.15f;   // 膜が割れて中身の大きさに収まるまでの時間（秒）
-    float pickupRadius = 1.2f; // 中身の表面から、これだけ近づけば拾える
+    float breakTime = 0.25f;   // 膜が弾けて消え切るまでの時間（秒）
+    float pickupRadius = 1.2f; // ハートの表面から、これだけ近づけば拾える
     float lifeTime = 30.0f;    // 出してから消えるまでの時間（秒）。0以下なら消えない
-    float bobHeight = 0.25f;   // その場で上下に揺れる幅
+    float bobHeight = 0.25f;   // 膜の中でハートが上下に揺れる幅
     float bobSpeed = 2.0f;     // 上下に揺れる速さ（ラジアン/秒）
+    float spinSpeed = 45.0f;   // ハートがその場で回る速さ（度/秒）
     float spawnHeight = 1.0f;  // 落とし主の位置から、どれだけ上へ出すか
     int healAmount = 1;        // 拾ったときに回復する量
 
     // 膜の色。黄色い弾で割るものなので黄色にそろえる（色味はボスの色マスタから配れる）
-    Hagine::Vector4 sealRgba = {0.95f, 0.85f, 0.30f, 0.45f};
-    // 中身の色
-    Hagine::Vector4 coreRgba = {1.00f, 0.95f, 0.60f, 1.00f};
+    Hagine::Vector4 sealRgba = {0.95f, 0.85f, 0.30f, 0.8f};
+    // ハートの色
+    Hagine::Vector4 coreRgba = {0.95f, 0.30f, 0.40f, 1.00f};
 };
 
 /// <summary>プレイヤーの現在位置を取得する関数（取れなければ false）</summary>
@@ -58,9 +60,9 @@ struct HealItemHooks {
 /// Player や弾の更新は BaseObjectManager::Update のループの中から呼ばれているため、
 /// そこで登録・解除するとマネージャーが回している最中のコンテナを書き換えることになる。
 ///
-/// 見た目は「膜」と「中身」で1つのオブジェクトを使い回している。
-/// 膜のときは大きく・黄色く・加算合成で光らせ、割れたら中身の大きさへ縮んで
-/// 普通の見た目へ戻る。演出を足したくなったら2つに分ければよい。
+/// 見た目は2つのオブジェクトでできている。
+/// このクラス自身が中身のハート（拾う対象）で、それを包む黄色い膜は seal_ が持つ球。
+/// 膜は定位置に留まり、ハートだけがその中で浮いて回る。膜が動かないので狙いも安定する。
 ///
 /// 膜の当たり判定はコライダーを使わず「前フレームの位置→現在位置の線分」で行う。
 /// 弾は1フレームで膜の直径以上進むため、重なり判定ではすり抜けてしまうのに対し、
@@ -80,7 +82,8 @@ public:
     };
 
     /// <summary>
-    /// アイテムを生成する（待機状態で始まる）
+    /// アイテムを生成する（待機状態で始まる）。
+    /// 包む膜もここで一緒に作って登録する
     /// </summary>
     /// <param name="objectName">オブジェクト名（マネージャーのキーになるので一意にする）</param>
     /// <param name="params">調整値（マネージャーが持つものを参照する）</param>
@@ -132,8 +135,11 @@ public:
 
     State GetState() const { return state_; }
 
-    /// <summary>膜の中心（ワールド）。揺れているぶんもそのまま出る</summary>
-    const Hagine::Vector3 &GetCenter() const { return transform_->translation_; }
+    /// <summary>
+    /// 膜の中心（ワールド）。撃つ側から見た的の中心はここで、
+    /// ロックオンもエイムアシストもこの一点へ寄せる。中で揺れるハートとは違って動かない
+    /// </summary>
+    const Hagine::Vector3 &GetSealCenter() const { return basePosition_; }
 
     /// <summary>膜を割るのに、あと何発いるか</summary>
     int GetSealHp() const { return sealHp_; }
@@ -150,10 +156,10 @@ private:
     /// <returns>bool: 拾われた（＝実際に回復した）なら true</returns>
     bool TryPickup();
 
-    /// <summary>今の状態から見た目の半径を求める（割れた直後は膜の大きさから縮む）</summary>
-    float CurrentRadius() const;
+    /// <summary>膜が弾けてからの進み具合（0＝割れた瞬間、1＝消え切った。膜つきのあいだは 0）</summary>
+    float BurstProgress() const;
 
-    /// <summary>大きさと色を今の状態に合わせる（調整値を実行中に触っても効くよう毎フレーム行う）</summary>
+    /// <summary>ハートと膜の大きさ・色を今の状態に合わせる（調整値を実行中に触っても効く）</summary>
     void ApplyVisual();
 
     /// ===================================================
@@ -164,13 +170,17 @@ private:
     const HealItemParams *params_ = nullptr;
     const HealItemHooks *hooks_ = nullptr;
 
+    // ハートを包む黄色い膜。撃たれるのはこちらで、割れると消える
+    std::unique_ptr<Hagine::BaseObject> seal_;
+
     State state_ = State::None;
-    Hagine::Vector3 basePosition_{}; // 揺れの中心（出した位置）
+    Hagine::Vector3 basePosition_{}; // 膜の中心（出した位置。揺れの基準でもある）
     int sealHp_ = 0;                 // 膜を割るのに、あと何発いるか
     float lifeTimer_ = 0.0f;         // 消えるまでの残り時間（秒）
-    float breakTimer_ = 0.0f;        // 割れてから中身の大きさに収まるまでの残り時間（秒）
+    float breakTimer_ = 0.0f;        // 膜が弾け切るまでの残り時間（秒）
     float hitFlashTimer_ = 0.0f;     // 膜に当たって白く光っている残り時間（秒）
     float bobPhase_ = 0.0f;          // 上下の揺れの位相（ラジアン）
+    float spinYaw_ = 0.0f;           // ハートの向き（ラジアン）
     bool isHighlighted_ = false;     // ロックオンで強調表示中か
     bool isPaused_ = false;          // 更新を止めているか（ポーズ中）
 };
