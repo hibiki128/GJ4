@@ -3,6 +3,7 @@
 #include "src/Character/Player/Core/PlayerContext.h"
 #include "src/Character/Player/Components/Move/PlayerMoveComponent.h"
 #include "src/Character/Player/Components/Reaction/PlayerComponentReaction.h"
+#include "src/Character/Player/Components/Voice/PlayerVoiceComponent.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "Utility/Debug/Param/GameParamHub.h"
 #include "Frame/Frame.h"
@@ -28,6 +29,11 @@ void PlayerStateMove::Update(Player& player, PlayerContext& context) {
 	// 足元の粒。要求を出している間だけ出るので、止まれば自然に消える
 	if (context.transform_) {
 		PlayerParticles::GetInstance()->RequestWalk(context.transform_->translation_, player.GetDisplayColor());
+	}
+
+	// 足音も粒と同じで、動いている間ずっと要求を出すだけでよい
+	if (context.voiceComponent_) {
+		context.voiceComponent_->RequestMove();
 	}
 
 	// スケールを直接書かず、常時の呼吸だけを要求する
