@@ -36,6 +36,9 @@ public:
         PlayerMove, // 歩き・走りの足音（動いているあいだ、間を置いて鳴らす）
         PlayerFire, // 弾を撃った
         Bgm,        // 戦闘中のBGM
+        BgmClear,
+        BgmGameOver,
+        BgmTitle,
         Count
     };
 

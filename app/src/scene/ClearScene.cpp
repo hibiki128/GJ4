@@ -4,6 +4,7 @@
 #include <Frame.h>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
+#include "src/Audio/GameSounds.h"
 
 REGISTER_SCENE("CLEAR", ClearScene)
 
@@ -57,8 +58,8 @@ void ClearScene::Initialize()
 	// 見出しと案内。見出しは1文字ずつ動かすので、まとめて ResultUi が受け持つ。
 	// 文字はゲームの4色で塗る（まわりの柱と同じ色づかいにそろえる）
 	resultUi_ = std::make_unique<ResultUi>();
-	resultUi_->Init("Clear", {"く", "り", "あ", "！", "！"}, {"はじめにもどる"},
-	                ResultTitleMotion::Bounce);
+	resultUi_->Init("Clear", { "く", "り", "あ", "！", "！" }, { "はじめにもどる" },
+		ResultTitleMotion::Bounce);
 	resultUi_->RegisterParams("ClearUi");
 
 	// スプライトの描画（ポストエフェクトなし）
@@ -76,6 +77,9 @@ void ClearScene::Initialize()
 			PauseMenu::GetInstance()->Draw();
 		});
 
+	GameSounds::GetInstance()->Init();
+	GameSounds::GetInstance()->StartLoop(GameSounds::Id::BgmClear);
+
 }
 
 void ClearScene::Finalize()
@@ -86,6 +90,7 @@ void ClearScene::Finalize()
 	if (resultUi_) {
 		resultUi_->Finalize();
 	}
+	GameSounds::GetInstance()->StopAll();
 	BaseScene::Finalize();
 }
 
@@ -97,6 +102,10 @@ void ClearScene::Update()
 
 	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
 	PauseMenu::GetInstance()->Update();
+
+	const float deltaTime = Frame::DeltaTime();
+
+	GameSounds::GetInstance()->Update(deltaTime);
 
 	// 柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
 	if (!PauseMenu::GetInstance()->IsPaused()) {

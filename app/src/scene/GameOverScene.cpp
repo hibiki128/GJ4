@@ -3,6 +3,7 @@
 #include <Frame.h>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
+#include "src/Audio/GameSounds.h"
 
 REGISTER_SCENE("GAMEOVER", GameOverScene)
 
@@ -50,8 +51,8 @@ void GameOverScene::Initialize()
 
 	// 見出しと案内。文字は1つずつ傾き方を変えて、そろっていない＝崩れて見えるようにする
 	resultUi_ = std::make_unique<ResultUi>();
-	resultUi_->Init("GameOver", {"げ", "ー", "む", "お", "ー", "ば", "ー", ".", ".", "."},
-	                {"もういちど", "はじめにもどる"}, ResultTitleMotion::Wobble);
+	resultUi_->Init("GameOver", { "げ", "ー", "む", "お", "ー", "ば", "ー", ".", ".", "." },
+		{ "もういちど", "はじめにもどる" }, ResultTitleMotion::Wobble);
 	resultUi_->RegisterParams("GameOverUi");
 
 	// スプライトの描画（ポストエフェクトなし）
@@ -69,6 +70,9 @@ void GameOverScene::Initialize()
 			PauseMenu::GetInstance()->Draw();
 		});
 
+	GameSounds::GetInstance()->Init();
+	GameSounds::GetInstance()->StartLoop(GameSounds::Id::BgmGameOver);
+
 }
 
 void GameOverScene::Finalize()
@@ -79,6 +83,7 @@ void GameOverScene::Finalize()
 	if (resultUi_) {
 		resultUi_->Finalize();
 	}
+	GameSounds::GetInstance()->StopAll();
 	BaseScene::Finalize();
 }
 
@@ -90,6 +95,10 @@ void GameOverScene::Update()
 
 	// コントローラーのメニュー（START）ボタン、キーボードは ESC で開閉する
 	PauseMenu::GetInstance()->Update();
+
+	const float deltaTime = Frame::DeltaTime();
+
+	GameSounds::GetInstance()->Update(deltaTime);
 
 	// ポーズ中はボスの動きも止める（ポーズ画面の裏でうごめかせない）
 	if (!PauseMenu::GetInstance()->IsPaused()) {

@@ -46,6 +46,9 @@ constexpr SoundDesc kSoundDescs[] = {
     // 既定の音量を戦闘中より低くしているのは、調整済みの戦闘BGM（0.09）に近づけるため。
     // 0.25 のままだと、チュートリアルだけ3倍近く大きく鳴る
     {GameSounds::Id::BgmTutorial, "BGM/tutorialScene.wav", "チュートリアル中のBGM", 0.10f, 0.0f},
+    {GameSounds::Id::BgmClear, "BGM/gameclearScene.wav", "クリア中のBGM", 0.10f, 0.0f},
+    {GameSounds::Id::BgmTitle, "BGM/titleScene.wav", "タイトル中のBGM", 0.10f, 0.0f},
+    {GameSounds::Id::BgmGameOver, "BGM/gameoverScene.wav", "ゲームオーバー中のBGM", 0.10f, 0.0f},
 };
 
 } // namespace

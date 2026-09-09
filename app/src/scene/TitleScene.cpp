@@ -6,14 +6,15 @@
 #include <numbers>
 #include <utility/scene/SceneManager.h>
 #include <utility/scene/SceneRegistry.h>
+#include "src/Audio/GameSounds.h"
 
 namespace {
 
-/// <summary>
-/// 画面の後処理。ゲーム中と同じものを読む。
-/// 輪郭線はこの絵づくりの要なので、タイトルだけ素の絵になると別のゲームに見える
-/// </summary>
-constexpr const char *kPostEffectDataName = "GameScenePostEffect";
+	/// <summary>
+	/// 画面の後処理。ゲーム中と同じものを読む。
+	/// 輪郭線はこの絵づくりの要なので、タイトルだけ素の絵になると別のゲームに見える
+	/// </summary>
+	constexpr const char* kPostEffectDataName = "GameScenePostEffect";
 
 } // namespace
 
@@ -127,14 +128,17 @@ void TitleScene::Initialize()
 	tutorialDialog_->Init();
 
 	// 構図はデバッグUIから触れるようにしておく
-	params_.Register("BossPosition", &bossPosition_, {0.1f});
-	params_.Register("PlayerPosition", &playerPosition_, {0.1f});
-	params_.Register("CameraPosition", &cameraPosition_, {0.1f});
-	params_.Register("CameraRotation", &cameraRotation_, {0.5f});
-	params_.Register("CameraFovDegrees", &cameraFovDegrees_, {0.5f, 10.0f, 120.0f});
-	params_.Register("BossSpinSpeed", &bossSpinSpeed_, {0.5f, -180.0f, 180.0f});
+	params_.Register("BossPosition", &bossPosition_, { 0.1f });
+	params_.Register("PlayerPosition", &playerPosition_, { 0.1f });
+	params_.Register("CameraPosition", &cameraPosition_, { 0.1f });
+	params_.Register("CameraRotation", &cameraRotation_, { 0.5f });
+	params_.Register("CameraFovDegrees", &cameraFovDegrees_, { 0.5f, 10.0f, 120.0f });
+	params_.Register("BossSpinSpeed", &bossSpinSpeed_, { 0.5f, -180.0f, 180.0f });
 
 	ApplyLayout();
+
+	GameSounds::GetInstance()->Init();
+	GameSounds::GetInstance()->StartLoop(GameSounds::Id::BgmTitle);
 
 	// 画面の後処理（輪郭線）。ゲーム中と同じデータを読む
 	pOffScreen_->LoadData(kPostEffectDataName);
@@ -145,6 +149,7 @@ void TitleScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+	GameSounds::GetInstance()->StopAll();
 	BaseScene::Finalize();
 }
 
@@ -159,6 +164,10 @@ void TitleScene::Update()
 
 	// 置き場所は毎フレーム入れ直す。調整UIで動かした値がその場で効くようにするため
 	ApplyLayout();
+
+	const float deltaTime = Frame::DeltaTime();
+
+	GameSounds::GetInstance()->Update(deltaTime);
 
 	// 外周の柱の揺れ。オブジェクトの更新より前に置いて、置いた揺れをその場で使わせる
 	if (fieldSurround_ && !PauseMenu::GetInstance()->IsPaused()) {
@@ -226,14 +235,14 @@ bool TitleScene::IsDecidePressed()
 	/// 「はじめる」を押したか
 	/// ===================================================
 
-	Input *pInput = Input::GetInstance();
+	Input* pInput = Input::GetInstance();
 
 	// パッドが無い環境でも触れるよう、キーボードも見ている（ポーズ画面と同じ扱い）
 	if (pInput->TriggerKey(DIK_RETURN) || pInput->TriggerKey(DIK_SPACE)) {
 		return true;
 	}
 
-	GamePad *gamePad = pInput->GetGamePad();
+	GamePad* gamePad = pInput->GetGamePad();
 	return gamePad && gamePad->IsConnected() && gamePad->IsTrigger(XINPUT_GAMEPAD_A);
 }
 
@@ -244,12 +253,12 @@ void TitleScene::ApplyLayout()
 		// 接地高さの微調整もゲーム中と同じ値を足して、立ち方をそろえる
 		const float groundHeight =
 			boss_->GetBodyRadius() + boss_->GetParameters().Shell().groundOffset;
-		boss_->SetBossPosition(Vector3{bossPosition_.x, groundHeight, bossPosition_.z});
+		boss_->SetBossPosition(Vector3{ bossPosition_.x, groundHeight, bossPosition_.z });
 	}
 	if (player_) {
-		player_->SetGroundPosition(Vector3{playerPosition_.x, 0.0f, playerPosition_.z});
+		player_->SetGroundPosition(Vector3{ playerPosition_.x, 0.0f, playerPosition_.z });
 		// ボスのほうを向かせる（揺れの潰れる向きがそろう）
-		player_->LookAt(Vector3{bossPosition_.x, 0.0f, bossPosition_.z});
+		player_->LookAt(Vector3{ bossPosition_.x, 0.0f, bossPosition_.z });
 	}
 }
 
@@ -316,8 +325,8 @@ void TitleScene::CameraUpdate()
 	if (camera_) {
 		constexpr float toRadian = std::numbers::pi_v<float> / 180.0f;
 		camera_->SetPosition(cameraPosition_);
-		camera_->SetRotation(Vector3{cameraRotation_.x * toRadian, cameraRotation_.y * toRadian,
-									 cameraRotation_.z * toRadian});
+		camera_->SetRotation(Vector3{ cameraRotation_.x * toRadian, cameraRotation_.y * toRadian,
+									 cameraRotation_.z * toRadian });
 		camera_->SetFovYDegrees(cameraFovDegrees_);
 	}
 
