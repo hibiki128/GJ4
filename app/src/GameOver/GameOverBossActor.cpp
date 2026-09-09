@@ -64,6 +64,7 @@ void GameOverBossActor::RegisterParams() {
 
     spiderParams_.Register("StepSwayRadius", &stepSwayRadius_, {0.05f, 0.0f, 6.0f});
     spiderParams_.Register("StepSwayPeriod", &stepSwayPeriod_, {0.1f, 0.5f, 30.0f});
+    spiderParams_.Register("StepTriggerRatio", &stepTriggerRatio_, {0.01f, 0.05f, 1.0f});
     spiderParams_.Register("LegStanceBend", &legStanceBend_, {0.01f, 0.0f, 1.0f});
     // 出す絵に合わせて正面を向かせるための回し量。触るとその場で足も置き直す
     GameParamHub::Options facingOptions{};
@@ -108,6 +109,20 @@ void GameOverBossActor::StandSpider() {
     // 立ち姿は最後まで変えない。足踏み以外の動きは出さない
     spider_->SetLegBend(legStanceBend_, 0.01f);
     spider_->SetLegTuck(0.0f, 0.01f);
+
+    ApplyStepTrigger();
+}
+
+void GameOverBossActor::ApplyStepTrigger() {
+    if (!spider_) {
+        return;
+    }
+
+    // ゲーム中の敷居は「歩いて動き回る蜘蛛」に合わせた広さで、揺れ幅よりずっと大きい。
+    // そのままだと足が定位置から離れきらず、踏み替えが一度も起きない＝脚が動かない。
+    // ここは歩かないので、揺れ幅から敷居を決め直す
+    spider_->GetParameters().stepTrigger =
+        (std::max)(0.05f, stepSwayRadius_ * stepTriggerRatio_);
 }
 
 void GameOverBossActor::FaceSpider() {
@@ -203,6 +218,10 @@ void GameOverBossActor::UpdateSpiderForm(float deltaTime) {
         FaceSpider();
     }
 
+    // 揺れ幅は調整UIから動かせるので、敷居も毎フレーム合わせ直す。
+    // 片方だけ変えられると、また踏み替えが起きない組み合わせに戻ってしまう
+    ApplyStepTrigger();
+
     // --- その場で足踏みする ---
     // 出すのは足踏みだけ。胴を体重移動のぶんだけ揺らせば、足は地面に貼り付いたままなので、
     // 定位置から離れた脚が1本ずつ勝手に踏み替わる（BossSpider の歩容そのもの）。
@@ -235,8 +254,9 @@ void GameOverBossActor::DispatchCompute() {
 void GameOverBossActor::DrawImGui() {
 #ifdef USE_IMGUI
     if (form_ == BossFormId::Spider) {
-        ImGui::TextDisabled("足踏み: 揺れ幅 %.2f ／ %.1f 秒でひと往復", stepSwayRadius_,
-                            stepSwayPeriod_);
+        ImGui::TextDisabled("足踏み: 揺れ幅 %.2f ／ %.1f 秒でひと往復（踏み替えの敷居 %.2f）",
+                            stepSwayRadius_, stepSwayPeriod_,
+                            spider_ ? spider_->GetParameters().stepTrigger : 0.0f);
         ImGui::TextDisabled("向き: 相手のほうから %+.1f 度（FacingDeg で正面を出す）",
                             facingDegrees_);
     } else if (sphere_) {
