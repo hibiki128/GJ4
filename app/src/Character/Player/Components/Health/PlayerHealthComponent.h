@@ -41,6 +41,24 @@ public:
 	// 被弾したことを消費する（1回の被弾につき1回だけ true を返す）
 	bool ConsumeHit();
 
+	/// <summary>
+	/// 無敵で弾いた被弾を消費する（1回につき1回だけ true）。
+	/// 体力は減っていないので、これを拾うのは演出のため。
+	/// 回避の出だしで弾けたならジャスト回避、という判断は拾った側が行う
+	/// </summary>
+	bool ConsumeBlocked();
+
+	/// <summary>直近に無敵で弾いた攻撃（弾いた向きを演出に使う）</summary>
+	const DamageInfo& GetLastBlocked() const { return lastBlocked_; }
+
+	/// <summary>
+	/// 被弾とは関係なく無敵を付ける（回避のように、自分から無敵になりたいとき用）。
+	/// すでに無敵ならより長い方を残すので、被弾直後の無敵を回避で短くしてしまうことはない。
+	/// 減らすのは Update() なので、呼び出し側はここで時間を預けるだけでよい
+	/// </summary>
+	/// <param name="seconds">無敵でいる時間（秒）</param>
+	void AddInvincible(float seconds) { invincibleTimer_ = (seconds > invincibleTimer_) ? seconds : invincibleTimer_; }
+
 	// HPを満タンに戻す（リトライやデバッグ用）
 	void Reset() { Init(); }
 
@@ -69,4 +87,6 @@ private:
 	float invincibleTimer_ = 0.0f;     // 無敵の残り時間（秒）
 	bool hitPending_ = false;          // まだ拾われていない被弾があるか
 	DamageInfo lastDamage_{};          // 直近に受けたダメージ（着弾位置は演出が使う）
+	bool blockedPending_ = false;      // まだ拾われていない「無敵で弾いた被弾」があるか
+	DamageInfo lastBlocked_{};         // 直近に無敵で弾いた攻撃（ジャスト回避の演出が使う）
 };

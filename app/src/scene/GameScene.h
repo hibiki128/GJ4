@@ -9,6 +9,7 @@
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
+#include "src/Effect/PerfectDodgeDirector.h"
 
 /// <summary>
 /// ゲームシーン
@@ -106,4 +107,7 @@ BossRecoveryZoneManager recoveryZones_;
 	std::unique_ptr<FollowCamera> followCamera_;
 	// 被弾したときに画面のふちを赤く染めるマスク
 	std::unique_ptr<DamageVignette> damageVignette_;
+
+	// ジャスト回避の画面演出（白フラッシュ）
+	std::unique_ptr<PerfectDodgeDirector> perfectDodge_;
 };

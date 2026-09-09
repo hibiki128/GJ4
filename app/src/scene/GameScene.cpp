@@ -1,5 +1,6 @@
 #include "GameScene.h"
 #include "src/Boss/Effect/BossParticles.h"
+#include "src/Character/Player/Effect/PlayerParticles.h"
 #include "debug/imgui/ImGuiNotification.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
@@ -50,6 +51,10 @@ void GameScene::Initialize()
             // 演出の帯やポーズ画面が赤く染まらないようにする
             if (damageVignette_) {
                 damageVignette_->Draw();
+            }
+            // ジャスト回避の白フラッシュも同じ扱い（赤いマスクの上に重ねる）
+            if (perfectDodge_) {
+                perfectDodge_->Draw();
             }
             // 撃破演出の黒帯は他のUIより手前に出す
             if (defeatDirector_) {
@@ -146,6 +151,23 @@ void GameScene::Initialize()
 		damageVignette_->Play(1.0f);
 		});
 
+	// 回避の画面演出。飛び出した瞬間だけカメラを前へ押し出してスピード感を足す。
+	// 体の伸び縮みはプレイヤー自身の演出コンポーネントが受け持つ
+	player_->SetOnDodge([this](const Vector3& direction) {
+		(void)direction;
+		followCamera_->AddDashPush(1.0f);
+		});
+
+	// ジャスト回避の画面演出。プレイヤーは画面のことを知らないので、被弾と同じくここで配る
+	perfectDodge_ = std::make_unique<PerfectDodgeDirector>();
+	perfectDodge_->Init();
+	perfectDodge_->RegisterParams();
+
+	player_->SetOnPerfectDodge([this](const DamageInfo& info) {
+		(void)info;
+		perfectDodge_->Play();
+		});
+
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく
 	bossSpider_ = std::make_unique<BossSpider>();
 	bossSpider_->SetPalette(boss_->GetPalette());
@@ -195,6 +217,9 @@ void GameScene::Initialize()
 	bossSpider_->SetAttackFinishedCallback([this] {
 		recoveryZones_.NotifyAttackFinished(bossSpider_->GetBodyPosition(), boss_->GetPalette());
 		});
+
+	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
+	PlayerParticles::GetInstance()->Init();
 
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
@@ -276,6 +301,7 @@ void GameScene::Update()
 
 	// 被弾の赤いマスクを進める（ポーズ中は止まったままにしたいのでこの位置）
 	damageVignette_->Update(Frame::DeltaTime());
+	perfectDodge_->Update(Frame::DeltaTime());
 
 	player_->CommandExecute(gameInput_->GetInputContext());
 
@@ -517,6 +543,7 @@ void GameScene::AddParticleSetting()
 		boss_->SaveParameters();
 		ImGuiNotification::Post("回復エリアの設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
 		});
+	PlayerParticles::GetInstance()->DrawImGui();
 }
 
 void GameScene::CameraUpdate()

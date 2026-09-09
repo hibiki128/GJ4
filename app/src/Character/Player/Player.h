@@ -60,8 +60,40 @@ public:
 	/// </summary>
 	void SetOnDamaged(DamagedCallback callback) { onDamaged_ = std::move(callback); }
 
+	/// <summary>回避に飛び出した瞬間に呼ばれる関数の型（引数は飛び出す向き・ワールド）</summary>
+	using DodgeCallback = std::function<void(const Hagine::Vector3&)>;
+
+	/// <summary>
+	/// 回避の通知先を渡す。カメラの押し出しのような画面まわりの演出はプレイヤーの仕事ではないので、
+	/// 被弾と同じくシーンが受け持つ
+	/// </summary>
+	void SetOnDodge(DodgeCallback callback) { onDodge_ = std::move(callback); }
+
+	/// <summary>回避に飛び出したことを知らせる（回避ステートから呼ぶ）</summary>
+	void NotifyDodge(const Hagine::Vector3& direction) {
+		if (onDodge_) {
+			onDodge_(direction);
+		}
+	}
+
+	/// <summary>ジャスト回避が決まった瞬間に呼ばれる関数の型（引数は受け流した攻撃）</summary>
+	using PerfectDodgeCallback = std::function<void(const DamageInfo&)>;
+
+	/// <summary>
+	/// ジャスト回避の通知先を渡す。白フラッシュやスローモーションは画面ぜんたいの話で
+	/// プレイヤーの仕事ではないので、被弾と同じくシーンが受け持つ
+	/// </summary>
+	void SetOnPerfectDodge(PerfectDodgeCallback callback) { onPerfectDodge_ = std::move(callback); }
+
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
+
+	/// <summary>ジャスト回避が決まったときの演出をまとめて出す（Update から呼ぶ）</summary>
+	/// <param name="info">受け流した攻撃（当たるはずだった位置を向きに使う）</param>
+	void PlayPerfectDodgeEffects(const DamageInfo& info);
+
+	/// <summary>いま見えている体の色（回避の飛沫など、演出の色合わせに使う）</summary>
+	const Hagine::Vector4& GetDisplayColor() const { return color_.GetDisplayColor(); }
 
 	// 色マスタを受け取る（初期化時に一度だけ。モデルの色はここから引く）
 	void SetColorPalette(const BossColorPalette& palette) { color_.SetPalette(palette); }
@@ -148,6 +180,12 @@ private:
 
 	// 被弾の通知先（未配線でも被弾そのものは成立する）
 	DamagedCallback onDamaged_{};
+
+	// 回避の通知先（未配線でも回避そのものは成立する）
+	DodgeCallback onDodge_{};
+
+	// ジャスト回避の通知先（未配線でも受け流しそのものは成立する）
+	PerfectDodgeCallback onPerfectDodge_{};
 
 	// 動き回れる範囲（未配線ならどこまでも動ける）
 	const IFieldBounds* pFieldBounds_ = nullptr;
