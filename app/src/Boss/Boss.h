@@ -83,8 +83,10 @@ public:
     /// ===================================================
 
     bool FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) override;
-    BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color) override;
-    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color, AimHit &outHit) override;
+    BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                                  Color color, float bulletRadius) override;
+    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
+                      float bulletRadius, AimHit &outHit) override;
     bool TryGetTargetPosition(const ShellCell &cell, Hagine::Vector3 &out) override;
 
     /// <summary>ロックオンの許容範囲（ボスデータの値をそのまま返す）</summary>
@@ -434,6 +436,20 @@ private:
 
     /// <summary>コア（本体の球）の大きさと接地高さを半径へ追従させる</summary>
     void ApplyCoreLayout();
+
+    /// <summary>
+    /// 線分がコア（黒い球）に当たるかを調べる。
+    /// コアは撃っても壊せない無敵の的だが、当たり判定が無いと殻の穴を抜けた弾が
+    /// 内側から向こう側の殻に当たってしまうので、ここで弾を止める
+    /// </summary>
+    /// <param name="worldStart">線分の始点（ワールド）</param>
+    /// <param name="worldEnd">線分の終点（ワールド）</param>
+    /// <param name="bulletRadius">弾の半径</param>
+    /// <param name="outDistance">始点から当たった点までの距離</param>
+    /// <param name="outPoint">当たった点（ワールド）</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool RaycastCore(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                     float bulletRadius, float &outDistance, Hagine::Vector3 &outPoint) const;
 
     /// <summary>
     /// 「ボスの位置」「ボスが思っている相手の位置」「行動範囲」を線で出す。

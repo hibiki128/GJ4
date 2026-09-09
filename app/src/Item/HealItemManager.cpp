@@ -59,7 +59,7 @@ bool HealItemManager::Spawn(const Vector3 &position) {
 }
 
 HealItem *HealItemManager::FindNearestSeal(const Vector3 &from, const Vector3 &to, Color color,
-                                           Vector3 *outPoint) {
+                                           float bulletRadius, Vector3 *outPoint) {
     // 膜に反応するのは黄色い弾だけ。他の色は素通りさせる（弾も照準も止めない）
     if (color != Color::YELLOW) {
         return nullptr;
@@ -73,7 +73,7 @@ HealItem *HealItemManager::FindNearestSeal(const Vector3 &from, const Vector3 &t
     for (auto &item : items_) {
         float distance = 0.0f;
         Vector3 point{};
-        if (!item->RaycastSeal(from, to, distance, point)) {
+        if (!item->RaycastSeal(from, to, bulletRadius, distance, point)) {
             continue;
         }
         if (nearest && distance >= nearestDistance) {
@@ -91,8 +91,9 @@ HealItem *HealItemManager::FindNearestSeal(const Vector3 &from, const Vector3 &t
     return nearest;
 }
 
-bool HealItemManager::RaycastHit(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
-    HealItem *item = FindNearestSeal(worldStart, worldEnd, color, nullptr);
+bool HealItemManager::RaycastHit(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
+                                 float bulletRadius) {
+    HealItem *item = FindNearestSeal(worldStart, worldEnd, color, bulletRadius, nullptr);
     if (!item) {
         return false;
     }
@@ -103,16 +104,16 @@ bool HealItemManager::RaycastHit(const Vector3 &worldStart, const Vector3 &world
 }
 
 bool HealItemManager::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
-                                   AimHit &outHit) {
+                                   float bulletRadius, AimHit &outHit) {
     Vector3 point{};
-    HealItem *item = FindNearestSeal(worldStart, worldEnd, color, &point);
+    HealItem *item = FindNearestSeal(worldStart, worldEnd, color, bulletRadius, &point);
     if (!item) {
         return false;
     }
 
     outHit.point = point;
     // エイムアシストの寄せ先は膜の真ん中。縁をかすっているときほど大きく寄る
-    outHit.center = item->GetCenter();
+    outHit.center = item->GetSealCenter();
     return true;
 }
 
@@ -137,7 +138,7 @@ bool HealItemManager::FindLockOnTarget(const LockOnRequest &request, ShootableLo
             continue; // 割れた後の中身は撃つものではないので狙わせない
         }
 
-        const Vector3 toItem = item.GetCenter() - request.origin;
+        const Vector3 toItem = item.GetSealCenter() - request.origin;
         const float distance = toItem.Length();
         if (distance <= 0.0001f || distance > request.maxDistance) {
             continue;
@@ -151,7 +152,7 @@ bool HealItemManager::FindLockOnTarget(const LockOnRequest &request, ShootableLo
         bestCos = angleCos;
         out.found = true;
         out.targetId = static_cast<int>(i);
-        out.worldPosition = item.GetCenter();
+        out.worldPosition = item.GetSealCenter();
         out.distance = distance;
         out.angleDegrees =
             std::acos(std::clamp(angleCos, -1.0f, 1.0f)) * 180.0f / std::numbers::pi_v<float>;

@@ -125,11 +125,13 @@ public:
     /// <param name="start">線分の始点</param>
     /// <param name="end">線分の終点</param>
     /// <param name="params">蜘蛛のパラメータ</param>
+    /// <param name="bulletRadius">弾の半径（脚の球の半径に足して判定する）</param>
     /// <param name="outDistance">始点から着弾までの距離</param>
     /// <param name="outPoint">着弾位置</param>
     /// <returns>bool: 当たれば true</returns>
     /// <param name="outIndex">当たった球の並び順（付け根から数えた番号）</param>
     bool Raycast(const Hagine::Vector3 &start, const Hagine::Vector3 &end, const BossSpiderParams &params,
+                 float bulletRadius,
                  float &outDistance, Hagine::Vector3 &outPoint, int &outIndex) const;
 
     /// <summary>脚のいちばん先の球のワールド座標（ロックオンと弾の追尾に使う）</summary>

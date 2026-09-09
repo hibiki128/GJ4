@@ -103,6 +103,10 @@ IShootableTargetQuery* PlayerShootComponent::ActiveExtraTarget() const {
     return extraTargetProvider_ ? extraTargetProvider_() : nullptr;
 }
 
+float PlayerShootComponent::BulletRadius() const {
+    return weapon_ ? weapon_->GetParams().radius : 0.0f;
+}
+
 bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
                                                 IShootableTargetQuery* extraTarget,
                                                 const Hagine::Vector3& start,
@@ -110,10 +114,12 @@ bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
     bool found = false;
     float nearestDistanceSq = 0.0f;
 
-    // 着弾判定（RaycastAttach / RaycastHit）と同じ形状・同じ色の扱いを通るので、
+    // 着弾判定（RaycastAttach / RaycastHit）と同じ形状・同じ太さ・同じ色の扱いを通るので、
     // 「照準では当たる表示なのに弾は素通りする」というズレが出ない
+    const float bulletRadius = BulletRadius();
+
     AimHit bossHit{};
-    if (target && target->RaycastPoint(start, end, selectedColor_, bossHit)) {
+    if (target && target->RaycastPoint(start, end, selectedColor_, bulletRadius, bossHit)) {
         outHit = bossHit;
         nearestDistanceSq = (bossHit.point - start).LengthSq();
         found = true;
@@ -121,7 +127,7 @@ bool PlayerShootComponent::ResolveNearestAimHit(IBossTargetQuery* target,
 
     // ボスの手前に膜があればそちらが当たる。逆もまた然りなので、必ず両方へ聞いて比べる
     AimHit extraHit{};
-    if (extraTarget && extraTarget->RaycastPoint(start, end, selectedColor_, extraHit)) {
+    if (extraTarget && extraTarget->RaycastPoint(start, end, selectedColor_, bulletRadius, extraHit)) {
         const float distanceSq = (extraHit.point - start).LengthSq();
         if (!found || distanceSq < nearestDistanceSq) {
             outHit = extraHit;
@@ -264,10 +270,11 @@ bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
     // 撃って壊せるものがあるので、まずそちらへ聞いてからボスへ回す。
     // ボスがいない場面でも膜は割れてほしいので、相手不在での早期 return はここには置かない
     const Color shotColor = selectedColor_;
-    request.hitTester = [this, shotColor](const Hagine::Vector3& from, const Hagine::Vector3& to) {
+    request.hitTester = [this, shotColor](const Hagine::Vector3& from, const Hagine::Vector3& to,
+                                          float radius) {
         // ボス以外の的。当たったなら弾はそこで役目を終える
         IShootableTargetQuery* extraTarget = ActiveExtraTarget();
-        if (extraTarget && extraTarget->RaycastHit(from, to, shotColor)) {
+        if (extraTarget && extraTarget->RaycastHit(from, to, shotColor, radius)) {
             return true;
         }
 
@@ -276,7 +283,7 @@ bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
             return false; // 撃つ相手がいない。弾は寿命が尽きるまで飛ぶ
         }
 
-        const BulletHitResult result = hitTarget->RaycastAttach(from, to, shotColor);
+        const BulletHitResult result = hitTarget->RaycastAttach(from, to, shotColor, radius);
         if (!result.hit) {
             return false; // 穴を素通りした。弾はそのまま飛ぶ
         }

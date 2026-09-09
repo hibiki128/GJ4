@@ -65,12 +65,12 @@ public:
     /// 割れるのは規定の弾数を当ててからで、当たった弾は割れる前でも消える。
     /// 反応するのは黄色い弾だけで、他の色は素通りする
     /// </summary>
-    bool RaycastHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                    Color color) override;
+    bool RaycastHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
+                    float bulletRadius) override;
 
     /// <summary>線分が最初に当たる膜の点を返す（副作用なし。照準とレティクルが使う）</summary>
-    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                      Color color, AimHit &outHit) override;
+    bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
+                      float bulletRadius, AimHit &outHit) override;
 
     /// <summary>ソフトロックオンの対象になる膜を探す（黄色を撃っているときだけ対象になる）</summary>
     bool FindLockOnTarget(const LockOnRequest &request, ShootableLockOnResult &out) override;
@@ -134,10 +134,11 @@ private:
     /// <param name="from">線分の始点（ワールド）</param>
     /// <param name="to">線分の終点（ワールド）</param>
     /// <param name="color">撃っている色（黄色でなければ誰にも当たらない）</param>
+    /// <param name="bulletRadius">弾の半径（膜の半径に足して判定する）</param>
     /// <param name="outPoint">交点（ワールド）。不要なら nullptr</param>
     /// <returns>HealItem*: 手前で当たった膜（無ければ nullptr）</returns>
     HealItem *FindNearestSeal(const Hagine::Vector3 &from, const Hagine::Vector3 &to, Color color,
-                              Hagine::Vector3 *outPoint);
+                              float bulletRadius, Hagine::Vector3 *outPoint);
 
     /// ===================================================
     /// private variables

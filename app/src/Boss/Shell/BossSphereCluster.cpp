@@ -471,14 +471,19 @@ void BossSphereCluster::DebugDraw() {
 }
 
 bool BossSphereCluster::RaycastLocal(const Vector3 &localStart, const Vector3 &localEnd,
-                                     ShellCell &outCell, Vector3 &outHitPoint) const {
+                                     float bulletRadius, ShellCell &outCell,
+                                     Vector3 &outHitPoint) const {
     const Vector3 segment = localEnd - localStart;
     const float length = segment.Length();
     if (length <= 0.0001f) {
         return false;
     }
     const Vector3 direction = segment / length;
-    const float radiusSq = sphereRadius_ * sphereRadius_;
+
+    // 弾の太さを球側へ足して解く（球と球の交差＝中心線と、半径を足した球の交差）。
+    // 格子空間への変換にスケールは入らないので、ワールドの半径をそのまま足してよい
+    const float radius = sphereRadius_ + (std::max)(0.0f, bulletRadius);
+    const float radiusSq = radius * radius;
 
     float nearestT = length;
     bool found = false;
@@ -536,14 +541,15 @@ bool BossSphereCluster::FindSnapCell(const ShellCell &hitCell, const Vector3 &lo
 }
 
 BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd,
-                                                 Color color, const BossChainParams &chain,
+                                                 Color color, float bulletRadius,
+                                                 const BossChainParams &chain,
                                                  const BossColorPalette &palette) {
     BulletHitResult result{};
 
     ShellCell hitCell{};
     Vector3 localHitPoint{};
     Matrix4x4 shellMatrix{};
-    if (!RaycastWorld(worldStart, worldEnd, hitCell, localHitPoint, shellMatrix)) {
+    if (!RaycastWorld(worldStart, worldEnd, bulletRadius, hitCell, localHitPoint, shellMatrix)) {
         return result; // 穴を通り抜けた（球が無いセルはレイが素通りする）
     }
 
@@ -580,11 +586,11 @@ BulletHitResult BossSphereCluster::RaycastAttach(const Vector3 &worldStart, cons
 }
 
 bool BossSphereCluster::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd,
-                                     Vector3 &outPoint, ShellCell *outCell) {
+                                     float bulletRadius, Vector3 &outPoint, ShellCell *outCell) {
     ShellCell hitCell{};
     Vector3 localHitPoint{};
     Matrix4x4 shellMatrix{};
-    if (!RaycastWorld(worldStart, worldEnd, hitCell, localHitPoint, shellMatrix)) {
+    if (!RaycastWorld(worldStart, worldEnd, bulletRadius, hitCell, localHitPoint, shellMatrix)) {
         return false;
     }
 
@@ -596,8 +602,8 @@ bool BossSphereCluster::RaycastPoint(const Vector3 &worldStart, const Vector3 &w
 }
 
 bool BossSphereCluster::RaycastWorld(const Vector3 &worldStart, const Vector3 &worldEnd,
-                                     ShellCell &outCell, Vector3 &outLocalHitPoint,
-                                     Matrix4x4 &outShellMatrix) {
+                                     float bulletRadius, ShellCell &outCell,
+                                     Vector3 &outLocalHitPoint, Matrix4x4 &outShellMatrix) {
     if (occupied_.empty()) {
         return false;
     }
@@ -608,7 +614,7 @@ bool BossSphereCluster::RaycastWorld(const Vector3 &worldStart, const Vector3 &w
     const Vector3 localStart = Transformation(worldStart, inverseMatrix);
     const Vector3 localEnd = Transformation(worldEnd, inverseMatrix);
 
-    return RaycastLocal(localStart, localEnd, outCell, outLocalHitPoint);
+    return RaycastLocal(localStart, localEnd, bulletRadius, outCell, outLocalHitPoint);
 }
 
 std::vector<ShellCell> BossSphereCluster::CollectSameColorCluster(const ShellCell &start) const {
