@@ -56,6 +56,13 @@ void TitleScene::Initialize()
 	pDrawSystem_->Register("TitleScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
 		{
 			pSpriteManager_->DrawAll();
+			// ロゴは輪郭線を自前で焼き込んであるので、ポストエフェクトの後で構わない
+			if (logo_) {
+				logo_->Draw();
+			}
+			if (startPrompt_) {
+				startPrompt_->Draw();
+			}
 		});
 
 	// ポーズ画面（スプライトより手前に出したいので後から登録する）
@@ -99,6 +106,17 @@ void TitleScene::Initialize()
 	player_->Init("TitlePlayer");
 	player_->RegisterParams();
 	pObjectManager_->RegisterExternal(player_.get());
+
+	// ロゴ。はじけたときの色をボスの殻と同じにしたいので、色マスタを渡してから作る
+	logo_ = std::make_unique<TitleLogo>();
+	logo_->SetPalette(boss_->GetPalette(), boss_->GetUsedColors());
+	logo_->Init();
+	logo_->RegisterParams();
+
+	// 中央下のAボタンの案内。ロゴが落ちきってから現れる
+	startPrompt_ = std::make_unique<TitleStartPrompt>();
+	startPrompt_->Init();
+	startPrompt_->RegisterParams();
 
 	// 構図はデバッグUIから触れるようにしておく
 	params_.Register("BossPosition", &bossPosition_, {0.1f});
@@ -150,6 +168,16 @@ void TitleScene::Update()
 		field_->DrawLine();
 	}
 
+	// ロゴとボタンの案内。ポーズ中は止めておく
+	if (!PauseMenu::GetInstance()->IsPaused()) {
+		if (logo_) {
+			logo_->Update(Frame::DeltaTime());
+		}
+		if (startPrompt_) {
+			startPrompt_->Update(Frame::DeltaTime());
+		}
+	}
+
 	CameraUpdate();
 
 }
@@ -185,6 +213,16 @@ void TitleScene::AddObjectSetting()
 	/// ===================================================
 	/// オブジェクト設定（デバッグ）
 	/// ===================================================
+
+	// ロゴの演出（登場のやり直し・ポップの試し打ち）
+	if (logo_) {
+		logo_->DrawImGui();
+	}
+
+	// 中央下のAボタンの案内
+	if (startPrompt_) {
+		startPrompt_->DrawImGui();
+	}
 
 	if (field_) {
 		field_->DrawImGui();

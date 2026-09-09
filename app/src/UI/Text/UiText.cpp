@@ -31,10 +31,12 @@ std::string TakeTexturePath(const std::string &id)
 /// <summary>
 /// 位置・大きさ・色をまとめて設定して描く
 /// </summary>
-void DrawSprite(Sprite *sprite, const Vector2 &center, const Vector2 &size, const Vector4 &color)
+void DrawSprite(Sprite *sprite, const Vector2 &center, const Vector2 &size, const Vector4 &color,
+                float rotation = 0.0f)
 {
     sprite->SetPosition(center);
     sprite->SetSize(size);
+    sprite->SetRotation(rotation);
     sprite->SetColor({color.x, color.y, color.z});
     sprite->SetAlpha(color.w);
     sprite->Draw();
@@ -66,13 +68,13 @@ void UiSprite::Initialize(const std::string &texturePath, const Vector2 &anchor)
     baseSize_ = sprite_->GetSize();
 }
 
-void UiSprite::Draw(const Vector2 &position, const Vector2 &size, const Vector4 &color)
+void UiSprite::Draw(const Vector2 &position, const Vector2 &size, const Vector4 &color, float rotation)
 {
     if (!sprite_ || color.w <= 0.0f)
     {
         return;
     }
-    DrawSprite(sprite_.get(), position, size, color);
+    DrawSprite(sprite_.get(), position, size, color, rotation);
 }
 
 /// ===================================================
@@ -137,12 +139,13 @@ void UiRect::Draw(const Vector2 &center, const Vector2 &size, const Vector4 &col
 /// UiText
 /// ===================================================
 
-void UiText::Create(const std::string &id, const std::string &text, float outlineThickness)
+void UiText::Create(const std::string &id, const std::string &text, float outlineThickness,
+                    const Vector4 &outlineColor)
 {
     const bool outlineEnabled = outlineThickness > 0.0f;
     TextRenderer::GetInstance()->CreateTextSprite(
         id, text, FontKey(), {0.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f},
-        outlineEnabled, outlineThickness, {0.05f, 0.05f, 0.09f, 1.0f});
+        outlineEnabled, outlineThickness, outlineColor);
 
     Initialize(TakeTexturePath(id));
 }
@@ -167,6 +170,12 @@ void UiText::DrawLeft(float left, float centerY, float height, const Vector4 &co
 
     const float width = WidthAt(height);
     DrawCentered({left + width * 0.5f, centerY}, height, color);
+}
+
+void UiText::DrawTransformed(const Vector2 &center, const Vector2 &size, const Vector4 &color,
+                             float rotation)
+{
+    UiSprite::Draw(center, size, color, rotation);
 }
 
 float UiText::WidthAt(float height) const

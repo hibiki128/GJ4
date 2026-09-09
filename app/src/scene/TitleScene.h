@@ -3,7 +3,9 @@
 #include "src/Boss/Boss.h"
 #include "src/Field/Field.h"
 #include "src/Field/FieldSurround.h"
+#include "src/Title/TitleLogo.h"
 #include "src/Title/TitlePlayerActor.h"
+#include "src/Title/TitleStartPrompt.h"
 #include "debug/param/GameParamHub.h"
 #include <memory>
 
@@ -91,6 +93,12 @@ private:
 
     // ゲーム中と同じ揺れ方をするプレイヤー役
     std::unique_ptr<TitlePlayerActor> player_;
+
+    // ロゴ「からぽっぷ」。1文字ずつ落ちてきて、ときどき順にはじける
+    std::unique_ptr<TitleLogo> logo_;
+
+    // 中央下のAボタンの案内。透明度をゆっくり上げ下げする
+    std::unique_ptr<TitleStartPrompt> startPrompt_;
 
     // --- 構図（デバッグUIから触って保存できる）---
     Hagine::Vector3 bossPosition_ = {6.0f, 0.0f, 6.0f};      // ボスの立ち位置（高さは自動）

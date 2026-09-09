@@ -172,7 +172,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="src\Boss\Effect\BossDefeatDirector.cpp" />
     <ClCompile Include="src\Boss\Effect\BossParticles.cpp" />
     <ClCompile Include="src\Audio\GameSounds.cpp" />
+    <ClCompile Include="src\Title\TitleLogo.cpp" />
     <ClCompile Include="src\Title\TitlePlayerActor.cpp" />
+    <ClCompile Include="src\Title\TitleStartPrompt.cpp" />
     <ClCompile Include="src\Boss\Zone\BossRecoveryZone.cpp" />
     <ClCompile Include="src\Boss\Zone\BossRecoveryZoneManager.cpp" />
     <ClCompile Include="src\Boss\Effect\BossWarningMarker.cpp" />
@@ -247,7 +249,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="src\Boss\Effect\BossDefeatDirector.h" />
     <ClInclude Include="src\Boss\Effect\BossParticles.h" />
     <ClInclude Include="src\Audio\GameSounds.h" />
+    <ClInclude Include="src\Title\TitleLogo.h" />
     <ClInclude Include="src\Title\TitlePlayerActor.h" />
+    <ClInclude Include="src\Title\TitleStartPrompt.h" />
     <ClInclude Include="src\Boss\Zone\BossRecoveryZone.h" />
     <ClInclude Include="src\Boss\Zone\BossRecoveryZoneManager.h" />
     <ClInclude Include="src\Interface\IAmmoRecoverySink.h" />
