@@ -37,7 +37,7 @@ void KaraPuyo::Initialize() {
     }
 
     // 最初のシーンを予約（シーンは REGISTER_SCENE で自己登録済み）
-    pSceneManager_->NextSceneReservation("GAME");
+    pSceneManager_->NextSceneReservation("TITLE");
 
     // -----------------------
 }
