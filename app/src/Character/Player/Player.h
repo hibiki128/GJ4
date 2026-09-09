@@ -85,6 +85,19 @@ public:
 	/// </summary>
 	void SetOnPerfectDodge(PerfectDodgeCallback callback) { onPerfectDodge_ = std::move(callback); }
 
+	/// <summary>このフレームの狙いが決まったときに呼ばれる関数の型</summary>
+	using AimReportCallback = std::function<void(const PlayerAimReport&)>;
+
+	/// <summary>
+	/// 狙いの通知先を渡す。レティクルは画面の話なので、被弾や回避と同じくシーンが受け持つ。
+	///
+	/// 状態を持つだけなら getter で足りそうに見えるが、通知にしてあるのは更新の順番のため。
+	/// エンジンは「シーンの更新 → オブジェクトの更新」の順に回すので、シーンから引くと
+	/// 必ず1フレーム前の値になり、弾が飛ぶ先とレティクルの位置がずれてしまう。
+	/// 射撃の更新が終わった直後に知らせれば、両者が同じフレームの値でそろう
+	/// </summary>
+	void SetOnAimReport(AimReportCallback callback) { onAimReport_ = std::move(callback); }
+
 	// ステートの切り替え
 	void ChangeState(const std::string& stateName);
 
@@ -177,6 +190,9 @@ private:
 
 	// ジャスト回避の通知先（未配線でも受け流しそのものは成立する）
 	PerfectDodgeCallback onPerfectDodge_{};
+
+	// 狙いの通知先（未配線ならレティクルが出ないだけで、射撃そのものは成立する）
+	AimReportCallback onAimReport_{};
 
 	// 動き回れる範囲（未配線ならどこまでも動ける）
 	const IFieldBounds* pFieldBounds_ = nullptr;

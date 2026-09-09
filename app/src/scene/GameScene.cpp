@@ -46,6 +46,12 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+            // 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
+            // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする。
+            // 止まっているとき（ポーズ）と倒れているときは狙いようがないので引っ込める
+            if (reticle_ && player_ && !PauseMenu::GetInstance()->IsPaused() && !player_->IsDead()) {
+                reticle_->Draw();
+            }
             // 被弾の赤いマスクはゲーム画面の上に重ねる。黒帯より先に描いて、
             // 演出の帯やポーズ画面が赤く染まらないようにする
             if (damageVignette_) {
@@ -156,6 +162,18 @@ void GameScene::Initialize()
 	player_->SetOnPerfectDodge([this](const DamageInfo& info) {
 		(void)info;
 		perfectDodge_->Play();
+		});
+
+	// 照準レティクル。プレイヤーは画面もカメラも知らないので、射線を配るのと同じく
+	// 「狙いがどう決まったか」を受け取って、画面座標へ落とすのはシーンの仕事
+	reticle_ = std::make_unique<PlayerReticle>();
+	reticle_->Init();
+	reticle_->RegisterParams();
+
+	// 通知は射撃の更新が終わった直後に来る。シーンの Update から引くと1フレーム古くなり、
+	// 弾が飛ぶ先とレティクルの位置がずれてしまう（Player::SetOnAimReport のコメント参照）
+	player_->SetOnAimReport([this](const PlayerAimReport& report) {
+		reticle_->Update(report, *GetViewProjection(), Frame::DeltaTime());
 		});
 
 	// 第2形態（蜘蛛）。球体形態を倒したあとに出す想定で、今は未出現のまま用意しておく

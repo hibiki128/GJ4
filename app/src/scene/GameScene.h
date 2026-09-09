@@ -8,6 +8,7 @@
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Camera/Follow/FollowCamera.h"
 #include "src/UI/Damage/DamageVignette.h"
+#include "src/UI/Reticle/PlayerReticle.h"
 #include "src/Effect/PerfectDodgeDirector.h"
 
 /// <summary>
@@ -107,4 +108,7 @@ std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・
 
 	// ジャスト回避の画面演出（白フラッシュ）
 	std::unique_ptr<PerfectDodgeDirector> perfectDodge_;
+
+	// 照準レティクル（画面中央の白い「+」と、弾が本当に当たる先を指す赤い「+」）
+	std::unique_ptr<PlayerReticle> reticle_;
 };

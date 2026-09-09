@@ -141,6 +141,12 @@ void Player::Update() {
 	ammo_.Update();
 	shoot_.Update(context_);
 
+	// 狙いの決まり方を画面へ知らせる（レティクルの表示に使う）。
+	// 射撃の更新が終わった直後に出すので、弾が飛ぶ先とレティクルが同じフレームの値でそろう
+	if (onAimReport_) {
+		onAimReport_(shoot_.GetAimReport());
+	}
+
 	// 選択色を持っているのは射撃コンポーネント。見た目はそれを追いかけるだけ。
 	// モデルへ色を書くのもここ1か所だけにしてある
 	color_.SetSelectedColor(shoot_.GetSelectedColor());

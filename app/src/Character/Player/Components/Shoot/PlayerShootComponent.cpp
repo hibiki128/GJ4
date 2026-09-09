@@ -22,6 +22,20 @@ void PlayerShootComponent::Update(PlayerContext& context) {
     // 発射の瞬間に計算すると、その1発だけ照準表示と食い違う可能性がある
     aimPoint_ = ResolveAimPoint(target, context.aimOrigin_, context.aimDirection_);
 
+    // 弾が本当に当たる点も撃つ前から求めておく。狙う先は同じ aimPoint_ でも、
+    // 射線を飛ばす起点がカメラではなくマズルなので、途中の球に先にぶつかることがある。
+    // このズレが発射レティクルとして画面に出る
+    const Hagine::Vector3 muzzle = context.transform_->translation_;
+    firePoint_ = ResolveFirePoint(target, muzzle,
+                                  ResolveFireDirection(muzzle, context.aimDirection_));
+
+    // 表示側へ渡す報告をここで作る。射撃が決めた値をそのまま入れるだけで、
+    // 表示のために作り直した値は入れない（仕様書 17.1）
+    aimReport_.aimPoint = aimPoint_;
+    aimReport_.aimPointHit = aimPointHit_;
+    aimReport_.firePoint = firePoint_;
+    aimReport_.firePointHit = firePointHit_;
+
     // ロックオンは撃つ前から効かせる（狙っている的が見えていないと色を選べない）
     if (target) {
         UpdateLockOn(target, context.aimOrigin_, context.aimDirection_);
@@ -98,6 +112,33 @@ Hagine::Vector3 PlayerShootComponent::ResolveAimPoint(IBossTargetQuery* target,
     return hitPoint;
 }
 
+Hagine::Vector3 PlayerShootComponent::ResolveFireDirection(const Hagine::Vector3& muzzle,
+                                                           const Hagine::Vector3& fallback) const {
+    const Hagine::Vector3 toAimPoint = aimPoint_ - muzzle;
+    return (toAimPoint.LengthSq() > 0.0001f) ? toAimPoint.Normalize() : fallback;
+}
+
+Hagine::Vector3 PlayerShootComponent::ResolveFirePoint(IBossTargetQuery* target,
+                                                       const Hagine::Vector3& muzzle,
+                                                       const Hagine::Vector3& direction) {
+    const Hagine::Vector3 farPoint = muzzle + direction * aimRayLength_;
+
+    firePointHit_ = false;
+    if (!target) {
+        return farPoint;
+    }
+
+    // 弾の着弾判定（RaycastAttach）と同じ形状・同じ色の扱いを通る問い合わせ。
+    // 副作用は起こさないので、毎フレーム呼んでも付着や消去は発生しない
+    Hagine::Vector3 hitPoint{};
+    if (!target->RaycastPoint(muzzle, farPoint, selectedColor_, hitPoint)) {
+        return farPoint; // 弾は何にも当たらずに飛んでいく
+    }
+
+    firePointHit_ = true;
+    return hitPoint;
+}
+
 void PlayerShootComponent::UpdateLockOn(IBossTargetQuery* target, const Hagine::Vector3& origin,
                                         const Hagine::Vector3& aimDirection) {
     const LockOnRange range = target->GetLockOnRange();
@@ -122,9 +163,9 @@ bool PlayerShootComponent::FireBullet(PlayerContext& context, IBossTargetQuery* 
     const Hagine::Vector3 muzzle = context.transform_->translation_;
     const Hagine::Vector3 aimPoint = aimPoint_;
 
-    const Hagine::Vector3 toAimPoint = aimPoint - muzzle;
-    const Hagine::Vector3 direction = (toAimPoint.LengthSq() > 0.0001f) ? toAimPoint.Normalize()
-                                                                        : context.aimDirection_;
+    // 発射レティクルが射線を飛ばすのに使ったものと同じ関数。
+    // ここで別計算をすると、表示と弾の飛ぶ向きがずれる（仕様書 17.1 / 17.3）
+    const Hagine::Vector3 direction = ResolveFireDirection(muzzle, context.aimDirection_);
 
     PlayerWeapon::FireRequest request{};
     request.origin = muzzle;
@@ -176,12 +217,19 @@ void PlayerShootComponent::DrawAimLine(const PlayerContext& context) const {
     const Hagine::Vector4 aimColor = aimPointHit_ ? Hagine::Vector4{1.0f, 1.0f, 0.4f, 1.0f}
                                                   : Hagine::Vector4{0.4f, 0.4f, 0.45f, 1.0f};
 
-    // カメラの射線（画面中心）
+    // カメラの射線（画面中心）。この先にあるのが照準レティクルの指す点
     lineRenderer->AddLine(context.aimOrigin_, aimPoint_, {0.4f, 0.4f, 0.45f, 1.0f});
-
-    // 実際に弾が通る線。カメラの射線とのひらき具合がそのまま視差のズレになる
-    lineRenderer->AddLine(context.transform_->translation_, aimPoint_, aimColor);
     lineRenderer->AddSphere(aimPoint_, 0.7f, aimColor, 12);
+
+    // 実際に弾が通る線と、その先で最初に当たる点。
+    // 同じ一点を狙っていても起点がマズルなので、途中の球へ先にぶつかることがある。
+    // 上の点とここがずれているときに、画面へ発射レティクル（赤い「+」）が出る
+    const Hagine::Vector4 fireColor = firePointHit_ ? Hagine::Vector4{1.0f, 0.3f, 0.2f, 1.0f}
+                                                    : Hagine::Vector4{0.4f, 0.4f, 0.45f, 1.0f};
+    lineRenderer->AddLine(context.transform_->translation_, firePoint_, fireColor);
+    if (firePointHit_) {
+        lineRenderer->AddSphere(firePoint_, 0.5f, fireColor, 12);
+    }
 }
 
 void PlayerShootComponent::RegisterParams() {
@@ -224,6 +272,16 @@ void PlayerShootComponent::DrawImGui() {
         ImGui::Text("命中: (%.1f, %.1f, %.1f)", aimPoint_.x, aimPoint_.y, aimPoint_.z);
     } else {
         ImGui::TextDisabled("何にも当たらない方向（射程 %.0f の端を狙う）", aimRayLength_);
+    }
+
+    ImGui::SeparatorText("弾が実際に当たる点（発射レティクル）");
+    if (!firePointHit_) {
+        ImGui::TextDisabled("弾は何にも当たらずに飛んでいく（発射レティクルは出ない）");
+    } else {
+        ImGui::Text("命中: (%.1f, %.1f, %.1f)", firePoint_.x, firePoint_.y, firePoint_.z);
+        // ここが 0 に近いほど「狙ったところに当たる」。
+        // 離れるほど画面上でも照準レティクルから発射レティクルが離れていく
+        ImGui::Text("照準の点とのズレ: %.2f", (firePoint_ - aimPoint_).Length());
     }
 
     ImGui::SeparatorText("ロックオン（色の判定・強調表示のみ。弾は誘導しない）");
