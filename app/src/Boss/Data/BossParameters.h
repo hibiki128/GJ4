@@ -151,7 +151,9 @@ struct BossSpiderShootParams {
 struct BossSpiderWhirlParams {
     float telegraphTime = 1.4f; // 脚を広げる予備動作（遅め）
     float spinTime = 3.0f;      // その場で回っている時間
-    float spinSpeed = 420.0f;   // 回転の速さ（度/秒）
+    float spinSpeed = 420.0f;   // 回り始めの速さ（度/秒）
+    float spinEndSpeedRatio = 0.12f; // 回り終わりの速さ（回り始めに対する割合）。1で等速
+    float staggerTime = 2.6f;   // 回り終わったあと動けなくなる時間（秒）。狙い撃つチャンス
     float spinHeight = 3.0f;    // 回っているあいだの脚の高さ（地面から。低いほど当たりやすい）
     float damage = 12.0f;       // 触れたときのダメージ
     float recoverTime = 1.0f;   // 回転後の硬直
@@ -323,6 +325,25 @@ struct BossSpinAttackParams {
 };
 
 /// <summary>
+/// 突進がフィールドの壁で止まったときのひるみ（球体形態）。
+///
+/// ぶつかった場所でしばらく自転を止めるので、プレイヤーは狙った色の球を撃ち抜ける。
+/// 立ち直りは「首を横に振る → ゆっくり元の姿勢へ戻る」の順で、
+/// 振り終わりが「チャンスの終わり」の合図になる
+/// </summary>
+struct BossWallStaggerParams {
+    float wobbleTime = 2.4f;    // ぶつかったあと頭がふらつく時間（秒）
+    float wobbleAmount = 0.45f; // ふらつきの大きさ（ぶつかった地点からの距離）
+    float wobbleSpeed = 2.2f;   // ふらつきの速さ
+    float wobbleTilt = 12.0f;   // ふらつきに合わせて傾く角度（度）
+    float shakeTime = 0.7f;     // 首を横に振る時間（秒）
+    float shakeAngle = 32.0f;   // 首を振る角度（度）
+    float shakeCount = 2.0f;    // 首を振る往復の回数
+    float settleTime = 0.9f;    // 元の姿勢へ戻る時間（秒）
+    float minTravel = 4.0f;     // これだけ進んでからぶつかった時だけひるむ（壁際での連発よけ）
+};
+
+/// <summary>
 /// 攻撃2: 飛び上がり→頭上落下のパラメータ
 /// </summary>
 struct BossSlamAttackParams {
@@ -404,6 +425,8 @@ public:
     const BossBattleParams &Battle() const { return battle_; }
     BossSpinAttackParams &Spin() { return spin_; }
     const BossSpinAttackParams &Spin() const { return spin_; }
+    BossWallStaggerParams &WallStagger() { return wallStagger_; }
+    const BossWallStaggerParams &WallStagger() const { return wallStagger_; }
     BossSlamAttackParams &Slam() { return slam_; }
     const BossSlamAttackParams &Slam() const { return slam_; }
     BossEffectParams &Effect() { return effect_; }
@@ -428,6 +451,7 @@ private:
     BossLockOnParams lockOn_{};
     BossBattleParams battle_{};
     BossSpinAttackParams spin_{};
+    BossWallStaggerParams wallStagger_{};
     BossSlamAttackParams slam_{};
     BossExposureParams exposure_{};
     BossAppearParams appear_{};

@@ -221,11 +221,28 @@ public:
     /// <summary>進行中の攻撃を終える（未完なら中断扱い）。次のクールダウンを開始する</summary>
     void EndCurrentAttack();
 
-    /// <summary>怯み中の揺れを更新する（描画だけを揺らし、当たり判定は動かさない）</summary>
-    /// <param name="deltaTime">経過時間（秒）</param>
-    void UpdateStaggerShake(float deltaTime);
+    /// <summary>
+    /// 突進が壁で止まったときのひるみを始める。
+    ///
+    /// 連鎖破壊のひるみ（小刻みに震えるだけ）と違って自転を止めるので、
+    /// プレイヤーは狙った色の球を落ち着いて撃ち抜ける。
+    /// 立ち直りは「首を横に振る → ゆっくり元の姿勢へ」の順に進む
+    /// </summary>
+    void BeginWallStagger();
 
-    /// <summary>怯み中の揺れを解除する</summary>
+    /// <summary>
+    /// そこがフィールド（または行動範囲）の外か。突進が壁に当たったかの判定に使う
+    /// </summary>
+    /// <param name="position">調べる座標</param>
+    /// <returns>bool: 外なら true</returns>
+    bool IsBeyondBounds(const Hagine::Vector3 &position) const;
+
+    /// <summary>怯み中の動きを進める（ひるみの種類ごとに中身が違う）</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>bool: まだ動きが残っていれば true</returns>
+    bool UpdateStaggerMotion(float deltaTime);
+
+    /// <summary>怯み中の揺れ・姿勢を解除する</summary>
     void ClearStaggerShake();
 
     /// <summary>自転を加える（度）</summary>
@@ -301,6 +318,11 @@ public:
         return parameters_.Shell().shellRadius + cluster_.GetSphereRadius();
     }
 
+    /// <summary>頭の中心（球の上端あたり）。ひるみの輪をここの上に出す</summary>
+    Hagine::Vector3 GetHeadCenter() const {
+        return transform_->translation_ + Hagine::Vector3{0.0f, GetBodyRadius(), 0.0f};
+    }
+
     /// <summary>現在の状態名（デバッグUI用）</summary>
     const char *GetStateName() const { return stateMachine_.GetCurrentName(); }
 
@@ -320,6 +342,14 @@ private:
 
     /// <summary>アリーナの外へ出ないよう位置を丸める</summary>
     void ClampToArena();
+
+    /// <summary>自転と姿勢を合成して向きへ反映する</summary>
+    void ApplyRotation();
+
+    /// <summary>壁ひるみの動きを進める</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    /// <returns>bool: まだ動きが残っていれば true</returns>
+    bool UpdateWallStagger(float deltaTime);
 
     /// <summary>露出度に応じて攻撃頻度を更新する（激しさは各攻撃が開始時に算出する）</summary>
     void UpdateExposureScaling();
@@ -349,7 +379,14 @@ private:
     BossColorPalette palette_{};  // 色マスタ＋使用色サブセット
     BossSphereCluster cluster_{}; // 殻を構成する球の集合
 
+    /// <summary>ひるみの種類。同じ「怯み」状態でも見せ方が違う</summary>
+    enum class StaggerKind {
+        Chain, // 連鎖破壊。小刻みに震えるだけ
+        Wall,  // 突進が壁で止まった。自転が止まり、狙い撃てるチャンスになる
+    };
+
     float staggerTimer_ = 0.0f;  // 怯み残り時間（秒）
+    StaggerKind staggerKind_ = StaggerKind::Chain; // いま何でひるんでいるか
 
     ITargetLocator *pTargetLocator_ = nullptr;   // 狙う相手（非所有）
     IColorProvider *pColorProvider_ = nullptr;   // 相手の選択色（非所有）
@@ -359,10 +396,14 @@ private:
     BossStateMachine stateMachine_{};            // 待機／攻撃／怯み／撃破
     BossAttackScheduler scheduler_{};            // 攻撃の選択と間隔（攻撃の所有者）
     IBossAttack *pCurrentAttack_ = nullptr;      // 進行中の攻撃（所有は scheduler_）
+    int forcedAttackIndex_ = -1;                 // 調整UIから指定された次の攻撃（-1で指定なし）
 
     Hagine::Vector3 homePosition_{};             // 初期位置（アリーナ中心・着地高さの基準）
     float spinAngle_ = 0.0f;                     // 自転の累積角（ラジアン）
     float staggerShakeTime_ = 0.0f;              // 怯み揺れの経過時間
+    Hagine::Vector3 staggerAnchor_{};            // 壁ひるみでふらつく中心（ぶつかった地点）
+    // 自転とは別に載せる姿勢（首振り・傾き）。自転を上書きしないよう掛け合わせて使う
+    Hagine::Quaternion staggerPosture_ = Hagine::Quaternion::IdentityQuaternion();
     float appearTime_ = 0.0f;                    // 登場演出の経過時間
 
     bool drawGraphDebug_ = false;  // 隣接グラフのデバッグ描画

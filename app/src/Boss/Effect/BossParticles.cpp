@@ -1,6 +1,10 @@
 #include "BossParticles.h"
 #include "Particle/gpu/ParticleCSEmitter.h"
 #include "Particle/gpu/ParticleCSSpawner.h"
+#include "data/DataHandler.h"
+#include "frame/Frame.h"
+#include <cmath>
+#include <numbers>
 #include <algorithm>
 #ifdef USE_IMGUI
 #include <imgui.h>
@@ -9,6 +13,9 @@
 using namespace Hagine;
 
 namespace {
+
+/// <summary>頭上の輪の置き方を書き出す先（Assets/jsons/Boss/&lt;これ&gt;.json）</summary>
+constexpr const char *kRingLayoutFile = "StaggerRing";
 
 /// <summary>効果の作り方の表</summary>
 struct EffectDesc {
@@ -26,6 +33,8 @@ constexpr EffectDesc kEffectDescs[] = {
     {BossParticles::Id::LandDust, "Spider_LandDust", "蜘蛛: 着地", 1},
     {BossParticles::Id::StepDust, "Spider_StepDust", "蜘蛛: 脚の砂ぼこり", 4},
     {BossParticles::Id::DefeatBurst, "Spider_DefeatBurst", "蜘蛛: 撃破の破片", 1},
+    // 輪は3体で1/3周ずつ受け持つ。1体だと粒が弧にしか並ばず、輪がつながらない
+    {BossParticles::Id::StaggerRing, "Boss_StaggerRing", "ひるみ: 頭上を回る輪", 3},
 };
 
 /// <summary>テンプレートから1体出して、ボス用の使い方に合わせる</summary>
@@ -73,6 +82,56 @@ void BossParticles::Init() {
         }
         effect.next = 0;
     }
+
+    LoadRingLayout();
+}
+
+void BossParticles::LoadRingLayout() {
+    DataHandler data("Boss", kRingLayoutFile);
+    ring_.radius = data.Load<float>("radius", ring_.radius);
+    ring_.height = data.Load<float>("height", ring_.height);
+    ring_.spinSpeed = data.Load<float>("spinSpeed", ring_.spinSpeed);
+    ring_.emitInterval = data.Load<float>("emitInterval", ring_.emitInterval);
+}
+
+void BossParticles::UpdateStaggerRing(const Vector3 &headCenter, float deltaTime) {
+    Effect &effect = Get(Id::StaggerRing);
+    if (effect.emitters.empty()) {
+        return;
+    }
+
+    constexpr float kDegToRad = std::numbers::pi_v<float> / 180.0f;
+    ringAngle_ += ring_.spinSpeed * kDegToRad * deltaTime;
+
+    // 粒は置いた場所に留まるので、置く位置を円周に沿って進めるだけで輪が回って見える。
+    // 毎フレーム置くと濃くなりすぎるので間隔をあける
+    ringEmitTimer_ += deltaTime;
+    const float interval = (std::max)(0.005f, ring_.emitInterval);
+    if (ringEmitTimer_ < interval) {
+        return;
+    }
+    ringEmitTimer_ = 0.0f;
+
+    ParticleCSSpawner *spawner = ParticleCSSpawner::GetInstance();
+    const size_t count = effect.emitters.size();
+    for (size_t index = 0; index < count; ++index) {
+        ParticleCSEmitter *emitter = effect.emitters[index];
+        if (!emitter || !spawner->IsAlive(emitter)) {
+            continue;
+        }
+        // 体数で円周を等分して受け持つ。1体だと弧にしかならず、輪がつながらない
+        const float angle = ringAngle_ + std::numbers::pi_v<float> * 2.0f *
+                                             static_cast<float>(index) / static_cast<float>(count);
+        emitter->SetTranslate(Vector3{headCenter.x + std::cos(angle) * ring_.radius,
+                                      headCenter.y + ring_.height,
+                                      headCenter.z + std::sin(angle) * ring_.radius});
+        emitter->EmitOnce();
+    }
+}
+
+void BossParticles::StopStaggerRing() {
+    // 次に回し始めたとき、待たされずに1周目が出るようにそろえておく
+    ringEmitTimer_ = 0.0f;
 }
 
 void BossParticles::Burst(Id id, const Vector3 &position) {
@@ -132,6 +191,27 @@ void BossParticles::DrawImGui() {
     ImGui::TextWrapped("見た目を触って「GPU設定を保存」を押すと Assets/jsons/ParticleCS/<名前>.json に書き戻る。"
                        "次に出したときからその値になる。");
 
+    ImGui::SeparatorText("ひるみの輪の置き方");
+    ImGui::TextDisabled("粒そのものの見た目は下の「ひるみ: 頭上を回る輪」で調整します");
+    ImGui::DragFloat("輪の半径", &ring_.radius, 0.05f, 0.1f, 20.0f);
+    ImGui::DragFloat("頭からの高さ", &ring_.height, 0.05f, -5.0f, 20.0f);
+    ImGui::DragFloat("回る速さ(度/秒)", &ring_.spinSpeed, 5.0f, -1440.0f, 1440.0f);
+    ImGui::DragFloat("粒を置く間隔(秒)", &ring_.emitInterval, 0.002f, 0.005f, 0.5f);
+    if (ImGui::Button("輪の置き方を保存")) {
+        DataHandler data("Boss", kRingLayoutFile);
+        data.Save("radius", ring_.radius);
+        data.Save("height", ring_.height);
+        data.Save("spinSpeed", ring_.spinSpeed);
+        data.Save("emitInterval", ring_.emitInterval);
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("保存先: Assets/jsons/Boss/%s.json", kRingLayoutFile);
+    ImGui::Checkbox("試しに回す（下の位置で）", &ringPreview_);
+    if (ringPreview_) {
+        UpdateStaggerRing(testPosition_, Frame::DeltaTime());
+    }
+
+    ImGui::SeparatorText("粒の見た目");
     for (size_t index = 0; index < effects_.size(); ++index) {
         Effect &effect = effects_[index];
         if (effect.emitters.empty()) {

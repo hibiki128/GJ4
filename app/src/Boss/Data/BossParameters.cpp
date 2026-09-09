@@ -130,6 +130,18 @@ void BossParameters::Load(const std::string &bossId) {
     spin_.damage = JsonValue(spin, "damage", spin_.damage);
     spin_.contactMargin = JsonValue(spin, "contactMargin", spin_.contactMargin);
 
+    // --- 壁に激突したときのひるみ ---
+    const json wallStagger = data.Load<json>("wallStagger", json::object());
+    wallStagger_.wobbleTime = JsonValue(wallStagger, "wobbleTime", wallStagger_.wobbleTime);
+    wallStagger_.wobbleAmount = JsonValue(wallStagger, "wobbleAmount", wallStagger_.wobbleAmount);
+    wallStagger_.wobbleSpeed = JsonValue(wallStagger, "wobbleSpeed", wallStagger_.wobbleSpeed);
+    wallStagger_.wobbleTilt = JsonValue(wallStagger, "wobbleTilt", wallStagger_.wobbleTilt);
+    wallStagger_.shakeTime = JsonValue(wallStagger, "shakeTime", wallStagger_.shakeTime);
+    wallStagger_.shakeAngle = JsonValue(wallStagger, "shakeAngle", wallStagger_.shakeAngle);
+    wallStagger_.shakeCount = JsonValue(wallStagger, "shakeCount", wallStagger_.shakeCount);
+    wallStagger_.settleTime = JsonValue(wallStagger, "settleTime", wallStagger_.settleTime);
+    wallStagger_.minTravel = JsonValue(wallStagger, "minTravel", wallStagger_.minTravel);
+
     const json slam = JsonValue(attacks, "slam", json::object());
     slam_.riseTime = JsonValue(slam, "riseTime", slam_.riseTime);
     slam_.riseHeight = JsonValue(slam, "riseHeight", slam_.riseHeight);
@@ -229,6 +241,18 @@ void BossParameters::Save() const {
     spin["recoverTime"] = spin_.recoverTime;
     spin["damage"] = spin_.damage;
     spin["contactMargin"] = spin_.contactMargin;
+
+    json wallStagger = json::object();
+    wallStagger["wobbleTime"] = wallStagger_.wobbleTime;
+    wallStagger["wobbleAmount"] = wallStagger_.wobbleAmount;
+    wallStagger["wobbleSpeed"] = wallStagger_.wobbleSpeed;
+    wallStagger["wobbleTilt"] = wallStagger_.wobbleTilt;
+    wallStagger["shakeTime"] = wallStagger_.shakeTime;
+    wallStagger["shakeAngle"] = wallStagger_.shakeAngle;
+    wallStagger["shakeCount"] = wallStagger_.shakeCount;
+    wallStagger["settleTime"] = wallStagger_.settleTime;
+    wallStagger["minTravel"] = wallStagger_.minTravel;
+    data.Save("wallStagger", wallStagger);
 
     json slam = json::object();
     slam["riseTime"] = slam_.riseTime;
@@ -357,6 +381,8 @@ void LoadSpiderParams(const std::string &bossId, BossSpiderParams &out) {
     out.attack.whirl.telegraphTime = JsonValue(whirl, "telegraphTime", out.attack.whirl.telegraphTime);
     out.attack.whirl.spinTime = JsonValue(whirl, "spinTime", out.attack.whirl.spinTime);
     out.attack.whirl.spinSpeed = JsonValue(whirl, "spinSpeed", out.attack.whirl.spinSpeed);
+    out.attack.whirl.spinEndSpeedRatio = JsonValue(whirl, "spinEndSpeedRatio", out.attack.whirl.spinEndSpeedRatio);
+    out.attack.whirl.staggerTime = JsonValue(whirl, "staggerTime", out.attack.whirl.staggerTime);
     out.attack.whirl.spinHeight = JsonValue(whirl, "spinHeight", out.attack.whirl.spinHeight);
     out.attack.whirl.damage = JsonValue(whirl, "damage", out.attack.whirl.damage);
     out.attack.whirl.recoverTime = JsonValue(whirl, "recoverTime", out.attack.whirl.recoverTime);
@@ -471,6 +497,8 @@ void SaveSpiderParams(const std::string &bossId, const BossSpiderParams &params)
     whirl["telegraphTime"] = params.attack.whirl.telegraphTime;
     whirl["spinTime"] = params.attack.whirl.spinTime;
     whirl["spinSpeed"] = params.attack.whirl.spinSpeed;
+    whirl["spinEndSpeedRatio"] = params.attack.whirl.spinEndSpeedRatio;
+    whirl["staggerTime"] = params.attack.whirl.staggerTime;
     whirl["spinHeight"] = params.attack.whirl.spinHeight;
     whirl["damage"] = params.attack.whirl.damage;
     whirl["recoverTime"] = params.attack.whirl.recoverTime;

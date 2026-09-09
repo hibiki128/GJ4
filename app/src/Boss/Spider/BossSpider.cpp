@@ -142,6 +142,7 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 
     phase_ = Phase::Collapse;
     collapseTime_ = 0.0f;
+    staggerTimer_ = 0.0f;
     transformTime_ = 0.0f;
     SetIsAlive(true);
     SetIsModelDraw(true);
@@ -169,6 +170,7 @@ void BossSpider::Hide() {
 
     phase_ = Phase::Hidden;
     transformTime_ = 0.0f;
+    staggerTimer_ = 0.0f;
     for (int index = 0; index < activeLegCount_; ++index) {
         legs_[static_cast<size_t>(index)]->SetHidden(true);
     }
@@ -698,6 +700,21 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
     context.target = pTargetLocator_;
     context.deltaTime = deltaTime;
 
+    // 回転攻撃の回り終わりは目が回っていて動けない。頭上の輪がその目印になる。
+    // クールダウンもここでは進めないので、隙が終わってから次の攻撃までの間が始まる
+    if (staggerTimer_ > 0.0f) {
+        staggerTimer_ = (std::max)(0.0f, staggerTimer_ - deltaTime);
+        BossParticles::GetInstance()->UpdateStaggerRing(GetHeadCenter(), deltaTime);
+        if (staggerTimer_ <= 0.0f) {
+            BossParticles::GetInstance()->StopStaggerRing();
+        }
+        // 隙を作っているのが攻撃自身（回転攻撃の回り終わり）のこともあるので、
+        // 進行中の攻撃は止めない。止めると姿勢を持っている側が進まなくなる
+        if (!pCurrentAttack_) {
+            return Vector3{0.0f, 0.0f, 0.0f};
+        }
+    }
+
     if (!pCurrentAttack_) {
         // 攻撃と攻撃のあいだは歩いて間合いを取る
         attackCoolDown_ = (std::max)(0.0f, attackCoolDown_ - deltaTime);
@@ -1172,6 +1189,12 @@ void BossSpider::DrawGameplayImGui() {
                 pCurrentAttack_ ? pCurrentAttack_->GetName() : "なし",
                 pCurrentAttack_ ? pCurrentAttack_->GetPhaseName() : "-");
     ImGui::Text("次の攻撃まで: %.2f 秒", attackCoolDown_);
+    if (IsStaggered()) {
+        ImGui::TextColored(ImVec4{1.0f, 0.85f, 0.3f, 1.0f}, "動けない残り: %.2f 秒（狙い撃ちのチャンス）",
+                           staggerTimer_);
+    } else if (ImGui::Button("動けない状態にする")) {
+        BeginStagger(parameters_.attack.whirl.staggerTime);
+    }
     for (size_t index = 0; index < attacks_.size(); ++index) {
         // SameLine の第1引数は「開始位置からのオフセット」なので、
         // 間隔を詰めるつもりで負の値を渡すとボタンが左端に重なって隠れる。
@@ -1263,7 +1286,14 @@ void BossSpider::DrawGameplayImGui() {
         ImGui::DragFloat("脚を広げる時間", &attack.whirl.telegraphTime, 0.05f, 0.05f, 8.0f);
         HelpMarker("予備動作です。遅いほど避ける余地が生まれます");
         ImGui::DragFloat("その場で回る時間", &attack.whirl.spinTime, 0.05f, 0.1f, 15.0f);
-        ImGui::DragFloat("回転の速さ", &attack.whirl.spinSpeed, 5.0f, 0.0f, 1440.0f);
+        ImGui::DragFloat("回り始めの速さ", &attack.whirl.spinSpeed, 5.0f, 0.0f, 1440.0f);
+        ImGui::SliderFloat("回り終わりの速さの割合", &attack.whirl.spinEndSpeedRatio, 0.0f, 1.0f);
+        HelpMarker("回り始めの速さに対する割合です。1で等速、小さいほど回りながら減速します。\n"
+                   "遅くなりきったところが「そろそろ隙ができる」の合図になります");
+        ImGui::DragFloat("回り終わりに動けない時間", &attack.whirl.staggerTime, 0.05f, 0.0f, 12.0f);
+        HelpMarker("回転が止まったあと、脚を真横に広げ切ったまま低い姿勢で静止する時間です。\n"
+                   "立ち上がって脚を戻すのはこのあと。頭上に粒の輪が回り、\n"
+                   "当たり判定も出ていないので球を狙い撃つチャンスになります（0で隙なし）");
         ImGui::DragFloat("回るときの脚の高さ", &attack.whirl.spinHeight, 0.05f, 0.0f, 15.0f);
         HelpMarker("地面からの高さです。低いほど当たりやすくなります（胴が地面へ潜らない範囲で止まります）");
         ImGui::TextDisabled("いまの届く範囲: %.2f（真横に伸び切ると %.2f）", GetFootReach(),

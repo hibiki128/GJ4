@@ -23,6 +23,7 @@ void BossAttackSpin::Start(const BossAttackContext &context) {
     spinSpeed_ = 0.0f;
     hitApplied_ = false;
     dustTimer_ = 0.0f;
+    dashTravel_ = 0.0f;
 
     // 露出度が上がるほど予兆が短く、突進が速くなる。
     // 攻撃の途中で値が揺れないよう、開始時に確定させる
@@ -38,7 +39,7 @@ void BossAttackSpin::Start(const BossAttackContext &context) {
 }
 
 void BossAttackSpin::Update(const BossAttackContext &context) {
-    if (!pParams_ || !context.boss) {
+    if (!pParams_ || !pWallStaggerParams_ || !context.boss) {
         phase_ = Phase::Finished;
         return;
     }
@@ -106,14 +107,28 @@ void BossAttackSpin::UpdateTelegraph(const BossAttackContext &context) {
 void BossAttackSpin::UpdateDash(const BossAttackContext &context) {
     Boss *boss = context.boss;
 
-    const Vector3 position = boss->GetBossPosition() + dashDirection_ * (scaledDashSpeed_ * context.deltaTime);
+    const float step = scaledDashSpeed_ * context.deltaTime;
+    const Vector3 position = boss->GetBossPosition() + dashDirection_ * step;
     boss->SetBossPosition(position);
+    dashTravel_ += step;
 
     // 削るように土を巻き上げながら進む
     dustTimer_ += context.deltaTime;
     if (dustTimer_ >= kDashDustInterval) {
         dustTimer_ -= kDashDustInterval;
         BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::DashTrail, boss->GetBossPosition());
+    }
+
+    // 壁に激突したらそこで突進は終わり、ボスはひるむ。
+    // 判定は中心ではなく進行方向の先端で見る（見た目に触れる前に止まらないように）。
+    // 壁際で出したときに即ひるまないよう、ある程度進んでいることを条件にする
+    const Vector3 nose = boss->GetBossPosition() + dashDirection_ * boss->GetBodyRadius();
+    if (dashTravel_ >= pWallStaggerParams_->minTravel && boss->IsBeyondBounds(nose)) {
+        BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::SlamDust, boss->GetBossPosition());
+        boss->BeginWallStagger();
+        spinSpeed_ = 0.0f;
+        phase_ = Phase::Finished;
+        return;
     }
 
     // 接触判定（1回の突進につき1度だけ当てる）
