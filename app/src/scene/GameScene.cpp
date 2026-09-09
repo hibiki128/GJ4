@@ -59,6 +59,10 @@ void GameScene::Initialize()
     pDrawSystem_->Register("GameScene_PostDraw", DrawLayer::PostEffect, [this](const ViewProjection& vp)
         {
             pSpriteManager_->DrawAll();
+            // HUD はゲーム画面の上、レティクルより先に描く
+            if (hud_) {
+                hud_->Draw();
+            }
             // 照準レティクルはゲーム画面のすぐ上（仕様書 11.1）。
             // 被弾の赤いマスクより先に描いて、被弾中はレティクルも一緒に赤く染まるようにする
             if (ShouldDrawReticle()) {
@@ -173,6 +177,9 @@ void GameScene::Initialize()
 		followCamera_->AddImpact(1.0f);
 		damageVignette_->Play(1.0f);
 		GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDamaged);
+		if (hud_) {
+			hud_->PlayDamaged();
+		}
 		});
 
 	// 回避の画面演出。飛び出した瞬間だけカメラを前へ押し出してスピード感を足す。
@@ -198,6 +205,12 @@ GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 	reticle_ = std::make_unique<PlayerReticle>();
 	reticle_->Init();
 	reticle_->RegisterParams();
+
+	// HUD（体力・ボスの体力・色と残弾）。色はボスと同じ色マスタから引く
+	hud_ = std::make_unique<GameHud>();
+	hud_->Init(boss_->GetPalette());
+	hud_->RegisterParams();
+	previousBossHp_ = boss_->GetHp();
 
 	// 通知は射撃の更新が終わった直後に来る。シーンの Update から引くと1フレーム古くなり、
 	// 弾が飛ぶ先とレティクルの位置がずれてしまう（Player::SetOnAimReport のコメント参照）
@@ -350,6 +363,11 @@ void GameScene::Finalize()
 	/// 終了処理
 	/// ===================================================
 
+	// HUD が抱えているスプライトを手放す（ハート・チップ・数字など）
+	if (hud_) {
+		hud_->Finalize();
+	}
+
 	// 出したままのアイテムを片付ける。非所有登録はシーンを切り替えても外れないので、
 	// ここで捨てないとゲームオーバー画面などにアイテムが残ってしまう
 	HealItemManager::GetInstance()->Finalize();
@@ -460,6 +478,8 @@ recoveryZones_.Update(Frame::DeltaTime());
 	// 射線はカメラから作る。カメラを動かした後に配り直すので、
 	// プレイヤーは「いま見ている向き」へ撃てる
 	UpdateAim();
+
+	UpdateHud();
 }
 
 void GameScene::ApplyBossPause(bool paused)
@@ -503,6 +523,57 @@ bool GameScene::ShouldDrawReticle() const
 
 	// 止まっているとき・ムービー中・倒れているときは狙いようがないので引っ込める
 	return !PauseMenu::GetInstance()->IsPaused() && !IsCinematicPlaying() && !player_->IsDead();
+}
+
+void GameScene::UpdateHud()
+{
+	/// ===================================================
+	/// HUD へ今フレームの値を渡す
+	/// ===================================================
+	if (!hud_) {
+		return;
+	}
+
+	GameHudSnapshot snapshot{};
+	snapshot.hp = player_->GetHealth().GetHp();
+	snapshot.maxHp = player_->GetHealth().GetMaxHp();
+	snapshot.playerColor = player_->GetSelectedColor();
+	// 弾は色ごとに別なので、いま選んでいる色のぶんを出す
+	snapshot.ammo = player_->GetAmmo().GetAmmo(snapshot.playerColor);
+	snapshot.maxAmmo = player_->GetAmmo().GetMaxAmmo();
+
+	// 回復エリアに乗っているあいだは、そのエリアの色と残弾も出す。
+	// エリアの色は選んでいる色とは限らないので、これが無いと戻っているのかが分からない
+	Color reloadColor = snapshot.playerColor;
+	if (recoveryZones_.TryGetOccupiedColor(reloadColor)) {
+		snapshot.reloadActive = true;
+		snapshot.reloadColor = reloadColor;
+		snapshot.reloadAmmo = player_->GetAmmo().GetAmmo(reloadColor);
+	}
+
+	// ボスの体力は「まとっている球の数」。撃った球がくっついたときは数が増えるので、
+	// バーもそのぶん伸びる。第2形態は脚が球のかたまりなので、脚の本数で見る
+	if (bossSpider_ && bossSpider_->IsActive()) {
+		snapshot.bossHp = static_cast<float>(bossSpider_->GetAliveLegCount());
+		snapshot.bossMaxHp = static_cast<float>(bossSpider_->GetParameters().legCount);
+		snapshot.bossVisible = true;
+	} else {
+		snapshot.bossHp = boss_->GetHp();
+		snapshot.bossMaxHp = boss_->GetMaxHp();
+		snapshot.bossVisible = boss_->IsFormVisible();
+	}
+
+	// 球が減った瞬間だけバーを光らせる（くっついて増えたときは光らせない）
+	if (snapshot.bossHp < previousBossHp_ - 0.5f) {
+		hud_->PlayBossDamaged();
+	}
+	previousBossHp_ = snapshot.bossHp;
+
+	if (gameInput_->GetInputContext().attack) {
+		hud_->PlayShot();
+	}
+
+	hud_->Update(Frame::DeltaTime(), snapshot);
 }
 
 void GameScene::UpdateAim()
@@ -765,12 +836,22 @@ void GameScene::DrawHealItemImGui()
 	ImGui::SetNextItemWidth(120.0f);
 	ImGui::DragFloat("出す距離", &healItemSpawnDistance_, 0.5f, 1.0f, 40.0f, "%.1f");
 
+	HealItemParams& itemParams = healItems->GetParams();
 	ImGui::SetNextItemWidth(120.0f);
-	ImGui::DragInt("膜を割るのに必要な弾数", &healItems->GetParams().sealHitPoints, 0.1f, 1, 20);
+	ImGui::DragInt("膜を割るのに必要な弾数", &itemParams.sealHitPoints, 0.1f, 1, 20);
 	ImGui::SetItemTooltip("次に出すぶんから効きます（出ている膜の固さは変わりません）");
 
-	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると拾えるようになります（拾うと %d 回復）",
-	                    healItems->GetParams().healAmount);
+	// 見た目の調整。出ているアイテムにもその場で効く
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragFloat("膜の半径", &itemParams.sealRadius, 0.05f, 0.2f, 6.0f, "%.2f");
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(120.0f);
+	ImGui::DragFloat("ハートの大きさ", &itemParams.coreRadius, 0.05f, 0.1f, 4.0f, "%.2f");
+	ImGui::ColorEdit4("膜の色", &itemParams.sealRgba.x, ImGuiColorEditFlags_AlphaBar);
+	ImGui::ColorEdit4("ハートの色", &itemParams.coreRgba.x);
+
+	ImGui::TextDisabled("黄色い弾を当てるたび膜が薄くなり、割れると中のハートを拾えます（拾うと %d 回復）",
+	                    itemParams.healAmount);
 }
 
 void GameScene::AddParticleSetting()

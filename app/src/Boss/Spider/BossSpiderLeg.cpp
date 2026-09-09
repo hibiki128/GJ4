@@ -522,7 +522,8 @@ void BossSpiderLeg::UpdateMotions(float deltaTime, const BossSpiderParams &param
 }
 
 bool BossSpiderLeg::Raycast(const Vector3 &start, const Vector3 &end, const BossSpiderParams &params,
-                            float &outDistance, Vector3 &outPoint, int &outIndex) const {
+                            float bulletRadius, float &outDistance, Vector3 &outPoint,
+                            int &outIndex) const {
     if (isHidden_ || chain_.empty()) {
         return false;
     }
@@ -533,7 +534,8 @@ bool BossSpiderLeg::Raycast(const Vector3 &start, const Vector3 &end, const Boss
         return false;
     }
     const Vector3 direction = segment / segmentLength;
-    const float radius = params.legSphereRadius;
+    // 弾の太さは脚の球へ足して解く（見た目どおりの太さで当たるようにする）
+    const float radius = params.legSphereRadius + (std::max)(0.0f, bulletRadius);
 
     bool found = false;
     float nearest = segmentLength;

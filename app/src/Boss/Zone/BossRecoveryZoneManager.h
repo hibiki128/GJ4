@@ -75,6 +75,25 @@ public:
     /// <summary>落とせる範囲（フィールドの外へ出さないため）</summary>
     void SetFieldBounds(const IFieldBounds *field) { pFieldBounds_ = field; }
 
+    /// <summary>
+    /// いずれかのエリアに相手が乗っているか。
+    /// チュートリアルが「エリアに何秒とどまったか」を数えるのに使う
+    /// </summary>
+    /// <returns>bool: 1つでも乗っていれば true</returns>
+    bool IsTargetInsideAny() const;
+
+    /// <summary>出ているエリアが1つでもあるか</summary>
+    /// <returns>bool: あれば true</returns>
+    bool HasActiveZone() const;
+
+    /// <summary>
+    /// 相手が乗っているエリアの色を取り出す。
+    /// HUDが「いまどの色の弾が戻っているか」を出すのに使う
+    /// </summary>
+    /// <param name="outColor">乗っているエリアの色</param>
+    /// <returns>bool: 乗っていれば true（乗っていなければ outColor は触らない）</returns>
+    bool TryGetOccupiedColor(Color &outColor) const;
+
 private:
     /// ===================================================
     /// private method

@@ -16,9 +16,9 @@ struct TutorialSignals {
     bool jumped = false;           // ジャンプした瞬間
     bool dashing = false;          // ダッシュ中
     bool shot = false;             // 撃った瞬間
-    int selectedColorIndex = -1;   // 押した色（-1なら押していない）
-    bool chainCleared = false;     // 同色がそろって殻が消えた瞬間
-    bool shellCleared = false;     // 殻をすべて剥がしきった
+    int selectedColorIndex = -1;   // いま選んでいる色（-1なら分からない）
+    bool chainCleared = false;     // 同色がそろって球が消えた瞬間
+    bool inRecoveryZone = false;   // 弾の回復エリアに乗っているか
 };
 
 /// <summary>
@@ -75,6 +75,13 @@ public:
     /// </summary>
     bool IsCombatStageReached() const { return stageIndex_ >= kStageCombat; }
 
+    /// <summary>
+    /// 弾の回復エリアを教える段まで来たか。
+    /// シーンはこれを見て、エリアを1つ出してやる（本番はボスの攻撃終わりに出るが、
+    /// チュートリアルのボスは攻撃してこないので自然には出ない）
+    /// </summary>
+    bool IsRecoveryStageReached() const { return stageIndex_ >= kStageRecover; }
+
 private:
     /// ===================================================
     /// private types
@@ -88,16 +95,18 @@ private:
         kTaskDash,   // RBでダッシュ
         kTaskShoot,  // RTで撃つ
         kTaskColor,  // 十字ボタンで色を変える
-        kTaskChain,  // 同じ色を3つ以上つなげて消す
-        kTaskStrip,  // 殻をぜんぶ剥がす
+        kTaskChain,   // 同じ色を3つ以上つなげて消す
+        kTaskClear,   // 何回か消す（ぜんぶ剥がすのは長いので回数で区切る）
+        kTaskRecover, // 弾の回復エリアに乗る
         kTaskCount,
     };
 
     /// <summary>段（この単位でテロップが切り替わる）</summary>
     enum StageId {
-        kStageMove,   // 動かしてみる
-        kStageCombat, // 撃ってみる
-        kStageBreak,  // ボスを崩す
+        kStageMove,    // 動かしてみる
+        kStageCombat,  // 撃ってみる
+        kStageBreak,   // ボスを崩す
+        kStageRecover, // 弾を補給する
         kStageCount,
     };
 
@@ -144,7 +153,10 @@ private:
     // --- 調整パラメータ（文字とテロップの大きさ）---
     // 文字の大きさを変えると行や板もそれに合わせて組み直すので、
     // 見出しだけ大きくしても崩れない
+    // テロップは右上に出す。画面のふちからの距離で置く
+    Hagine::Vector2 panelMargin_ = {48.0f, 48.0f}; // 右・上のふちからの距離
     float stageTitleSize_ = 38.0f;  // 段の見出しの文字の高さ
+    float stageHintSize_ = 24.0f;   // 段のひとこと説明の文字の高さ（板からはみ出す分は自動で縮む）
     float taskLabelSize_ = 28.0f;   // やることの文字の高さ
     float finishTitleSize_ = 58.0f; // 完了テロップの見出しの高さ
     float finishHintSize_ = 30.0f;  // 完了テロップの補足の高さ
@@ -160,6 +172,8 @@ private:
     static constexpr int kRectCapacity = 24; // 板の最大枚数
     GameUi::UiRect rects_;
     GameUi::UiText stageTitles_[kStageCount];
+    // 段ごとのひとこと説明。操作だけでは伝わらない決まり（消える条件・補給の色）をここで言う
+    GameUi::UiText stageHints_[kStageCount];
     GameUi::UiText taskLabels_[kTaskCount];
     GameUi::UiText finishTitle_;
     GameUi::UiText finishHint_;

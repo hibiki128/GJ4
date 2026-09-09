@@ -509,16 +509,64 @@ bool Boss::FindLockOnTarget(const LockOnRequest &request, LockOnResult &out) {
     return cluster_.FindLockOnTarget(request, parameters_.LockOn().requireFacing, out);
 }
 
-BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
+bool Boss::RaycastCore(const Vector3 &worldStart, const Vector3 &worldEnd, float bulletRadius,
+                       float &outDistance, Vector3 &outPoint) const {
+    const Vector3 segment = worldEnd - worldStart;
+    const float segmentLength = segment.Length();
+    if (segmentLength <= 0.0001f) {
+        return false;
+    }
+    const Vector3 direction = segment / segmentLength;
+
+    // 弾の太さはコア側へ足して解く（殻の球と同じ扱い）
+    const float radius = GetCoreRadius() + (std::max)(0.0f, bulletRadius);
+    if (radius <= 0.0f) {
+        return false;
+    }
+
+    const Vector3 toCenter = GetCorePosition() - worldStart;
+    const float along = toCenter.Dot(direction);
+    if (along < -radius || along > segmentLength + radius) {
+        return false;
+    }
+    const float perpendicularSq = toCenter.LengthSq() - along * along;
+    if (perpendicularSq > radius * radius) {
+        return false;
+    }
+
+    const float back = std::sqrt((std::max)(0.0f, radius * radius - perpendicularSq));
+    outDistance = (std::max)(0.0f, along - back);
+    outPoint = worldStart + direction * outDistance;
+    return true;
+}
+
+BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
+                                    float bulletRadius) {
     // 登場演出の最中は無敵（球が飛来中で当たり判定の位置が定まらない）
     if (IsAppearing()) {
         return BulletHitResult{};
     }
 
+    // コアのほうが手前なら、弾はそこで止まる。
+    // コアは撃っても壊せない想定なので、当たっても付着も消去も起こさない。
+    // 付着の副作用が出る前に決めたいので、殻へは副作用の無い RaycastPoint で聞く
+    float coreDistance = 0.0f;
+    Vector3 corePoint{};
+    if (RaycastCore(worldStart, worldEnd, bulletRadius, coreDistance, corePoint)) {
+        Vector3 shellPoint{};
+        if (!cluster_.RaycastPoint(worldStart, worldEnd, bulletRadius, shellPoint) ||
+            (shellPoint - worldStart).Length() > coreDistance) {
+            BulletHitResult blocked{};
+            blocked.hit = true; // 弾は消える（ShouldConsumeBullet が true になる）
+            blocked.hitPoint = corePoint;
+            return blocked;
+        }
+    }
+
     const bool wasAlive = !IsDead();
 
-    const BulletHitResult result =
-        cluster_.RaycastAttach(worldStart, worldEnd, color, parameters_.Chain(), palette_);
+    const BulletHitResult result = cluster_.RaycastAttach(worldStart, worldEnd, color, bulletRadius,
+                                                         parameters_.Chain(), palette_);
 
     // 消去が起きたぶんだけ怯みが入る（付着しただけなら何も起きない）
     if (result.destroyed) {
@@ -540,7 +588,8 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
     return result;
 }
 
-bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color, AimHit &outHit) {
+bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
+                        float bulletRadius, AimHit &outHit) {
     // 当たり判定を持たない間は照準も素通りさせる（RaycastAttach と同じ条件にそろえる）
     if (IsAppearing()) {
         return false;
@@ -548,10 +597,27 @@ bool Boss::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Colo
 
     // 殻の球は色に関係なく弾を止めるので、色は見ない
     (void)color;
+
+    // 当たる順番も RaycastAttach とそろえる（コアが手前を塞いでいれば照準もそこで止まる）
+    float coreDistance = 0.0f;
+    Vector3 corePoint{};
+    const bool coreHit = RaycastCore(worldStart, worldEnd, bulletRadius, coreDistance, corePoint);
+
     ShellCell hitCell{};
-    if (!cluster_.RaycastPoint(worldStart, worldEnd, outHit.point, &hitCell)) {
+    Vector3 shellPoint{};
+    const bool shellHit = cluster_.RaycastPoint(worldStart, worldEnd, bulletRadius, shellPoint, &hitCell);
+
+    if (coreHit && (!shellHit || (shellPoint - worldStart).Length() > coreDistance)) {
+        outHit.point = corePoint;
+        // コアは撃っても壊せないので、エイムアシストで吸い寄せない（寄せると狙いがコアに吸われる）
+        outHit.center = corePoint;
+        outHit.attackable = false;
+        return true;
+    }
+    if (!shellHit) {
         return false;
     }
+    outHit.point = shellPoint;
 
     // エイムアシストの吸着先は当たった球の中心。
     // 消える途中などで座標が引けなければ、表面の点をそのまま中心として返す（＝寄らない）

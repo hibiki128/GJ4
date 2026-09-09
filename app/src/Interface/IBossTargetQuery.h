@@ -52,6 +52,13 @@ struct AimHit {
     /// 中心が取れない相手は表面の点と同じ値が入るので、寄せても何も起きない
     /// </summary>
     Hagine::Vector3 center{};
+
+    /// <summary>
+    /// 撃って意味のある的か。胴やコアのように弾は止めるが壊せない相手は false になる。
+    /// エイムアシストはここが false の相手には吸着しない
+    ///（無敵の的へ狙いを寄せてしまうと、アシストが当たらない方向へ働いてしまう）
+    /// </summary>
+    bool attackable = true;
 };
 
 /// <summary>
@@ -98,9 +105,11 @@ public:
     /// <param name="worldStart">線分の始点（前フレームの弾の位置）</param>
     /// <param name="worldEnd">線分の終点（現在の弾の位置）</param>
     /// <param name="color">弾の色</param>
+    /// <param name="bulletRadius">弾の半径（線分をこの太さで判定する。0 なら太さ無し）</param>
     /// <returns>BulletHitResult: 当たったか・付着したか・消えたか</returns>
     virtual BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart,
-                                          const Hagine::Vector3 &worldEnd, Color color) = 0;
+                                          const Hagine::Vector3 &worldEnd, Color color,
+                                          float bulletRadius) = 0;
 
     /// <summary>
     /// 線分が最初に当たる点を返すだけの問い合わせ（付着・消去などの副作用は起こさない）。
@@ -111,10 +120,11 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色によってすり抜ける相手がいるので着弾と同じ色を渡す）</param>
+    /// <param name="bulletRadius">弾の半径（RaycastAttach と同じ値を渡すこと。ずらすと表示と判定が食い違う）</param>
     /// <param name="outHit">最初に当たった点と、その球の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     virtual bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                              Color color, AimHit &outHit) = 0;
+                              Color color, float bulletRadius, AimHit &outHit) = 0;
 
     /// <summary>
     /// 格子セルにある球の現在のワールド座標を取得する（飛翔中の弾が対象を追尾するのに使う）

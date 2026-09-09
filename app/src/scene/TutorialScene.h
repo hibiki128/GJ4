@@ -7,6 +7,8 @@
 #include "src/Field/FieldSurround.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Tutorial/TutorialDirector.h"
+#include "src/Boss/Zone/BossRecoveryZoneManager.h"
+#include "src/UI/Hud/GameHud.h"
 #include "src/UI/Reticle/PlayerReticle.h"
 
 /// <summary>
@@ -60,6 +62,10 @@ private:
     /// <returns>TutorialSignals: 進行役へ渡す内容</returns>
     TutorialSignals CollectSignals(float deltaTime);
 
+    /// <summary>HUDへ今フレームの値を渡す（体力まわりは伏せてあるので色と残弾だけ効く）</summary>
+    /// <param name="deltaTime">経過時間（秒）</param>
+    void UpdateHud(float deltaTime);
+
     /// ===================================================
     /// private variables
     /// ===================================================
@@ -73,6 +79,15 @@ private:
     std::unique_ptr<FollowCamera> followCamera_;
     std::unique_ptr<TutorialDirector> tutorial_;
     std::unique_ptr<PlayerReticle> reticle_;
+
+    // 本番と同じHUD。ただしチュートリアルでは体力とボスの体力は伏せて、
+    // 色と残弾・ポーズの案内だけを出す
+    std::unique_ptr<GameHud> hud_;
+
+    // 弾の回復エリア。本番はボスの攻撃終わりに出るが、チュートリアルのボスは
+    // 攻撃してこないので、教える段になったらこちらから1つ出す
+    BossRecoveryZoneManager recoveryZones_;
+    bool hasSpawnedRecoveryZone_ = false;
 
     // 殻がどれだけ削れたかを前フレームと比べて「消えた瞬間」を拾う。
     // 殻が減るのは同色がそろって消えたときだけなので、これで連鎖の成立が分かる

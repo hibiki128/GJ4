@@ -65,6 +65,9 @@ void BossSpider::Init(const std::string objectName) {
     legNamePrefix_ = objectName + "Leg";
     RebuildLegs();
 
+    // 弾は先にまとめて作っておき、発射では待機中のものを起こすだけにする
+    InitBulletPool();
+
     // 使える攻撃を登録する。並び順は kAttackLeap などの定数と合わせること
     attacks_.push_back(std::make_unique<BossSpiderAttackLeap>(&parameters_.attack.leap));
     attacks_.push_back(std::make_unique<BossSpiderAttackShoot>(&parameters_.attack.shoot));
@@ -807,17 +810,27 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
     return moveDirection;
 }
 
-void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParams &params) {
-    GameSounds::GetInstance()->Play(GameSounds::Id::Shot);
+void BossSpider::InitBulletPool() {
+    bulletPool_.reserve(static_cast<size_t>(kMaxBulletCount));
+    bullets_.reserve(static_cast<size_t>(kMaxBulletCount));
 
-    Vector3 forward = direction;
-    forward.y = 0.0f;
-    if (forward.LengthSq() <= 0.0001f) {
-        forward = Vector3{std::cos(bodyYaw_), 0.0f, std::sin(bodyYaw_)};
+    for (int index = 0; index < kMaxBulletCount; ++index) {
+        auto sphere = std::make_unique<BossSphere>();
+
+        // 名前はオブジェクト名のキーになるので一意にする。
+        // 半径は撃つときに SetSphereRadius で入れ直すため、ここでは初期値でよい
+        sphere->InitSphere(objectName_ + "Bullet" + std::to_string(index), parameters_.attack.shoot.radius);
+
+        SpiderBullet bullet{};
+        bullet.sphere = sphere.get();
+        bulletPool_.push_back(std::move(sphere));
+        bullets_.push_back(bullet);
     }
-    forward = forward.Normalize();
+}
 
-    // 空きを探す。無ければ増やすだけ（実行中に破棄するとGPUが参照中で落ちる）
+void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParams &params) {
+    // 待機中の弾を探す。実行中は作りも壊しもしない
+    //（BaseObject の生成はJSON探索を伴って重く、破棄は前フレームのGPUが参照中で落ちる）
     int slot = -1;
     for (int index = 0; index < static_cast<int>(bullets_.size()); ++index) {
         if (!bullets_[static_cast<size_t>(index)].active) {
@@ -826,14 +839,17 @@ void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParam
         }
     }
     if (slot < 0) {
-        auto sphere = std::make_unique<BossSphere>();
-        sphere->InitSphere(objectName_ + "Bullet" + std::to_string(bulletPool_.size()), params.radius);
-        SpiderBullet bullet{};
-        bullet.sphere = sphere.get();
-        bulletPool_.push_back(std::move(sphere));
-        bullets_.push_back(bullet);
-        slot = static_cast<int>(bullets_.size()) - 1;
+        return; // 全部飛んでいる（同時に飛べる数の上限）
     }
+
+    GameSounds::GetInstance()->Play(GameSounds::Id::Shot);
+
+    Vector3 forward = direction;
+    forward.y = 0.0f;
+    if (forward.LengthSq() <= 0.0001f) {
+        forward = Vector3{std::cos(bodyYaw_), 0.0f, std::sin(bodyYaw_)};
+    }
+    forward = forward.Normalize();
 
     // 色は蜘蛛が使っている色から選ぶ。プレイヤーは同じ色を当てて消せる
     const std::vector<Color> &usedColors = palette_.GetUsedColors();
@@ -850,7 +866,16 @@ void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParam
     bullet.homingRate = (std::max)(0.0f, params.homingRate);
     bullet.homingLeft = (std::max)(0.0f, params.homingTime);
     bullet.velocity = forward * bullet.speed;
-    bullet.position = bodyPosition_ + forward * (parameters_.bodyRadius + bullet.radius);
+
+    // 弾は胴の外側から出す。ただし相手が胴のすぐそばにいるときにそのまま出すと、
+    // 生まれた時点で相手を追い越してしまい、二度と当たらない。
+    // 相手までの半分より先には出さないことで、密着していても必ず手前から飛ばす
+    float muzzleOffset = parameters_.bodyRadius + bullet.radius;
+    if (pTargetLocator_ && pTargetLocator_->IsTargetValid()) {
+        const float toTarget = (pTargetLocator_->GetTargetPosition() - bodyPosition_).Length();
+        muzzleOffset = (std::min)(muzzleOffset, toTarget * 0.5f);
+    }
+    bullet.position = bodyPosition_ + forward * muzzleOffset;
     bullet.active = true;
 
     bullet.sphere->Place(ShellCell{-1, slot}, bullet.position, color, palette_.GetRgba(color));
@@ -862,6 +887,10 @@ void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParam
 void BossSpider::UpdateBullets(float deltaTime) {
     const bool hasTarget = (pTargetLocator_ && pTargetLocator_->IsTargetValid());
     const Vector3 targetPosition = hasTarget ? pTargetLocator_->GetTargetPosition() : Vector3{};
+    // 相手の当たり半径。弾の半径だけで見ると「原点をかすめないと当たらない」判定になり、
+    // 身体をすり抜けたようにしか見えない（突進や回復エリアも同じ半径を見ている）
+    const float targetRadius =
+        hasTarget ? (std::max)(0.0f, pTargetLocator_->GetTargetRadius()) : 0.0f;
 
     for (SpiderBullet &bullet : bullets_) {
         if (!bullet.active) {
@@ -887,7 +916,7 @@ void BossSpider::UpdateBullets(float deltaTime) {
         bullet.sphere->SetLocalPosition(bullet.position);
 
         // 相手に届いたら当たりを知らせて消える
-        if (hasTarget && (targetPosition - bullet.position).Length() <= bullet.radius) {
+        if (hasTarget && (targetPosition - bullet.position).Length() <= bullet.radius + targetRadius) {
             ReportHit(bullet.position, bullet.radius, bullet.damage);
             bullet.active = false;
             bullet.sphere->Deactivate();
@@ -900,7 +929,8 @@ void BossSpider::UpdateBullets(float deltaTime) {
     }
 }
 
-BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd, Color color) {
+BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vector3 &worldEnd,
+                                          Color color, float bulletRadius) {
     BulletHitResult result{};
     // 変形が終わるまでは当たり判定を持たない（脚が生えている最中に撃たれても困る）
     if (phase_ != Phase::Active) {
@@ -909,8 +939,10 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
 
     // まず飛んでいる弾を見る。同じ色を当てられた弾は消える
     int bulletIndex = -1;
+    float bulletDistance = 0.0f;
     Vector3 bulletPoint{};
-    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, bulletPoint)) {
+    if (FindBulletHit(worldStart, worldEnd, color, bulletRadius, bulletIndex, bulletDistance,
+                      bulletPoint)) {
         SpiderBullet &bullet = bullets_[static_cast<size_t>(bulletIndex)];
         bullet.active = false;
         bullet.sphere->Deactivate();
@@ -924,8 +956,23 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
     // いちばん手前で当たった脚を選ぶ
     int hitLeg = -1;
     int hitIndex = -1;
+    float legDistance = 0.0f;
     Vector3 hitPoint{};
-    if (!FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, hitPoint)) {
+    const bool legHit =
+        FindLegHit(worldStart, worldEnd, bulletRadius, hitLeg, hitIndex, legDistance, hitPoint);
+
+    // 胴のほうが手前なら、弾はそこで止まる。
+    // 胴は撃っても壊せない想定なので、当たっても付着も消去も起こさない
+    float bodyDistance = 0.0f;
+    Vector3 bodyPoint{};
+    if (FindBodyHit(worldStart, worldEnd, bulletRadius, bodyDistance, bodyPoint) &&
+        (!legHit || bodyDistance < legDistance)) {
+        result.hit = true; // 弾は消える（ShouldConsumeBullet が true になる）
+        result.hitPoint = bodyPoint;
+        return result;
+    }
+
+    if (!legHit) {
         return result;
     }
 
@@ -953,14 +1000,16 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
 }
 
 bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
-                              AimHit &outHit) {
+                              float bulletRadius, AimHit &outHit) {
     if (phase_ != Phase::Active) {
         return false;
     }
 
     // 当たる順番も RaycastAttach とそろえる（飛翔弾が手前を塞いでいれば照準もそこで止まる）
     int bulletIndex = -1;
-    if (FindBulletHit(worldStart, worldEnd, color, bulletIndex, outHit.point)) {
+    float bulletDistance = 0.0f;
+    if (FindBulletHit(worldStart, worldEnd, color, bulletRadius, bulletIndex, bulletDistance,
+                      outHit.point)) {
         // 飛翔弾は FindBulletHit が中心をそのまま返すので、寄せ先も同じ点でよい
         outHit.center = outHit.point;
         return true;
@@ -968,9 +1017,26 @@ bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd
 
     int hitLeg = -1;
     int hitIndex = -1;
-    if (!FindLegHit(worldStart, worldEnd, hitLeg, hitIndex, outHit.point)) {
+    float legDistance = 0.0f;
+    Vector3 legPoint{};
+    const bool legHit =
+        FindLegHit(worldStart, worldEnd, bulletRadius, hitLeg, hitIndex, legDistance, legPoint);
+
+    float bodyDistance = 0.0f;
+    Vector3 bodyPoint{};
+    if (FindBodyHit(worldStart, worldEnd, bulletRadius, bodyDistance, bodyPoint) &&
+        (!legHit || bodyDistance < legDistance)) {
+        outHit.point = bodyPoint;
+        // 胴は撃っても壊せないので、エイムアシストで吸い寄せない（寄せると狙いが胴に吸われる）
+        outHit.center = bodyPoint;
+        outHit.attackable = false;
+        return true;
+    }
+
+    if (!legHit) {
         return false;
     }
+    outHit.point = legPoint;
 
     // エイムアシストの吸着先は当たった脚の球の中心。
     // 引けなければ表面の点をそのまま中心として返す（＝寄らない）
@@ -982,37 +1048,45 @@ bool BossSpider::RaycastPoint(const Vector3 &worldStart, const Vector3 &worldEnd
 }
 
 bool BossSpider::FindBulletHit(const Vector3 &worldStart, const Vector3 &worldEnd, Color color,
-                               int &outBulletIndex, Vector3 &outPoint) const {
+                               float bulletRadius, int &outBulletIndex, float &outDistance,
+                               Vector3 &outPoint) const {
     const Vector3 segment = worldEnd - worldStart;
     const float segmentLength = segment.Length();
     if (segmentLength <= 0.0001f) {
         return false;
     }
     const Vector3 direction = segment / segmentLength;
+    const float extra = (std::max)(0.0f, bulletRadius);
 
     for (size_t index = 0; index < bullets_.size(); ++index) {
         const SpiderBullet &bullet = bullets_[index];
         if (!bullet.active || bullet.color != color) {
             continue; // 色が違う弾はすり抜ける（当てても消えない）
         }
+        // 撃った弾の太さを飛翔弾へ足して解く（球と球の交差）
+        const float radius = bullet.radius + extra;
         const Vector3 toCenter = bullet.position - worldStart;
         const float along = toCenter.Dot(direction);
-        if (along < -bullet.radius || along > segmentLength + bullet.radius) {
+        if (along < -radius || along > segmentLength + radius) {
             continue;
         }
-        if (toCenter.LengthSq() - along * along > bullet.radius * bullet.radius) {
+        const float perpendicularSq = toCenter.LengthSq() - along * along;
+        if (perpendicularSq > radius * radius) {
             continue;
         }
 
+        const float back = std::sqrt((std::max)(0.0f, radius * radius - perpendicularSq));
         outBulletIndex = static_cast<int>(index);
+        outDistance = (std::max)(0.0f, along - back);
         outPoint = bullet.position;
         return true;
     }
     return false;
 }
 
-bool BossSpider::FindLegHit(const Vector3 &worldStart, const Vector3 &worldEnd, int &outLegIndex,
-                            int &outSphereIndex, Vector3 &outPoint) const {
+bool BossSpider::FindLegHit(const Vector3 &worldStart, const Vector3 &worldEnd, float bulletRadius,
+                            int &outLegIndex, int &outSphereIndex, float &outDistance,
+                            Vector3 &outPoint) const {
     int hitLeg = -1;
     int hitIndex = -1;
     float nearest = 0.0f;
@@ -1022,8 +1096,8 @@ bool BossSpider::FindLegHit(const Vector3 &worldStart, const Vector3 &worldEnd, 
         float distance = 0.0f;
         Vector3 point{};
         int sphereIndex = -1;
-        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, distance, point,
-                                                        sphereIndex)) {
+        if (!legs_[static_cast<size_t>(index)]->Raycast(worldStart, worldEnd, parameters_, bulletRadius,
+                                                        distance, point, sphereIndex)) {
             continue;
         }
         if (hitLeg < 0 || distance < nearest) {
@@ -1039,7 +1113,38 @@ bool BossSpider::FindLegHit(const Vector3 &worldStart, const Vector3 &worldEnd, 
 
     outLegIndex = hitLeg;
     outSphereIndex = hitIndex;
+    outDistance = nearest;
     outPoint = hitPoint;
+    return true;
+}
+
+bool BossSpider::FindBodyHit(const Vector3 &worldStart, const Vector3 &worldEnd, float bulletRadius,
+                            float &outDistance, Vector3 &outPoint) const {
+    const Vector3 segment = worldEnd - worldStart;
+    const float segmentLength = segment.Length();
+    if (segmentLength <= 0.0001f) {
+        return false;
+    }
+    const Vector3 direction = segment / segmentLength;
+
+    const float radius = parameters_.bodyRadius + (std::max)(0.0f, bulletRadius);
+    if (radius <= 0.0f) {
+        return false;
+    }
+
+    const Vector3 toCenter = bodyPosition_ - worldStart;
+    const float along = toCenter.Dot(direction);
+    if (along < -radius || along > segmentLength + radius) {
+        return false;
+    }
+    const float perpendicularSq = toCenter.LengthSq() - along * along;
+    if (perpendicularSq > radius * radius) {
+        return false;
+    }
+
+    const float back = std::sqrt((std::max)(0.0f, radius * radius - perpendicularSq));
+    outDistance = (std::max)(0.0f, along - back);
+    outPoint = worldStart + direction * outDistance;
     return true;
 }
 
@@ -1352,7 +1457,7 @@ void BossSpider::DrawGameplayImGui() {
         for (const SpiderBullet &bullet : bullets_) {
             flying += bullet.active ? 1 : 0;
         }
-        ImGui::TextDisabled("飛んでいる弾: %d 発（同じ色を当てると消える）", flying);
+        ImGui::TextDisabled("飛んでいる弾: %d / %d 発（同じ色を当てると消える）", flying, kMaxBulletCount);
         ImGui::TreePop();
     }
 

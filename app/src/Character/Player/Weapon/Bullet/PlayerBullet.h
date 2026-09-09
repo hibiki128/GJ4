@@ -19,9 +19,12 @@ public:
 
 	/// <summary>
 	/// 移動した線分で着弾を問い合わせる関数。
-	/// 弾を消してよい場合に true を返す
+	/// 弾を消してよい場合に true を返す。
+	/// radius には弾の半径を渡す（見た目どおりの太さで判定してもらうため。
+	/// 太さ無しの線分だと、かすった弾が見た目に反してすり抜ける）
 	/// </summary>
-	using HitTester = std::function<bool(const Hagine::Vector3& from, const Hagine::Vector3& to)>;
+	using HitTester = std::function<bool(const Hagine::Vector3& from, const Hagine::Vector3& to,
+	                                     float radius)>;
 
 	/// <summary>
 	/// 1発ぶんの発射内容。
@@ -74,6 +77,7 @@ private:
 	void ApplyTrajectoryCorrection(float deltaTime);
 
 	Hagine::Vector3 direction_ = {0.0f, 0.0f, 1.0f};
+	float radius_ = 0.0f; // 当たり判定に使う半径（見た目の大きさと同じ値）
 	float speed_ = 0.0f;
 	float lifeTime_ = 0.0f;
 	float correctionRate_ = 0.0f;

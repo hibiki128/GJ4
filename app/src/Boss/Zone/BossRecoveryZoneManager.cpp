@@ -129,6 +129,34 @@ Vector3 BossRecoveryZoneManager::PickLanding(const Vector3 &bossPosition) const 
     return landing;
 }
 
+bool BossRecoveryZoneManager::IsTargetInsideAny() const {
+    for (const std::unique_ptr<BossRecoveryZone> &zone : zones_) {
+        if (zone->IsAlive() && zone->IsOccupied()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BossRecoveryZoneManager::TryGetOccupiedColor(Color &outColor) const {
+    for (const std::unique_ptr<BossRecoveryZone> &zone : zones_) {
+        if (zone->IsAlive() && zone->IsOccupied()) {
+            outColor = zone->GetColor();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BossRecoveryZoneManager::HasActiveZone() const {
+    for (const std::unique_ptr<BossRecoveryZone> &zone : zones_) {
+        if (zone->IsAlive() && !zone->IsClosing()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int BossRecoveryZoneManager::CountOpen() const {
     int count = 0;
     for (const std::unique_ptr<BossRecoveryZone> &zone : zones_) {

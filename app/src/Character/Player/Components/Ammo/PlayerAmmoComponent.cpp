@@ -39,6 +39,16 @@ void PlayerAmmoComponent::RegisterParams() {
 void PlayerAmmoComponent::Update() {
 	const float deltaTime = Hagine::Frame::DeltaTime();
 
+	// 減らさない設定のあいだは満タンで固定する。
+	// 撃った側で減らさないだけだと、切り替えた瞬間に中途半端な数から始まってしまう
+	if (isInfinite_) {
+		ammo_.fill(params_.maxAmmo);
+		regenAccumulator_.fill(0.0f);
+		regenDelayTimer_.fill(0.0f);
+		frameScaleRequest_.fill(1.0f);
+		return;
+	}
+
 	// 時限型の倍率を進める。切れたものはここで捨てる
 	for (RegenBoost& boost : boosts_) {
 		boost.remain -= deltaTime;
@@ -80,6 +90,9 @@ void PlayerAmmoComponent::Update() {
 }
 
 bool PlayerAmmoComponent::CanFire(Color color) const {
+	if (isInfinite_) {
+		return true;
+	}
 	return GetAmmo(color) >= params_.costPerShot;
 }
 
@@ -88,12 +101,25 @@ bool PlayerAmmoComponent::TryConsume(Color color) {
 		return false;
 	}
 
+	// 減らさない設定のときは撃てた扱いだけ返す（回復待ちにも入れない）
+	if (isInfinite_) {
+		return true;
+	}
+
 	const int index = ToColorIndex(color);
 	ammo_[index] = std::max(ammo_[index] - params_.costPerShot, 0);
 	regenDelayTimer_[index] = params_.regenDelayAfterShot;
 	// 撃つと回復待ちに入るので、端数を残しておくと待ち明けの瞬間に1発が即座に戻ってしまう
 	regenAccumulator_[index] = 0.0f;
 	return true;
+}
+
+void PlayerAmmoComponent::SetAmmo(Color color, int amount) {
+	const int index = ToColorIndex(color);
+	ammo_[index] = std::clamp(amount, 0, params_.maxAmmo);
+	// 端数と回復待ちを持ち越すと、直後の1発が唐突に戻ってしまう
+	regenAccumulator_[index] = 0.0f;
+	regenDelayTimer_[index] = 0.0f;
 }
 
 void PlayerAmmoComponent::Refund(Color color) {
