@@ -1,5 +1,6 @@
 #include "BossSpiderAttackWhirl.h"
 #include "MyMath.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Data/BossEasing.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Interface/ITargetLocator.h"
@@ -51,6 +52,9 @@ void BossSpiderAttackWhirl::Update(const BossAttackContext &context) {
             spider->FaceTowards(context.target->GetTargetPosition());
         }
         if (progress >= 1.0f) {
+            // 回り始め。回っているあいだだけ鳴らす
+            GameSounds::GetInstance()->StartLoop(GameSounds::Id::RotateSpider);
+
             phase_ = Phase::Spin;
             timer_ = 0.0f;
         }
@@ -76,6 +80,9 @@ void BossSpiderAttackWhirl::Update(const BossAttackContext &context) {
         if (timer_ >= pParams_->spinTime) {
             // 立ち上がる前に、広げ切った脚のまま止まって隙をさらす。
             // 脚を戻すのはこのあと（Stagger → Recover）
+            // 回り終わり。ここで回転音を止め、ひるみの音へ渡す
+            GameSounds::GetInstance()->StopLoop(GameSounds::Id::RotateSpider);
+
             phase_ = Phase::Stagger;
             timer_ = 0.0f;
             spider->BeginStagger(pParams_->staggerTime);
@@ -116,6 +123,7 @@ void BossSpiderAttackWhirl::Update(const BossAttackContext &context) {
 void BossSpiderAttackWhirl::Cancel(const BossAttackContext &context) {
     if (context.spider) {
         // 隙はこの攻撃が作っているものなので、中断したらそこで終わりにする
+        GameSounds::GetInstance()->StopLoop(GameSounds::Id::RotateSpider);
         context.spider->ClearStagger();
         context.spider->SetLegBend(1.0f, 0.2f);
         Vector3 position = context.spider->GetBodyPosition();

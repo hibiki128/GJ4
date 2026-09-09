@@ -1,6 +1,7 @@
 #include "Boss.h"
 #include "src/Boss/Attack/BossAttackSlam.h"
 #include "src/Boss/Attack/BossAttackSpin.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/State/BossStates.h"
 #include "collider/ColliderTagManager.h"
@@ -517,6 +518,8 @@ BulletHitResult Boss::RaycastAttach(const Vector3 &worldStart, const Vector3 &wo
 
     // 消去が起きたぶんだけ怯みが入る（付着しただけなら何も起きない）
     if (result.destroyed) {
+        // そろって消えた合図。短い間に何度も起きるので、鳴らし直しの間隔で重なりを防ぐ
+        GameSounds::GetInstance()->Play(GameSounds::Id::Break);
         DamageInfo info{};
         info.hitPoint = result.hitPoint;
         info.chainSize = result.clusterSize;

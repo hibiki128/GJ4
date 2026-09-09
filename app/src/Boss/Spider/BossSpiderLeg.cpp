@@ -672,9 +672,21 @@ Vector3 BossSpiderLeg::PointAlongLeg(float index, const Vector3 &hip, const Vect
     if (index <= upperSpan) {
         return Lerp(hip, knee, index / upperSpan);
     }
-    // 下腿はくっついた球のぶんだけ長くなっている
-    const float lowerSpan = (std::max)(0.5f, static_cast<float>(lowerSphereCount_ - 1) + extension_);
-    return Lerp(knee, foot, (index - upperSpan) / lowerSpan);
+    // 下腿はくっついた球のぶんだけ詰まる。
+    //
+    // 目盛りは extension_ で滑らかに動かすが、それだけを基準にすると危ない。
+    // 切り落としで連なりが一気に短くなると extension_ が大きな負の値になり、
+    // 目盛りが下限（0.5）に張り付いて、残った球が膝と足を結ぶ線のはるか先へ
+    // 飛ばされる（別の脚が枝分かれして生えたように見える）。
+    // いま実際に下腿へ並んでいる数を下限にしておけば、そこまで縮まない
+    const float actualSpan = static_cast<float>(chain_.size() - 1) - upperSpan;
+    const float smoothedSpan = static_cast<float>(lowerSphereCount_ - 1) + extension_;
+    const float lowerSpan = (std::max)(0.5f, (std::max)(actualSpan, smoothedSpan));
+
+    // 節の外へは出さない。伸び縮みの途中で目盛りが追いつかなくても、
+    // 球が足より先へはみ出すことはなくなる
+    const float ratio = std::clamp((index - upperSpan) / lowerSpan, 0.0f, 1.0f);
+    return Lerp(knee, foot, ratio);
 }
 
 void BossSpiderLeg::Draw(const ViewProjection &viewProjection) {

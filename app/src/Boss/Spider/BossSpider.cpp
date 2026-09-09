@@ -2,6 +2,7 @@
 #include "Easing.h"
 #include "MyMath.h"
 #include "Random.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackLeap.h"
 #include "src/Boss/Spider/Attack/BossSpiderAttackShoot.h"
@@ -148,6 +149,9 @@ void BossSpider::Awaken(const Vector3 &corePosition, float coreRadius) {
 
     // 立ったときの高さは、置いた足の高さから決める（足の球が地面に乗る）
     standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
+
+    // 起き上がりの合図
+    GameSounds::GetInstance()->Play(GameSounds::Id::Appear);
 
     phase_ = Phase::Collapse;
     collapseTime_ = 0.0f;
@@ -670,6 +674,12 @@ float BossSpider::GetFootReach() const {
     return Lerp(straight, bent, std::clamp(legBend_, 0.0f, 1.0f));
 }
 
+void BossSpider::ClearStagger() {
+    staggerTimer_ = 0.0f;
+    // 打ち切ったらひるみの音も止める（鳴らし続ける音なので、放っておくと鳴り続ける）
+    GameSounds::GetInstance()->StopLoop(GameSounds::Id::Stun);
+}
+
 void BossSpider::ScaleSizesBy(float ratio) {
     if (ratio <= 0.0f || std::abs(ratio - 1.0f) < 0.0001f) {
         return;
@@ -743,8 +753,10 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
     if (staggerTimer_ > 0.0f) {
         staggerTimer_ = (std::max)(0.0f, staggerTimer_ - deltaTime);
         BossParticles::GetInstance()->UpdateStaggerRing(GetHeadCenter(), deltaTime);
+        GameSounds::GetInstance()->StartLoop(GameSounds::Id::Stun);
         if (staggerTimer_ <= 0.0f) {
             BossParticles::GetInstance()->StopStaggerRing();
+            GameSounds::GetInstance()->StopLoop(GameSounds::Id::Stun);
         }
         // 隙を作っているのが攻撃自身（回転攻撃の回り終わり）のこともあるので、
         // 進行中の攻撃は止めない。止めると姿勢を持っている側が進まなくなる
@@ -786,6 +798,8 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
 }
 
 void BossSpider::FireBullet(const Vector3 &direction, const BossSpiderShootParams &params) {
+    GameSounds::GetInstance()->Play(GameSounds::Id::Shot);
+
     Vector3 forward = direction;
     forward.y = 0.0f;
     if (forward.LengthSq() <= 0.0001f) {
@@ -918,6 +932,8 @@ BulletHitResult BossSpider::RaycastAttach(const Vector3 &worldStart, const Vecto
     int severed = 0;
     const int destroyed = leg->TryEliminate(chain_.minMatch, effect_, parameters_, severed);
     if (destroyed > 0) {
+        // そろって消えた合図（球体形態と同じ音）
+        GameSounds::GetInstance()->Play(GameSounds::Id::Break);
         result.destroyed = true;
         result.clusterSize = destroyed + severed;
         result.staggerTime = chain_.staggerBase +

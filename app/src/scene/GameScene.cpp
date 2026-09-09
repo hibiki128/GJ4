@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
@@ -164,6 +165,7 @@ void GameScene::Initialize()
 		(void)info;
 		followCamera_->AddImpact(1.0f);
 		damageVignette_->Play(1.0f);
+		GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDamaged);
 		});
 
 	// 回避の画面演出。飛び出した瞬間だけカメラを前へ押し出してスピード感を足す。
@@ -171,6 +173,7 @@ void GameScene::Initialize()
 	player_->SetOnDodge([this](const Vector3& direction) {
 		(void)direction;
 		followCamera_->AddDashPush(1.0f);
+GameSounds::GetInstance()->Play(GameSounds::Id::PlayerDodge);
 		});
 
 	// ジャスト回避の画面演出。プレイヤーは画面のことを知らないので、被弾と同じくここで配る
@@ -232,6 +235,10 @@ void GameScene::Initialize()
 	bossSpider_->SetAttackFinishedCallback([this] {
 		recoveryZones_.NotifyAttackFinished(bossSpider_->GetBodyPosition(), boss_->GetPalette());
 		});
+
+	// 音をまとめて読み込む。BGM はここから鳴らし始めて、シーンを抜けるときに止める
+	GameSounds::GetInstance()->Init();
+	GameSounds::GetInstance()->StartLoop(GameSounds::Id::Bgm);
 
 	// プレイヤーの回避で散るゼリー飛沫（同じくエンジンのGPUパーティクル）
 	PlayerParticles::GetInstance()->Init();
@@ -321,6 +328,9 @@ void GameScene::Finalize()
 		"Player/Reaction",
 		"Player/Shoot",
 	};
+	// 鳴らし続けている音（BGM・回転・ひるみ）を残したままシーンを抜けない
+	GameSounds::GetInstance()->StopAll();
+
 	for (const char *owner : kDirectParamOwners) {
 		GameParamHub::GetInstance()->Unregister(owner);
 	}
@@ -360,7 +370,9 @@ void GameScene::Update()
 	player_->CommandExecute(gameInput_->GetInputContext());
 
 	// 出ている回復エリアを進める（乗っていれば、その色の回復がここで早くなる）
-	recoveryZones_.Update(Frame::DeltaTime());
+	GameSounds::GetInstance()->Update(Frame::DeltaTime());
+
+recoveryZones_.Update(Frame::DeltaTime());
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();
@@ -625,7 +637,9 @@ void GameScene::AddParticleSetting()
 
 	// 回復エリアの粒もここに並ぶので、置き方の調整は同じ窓でできる。
 	// 保存先はボスデータなので、書き出しはボスに頼む
-	recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
+	GameSounds::GetInstance()->DrawImGui();
+
+recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
 		boss_->SaveParameters();
 		ImGuiNotification::Post("回復エリアの設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
 		});

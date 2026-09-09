@@ -267,7 +267,7 @@ public:
     }
 
     /// <summary>動けない状態を打ち切る（攻撃を中断したときなど）</summary>
-    void ClearStagger() { staggerTimer_ = 0.0f; }
+    void ClearStagger();
 
     /// <summary>動けなくなっているか</summary>
     bool IsStaggered() const { return staggerTimer_ > 0.0f; }
