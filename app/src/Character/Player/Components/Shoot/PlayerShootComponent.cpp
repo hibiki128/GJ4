@@ -111,7 +111,9 @@ IShootableTargetQuery* PlayerShootComponent::ActiveExtraTarget() const {
 }
 
 float PlayerShootComponent::BulletRadius() const {
-    return weapon_ ? weapon_->GetParams().radius : 0.0f;
+    // 見た目の半径ではなく、判定に使う半径を返す。
+    // ここが着弾（RaycastAttach）と食い違うと、レティクルの表示が嘘になる
+    return weapon_ ? weapon_->GetHitRadius() : 0.0f;
 }
 
 float PlayerShootComponent::AimAssistRadius() const {
@@ -409,6 +411,9 @@ void PlayerShootComponent::RegisterParams() {
     hub->Register(paramOwnerLabel, "CorrectionRate", &params.correctionRate, {0.1f, 0.0f, 60.0f});
     hub->Register(paramOwnerLabel, "MaxTurnDegrees", &params.maxTurnDegreesPerSecond, {1.0f, 0.0f, 360.0f});
     hub->Register(paramOwnerLabel, "BulletRadius", &params.radius, {0.01f, 0.05f, 3.0f});
+    // 見た目に対する当たり判定の太さ。下げるほど、殻のふちをかすった当たりで
+    // 浮いた位置へ球が付くのが減る（そのぶん狙いはシビアになる）
+    hub->Register(paramOwnerLabel, "BulletHitRadiusScale", &params.hitRadiusScale, {0.01f, 0.0f, 1.0f});
 }
 
 void PlayerShootComponent::DrawImGui() {
@@ -430,6 +435,13 @@ void PlayerShootComponent::DrawImGui() {
         ImGui::Text("命中: (%.1f, %.1f, %.1f)", aimPoint_.x, aimPoint_.y, aimPoint_.z);
     } else {
         ImGui::TextDisabled("何にも当たらない方向（射程 %.0f の端を狙う）", aimRayLength_);
+    }
+    if (weapon_) {
+        // 判定の太さ。上げるほど当たりやすくなるが、球のふちをかすった当たりが増え、
+        // 殻から突き出た位置へ球が付きやすくなる
+        ImGui::TextDisabled("弾の太さ: 見た目 %.2f / 判定 %.2f （割合 %.2f）",
+                            weapon_->GetParams().radius, BulletRadius(),
+                            weapon_->GetParams().hitRadiusScale);
     }
 
     ImGui::SeparatorText("エイムアシスト");

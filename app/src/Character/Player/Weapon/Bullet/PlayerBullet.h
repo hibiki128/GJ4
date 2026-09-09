@@ -35,6 +35,9 @@ public:
 		Hagine::Vector3 direction = {0.0f, 0.0f, 1.0f}; // 初速の向き（正規化されていなくてよい）
 		Hagine::Vector4 rgba = {1.0f, 1.0f, 1.0f, 1.0f}; // 表示色
 		float radius = 0.3f;         // 弾の半径（見た目の大きさ）
+		// 当たり判定に使う半径。見た目より細くできるようにここだけ別に持つ
+		//（見た目そのままだと、球のふちをかすっただけで当たって浮いた位置へ付いてしまう）
+		float hitRadius = 0.15f;
 		float speed = 45.0f;         // 速度（単位/秒）
 		float lifeTime = 3.0f;       // 寿命（秒）
 		float correctionRate = 2.0f; // 軌道補正の強さ（1秒あたりの補正割合）
@@ -77,7 +80,7 @@ private:
 	void ApplyTrajectoryCorrection(float deltaTime);
 
 	Hagine::Vector3 direction_ = {0.0f, 0.0f, 1.0f};
-	float radius_ = 0.0f; // 当たり判定に使う半径（見た目の大きさと同じ値）
+	float radius_ = 0.0f; // 当たり判定に使う半径（見た目の大きさとは別に持つ）
 	float speed_ = 0.0f;
 	float lifeTime_ = 0.0f;
 	float correctionRate_ = 0.0f;

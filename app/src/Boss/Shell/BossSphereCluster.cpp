@@ -518,8 +518,20 @@ bool BossSphereCluster::RaycastLocal(const Vector3 &localStart, const Vector3 &l
     return found;
 }
 
+int BossSphereCluster::CountOccupiedNeighbors(const ShellCell &cell) const {
+    int count = 0;
+    const int neighborCount = lattice_.GetNeighborCount(cell);
+    for (int index = 0; index < neighborCount; ++index) {
+        if (occupied_.count(lattice_.GetNeighbor(cell, index)) > 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 bool BossSphereCluster::FindSnapCell(const ShellCell &hitCell, const Vector3 &localHitPoint,
                                      ShellCell &outCell) const {
+    int bestSupport = 0;
     float nearestDistanceSq = 0.0f;
     bool found = false;
 
@@ -530,8 +542,15 @@ bool BossSphereCluster::FindSnapCell(const ShellCell &hitCell, const Vector3 &lo
             continue;
         }
 
+        // 置いたときにいくつの球へ接するか。当たった球の隣を見ているので必ず1以上になる
+        const int support = CountOccupiedNeighbors(candidate);
         const float distanceSq = (lattice_.ToLocal(candidate) - localHitPoint).LengthSq();
-        if (!found || distanceSq < nearestDistanceSq) {
+
+        // 接する数がいちばん多いものを選び、同点なら着弾点に近いほうを取る。
+        // 候補はどれも当たった球の隣なので、支えを優先しても置き先が大きくは動かない
+        if (!found || support > bestSupport ||
+            (support == bestSupport && distanceSq < nearestDistanceSq)) {
+            bestSupport = support;
             nearestDistanceSq = distanceSq;
             outCell = candidate;
             found = true;

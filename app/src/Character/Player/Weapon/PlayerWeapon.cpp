@@ -7,6 +7,7 @@ bool PlayerWeapon::Fire(PlayerBulletManager& bullets, const FireRequest& request
 	shot.direction = request.direction;
 	shot.rgba = request.rgba;
 	shot.radius = params_.radius;
+	shot.hitRadius = GetHitRadius();
 	shot.speed = params_.speed;
 	shot.lifeTime = params_.lifeTime;
 	shot.correctionRate = params_.correctionRate;
