@@ -55,7 +55,9 @@ void PlayerBullet::Fire(const Shot& shot) {
 
 	direction_ = (shot.direction.LengthSq() > 0.0f) ? shot.direction.Normalize()
 	                                                : Hagine::Vector3{0.0f, 0.0f, 1.0f};
-	radius_ = shot.radius;
+	// 見た目は shot.radius（上の scale_）、判定は shot.hitRadius。
+	// 判定だけ細くしてあるので、球のふちをかすった当たりで浮いた位置へ付きにくい
+	radius_ = shot.hitRadius;
 	speed_ = shot.speed;
 	lifeTime_ = shot.lifeTime;
 	correctionRate_ = shot.correctionRate;

@@ -32,7 +32,15 @@ public:
         // 1秒あたりに曲がってよい角度の上限。
         // 狙う先は発射時に確定した一点なので、補正はマズルとカメラの視差を詰めるだけで足りる
         float maxTurnDegreesPerSecond = 60.0f;
-        float radius = 0.3f; // 弾の半径
+        float radius = 0.3f; // 弾の半径（見た目の大きさ）
+
+        // 当たり判定に使う半径の、見た目に対する割合。
+        //
+        // 見た目そのままの太さで判定すると、殻の球のふちをかすっただけでも当たってしまう。
+        // そこから隣の空きセルへ置くと、殻の輪郭より外側の「1個だけ突き出た」セルが
+        // 選ばれやすく、球が宙に浮いて見える。判定だけ細くしてこれを減らす。
+        // 1.0 で見た目どおり、0 で太さ無しの線分
+        float hitRadiusScale = 0.5f;
     };
 
     /// <summary>待機中の弾を1発撃つ</summary>
@@ -42,6 +50,17 @@ public:
     bool Fire(PlayerBulletManager& bullets, const FireRequest& request);
 
     float GetFireInterval() const { return params_.fireInterval; }
+
+    /// <summary>
+    /// 当たり判定に使う弾の半径。
+    /// 照準・発射レティクル・実際の着弾がすべてここを見るので、
+    /// 「レティクルでは当たる表示なのに弾は素通りする」ことが起こらない
+    /// </summary>
+    /// <returns>float: 判定に使う半径（見た目の半径 × hitRadiusScale）</returns>
+    float GetHitRadius() const {
+        const float scale = (params_.hitRadiusScale > 0.0f) ? params_.hitRadiusScale : 0.0f;
+        return params_.radius * scale;
+    }
 
     // 実行時調整（GameParamHub）へポインタを渡すため非constで返す
     Params& GetParams() { return params_; }

@@ -268,9 +268,27 @@ private:
                       float bulletRadius, ShellCell &outCell, Hagine::Vector3 &outLocalHitPoint,
                       Hagine::Matrix4x4 &outShellMatrix);
 
-    /// <summary>当たった球の隣接から、着弾点に最も近い空きセルを選ぶ</summary>
+    /// <summary>
+    /// 当たった球の隣接から、置き先の空きセルを選ぶ。
+    ///
+    /// 選ぶ基準は「隣に既存の球が多いこと」が第一で、着弾点への近さはその次。
+    /// 近さだけで選ぶと、殻の輪郭あたりでは接している球が1個しかないセルが選ばれやすく、
+    /// 置いた球が殻から突き出て宙に浮いて見える
+    /// </summary>
+    /// <param name="hitCell">弾が当たった球のセル</param>
+    /// <param name="localHitPoint">着弾点（ローカル）</param>
+    /// <param name="outCell">選んだ置き先</param>
+    /// <returns>bool: 置ける空きセルがあれば true</returns>
     bool FindSnapCell(const ShellCell &hitCell, const Hagine::Vector3 &localHitPoint,
                       ShellCell &outCell) const;
+
+    /// <summary>
+    /// そのセルの隣に球がいくつ埋まっているか（置いたときにどれだけ殻へ接するか）。
+    /// 多いほど殻の内側に食い込んだ位置で、少ないほど輪郭から突き出た位置になる
+    /// </summary>
+    /// <param name="cell">調べるセル</param>
+    /// <returns>int: 埋まっている隣の数</returns>
+    int CountOccupiedNeighbors(const ShellCell &cell) const;
 
     /// <summary>起点から同色で繋がっているセルを集める（幅優先）</summary>
     std::vector<ShellCell> CollectSameColorCluster(const ShellCell &start) const;
