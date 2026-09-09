@@ -80,12 +80,19 @@ void PlayerShootComponent::Update(PlayerContext& context) {
 }
 
 void PlayerShootComponent::UpdateColorSelection(const PlayerContext& context) {
-    // 押した瞬間だけ添字が入る（-1 は変更なし）
-    if (context.input_.selectColorIndex < 0) {
+    // 十字ボタンは色を直接指す。押した瞬間だけ添字が入る（-1 は変更なし）
+    if (context.input_.selectColorIndex >= 0) {
+        selectedColor_ = FromColorIndex(context.input_.selectColorIndex);
         return;
     }
 
-    selectedColor_ = FromColorIndex(context.input_.selectColorIndex);
+    // LB / RB は ColorStruct の並びを1つずつ送る。端は反対側へ回り込む
+    if (context.input_.colorCycle != 0) {
+        const int current = ToColorIndex(selectedColor_);
+        const int next = ((current + context.input_.colorCycle) % kGameColorCount + kGameColorCount)
+                         % kGameColorCount;
+        selectedColor_ = FromColorIndex(next);
+    }
 }
 
 IBossTargetQuery* PlayerShootComponent::ActiveTarget() const {

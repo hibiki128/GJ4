@@ -399,6 +399,7 @@
     <ClCompile Include="src\scene\TitleScene.cpp" />
     <ClCompile Include="src\scene\TutorialScene.cpp" />
     <ClCompile Include="src\Tutorial\TutorialDirector.cpp" />
+    <ClCompile Include="src\UI\Hud\GameHud.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\scene\GameOverScene.h">
@@ -703,6 +704,7 @@
     <ClInclude Include="src\scene\TitleScene.h" />
     <ClInclude Include="src\scene\TutorialScene.h" />
     <ClInclude Include="src\Tutorial\TutorialDirector.h" />
+    <ClInclude Include="src\UI\Hud\GameHud.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

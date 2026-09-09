@@ -1,5 +1,6 @@
 #include "TutorialScene.h"
 #include "MyMath.h"
+#include <algorithm>
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/UI/Pause/PauseMenu.h"
 #include <frame/Frame.h>
@@ -31,7 +32,10 @@ void TutorialScene::Initialize() {
 
     // 3Dオブジェクトの描画（ポストエフェクトあり）
     pDrawSystem_->Register("TutorialScene_PreDraw", DrawLayer::PreEffect,
-                           [this](const ViewProjection &vp) { pObjectManager_->Draw(vp); });
+                           [this](const ViewProjection &vp) {
+                               pObjectManager_->Draw(vp);
+                               recoveryZones_.Draw(vp);
+                           });
 
     // ボスの殻（メタボール）をGPUで作り直す。本編と同じ場所で走らせる
     pDrawSystem_->Register("TutorialScene_MetaBallCompute", DrawSystem::kGPUParticleCompute,
@@ -45,6 +49,9 @@ void TutorialScene::Initialize() {
     pDrawSystem_->Register("TutorialScene_PostDraw", DrawLayer::PostEffect,
                            [this](const ViewProjection &) {
                                pSpriteManager_->DrawAll();
+                               if (hud_) {
+                                   hud_->Draw();
+                               }
                                // レティクルはテロップより下。テロップに隠れても構わない
                                if (ShouldDrawReticle()) {
                                    reticle_->Draw();
@@ -105,6 +112,18 @@ void TutorialScene::Initialize() {
     boss_->SetTargetDamageSink(player_.get());
     playerBridge_->SetValidGetter([pPlayer = player_.get()] { return !pPlayer->IsDead(); });
 
+    // 回復エリアからプレイヤーへの導線。本編と同じ配線で、これが無いとエリアに乗っても
+    // 「早めて」の要求がどこへも届かず、弾が戻らない
+    playerBridge_->SetRegenRequester([pPlayer = player_.get()](Color color, float scale) {
+        pPlayer->RequestAmmoRegenScale(color, scale);
+    });
+    playerBridge_->SetAmmoFullGetter(
+        [pPlayer = player_.get()](Color color) { return pPlayer->IsAmmoFull(color); });
+
+    // 補給を教える段までは弾を減らさない。
+    // 弾切れは「補給できる」と知ってから初めて意味が出るので、それまでは手を止めさせない
+    player_->SetInfiniteAmmo(true);
+
     // 殻が消えたときの土煙などは本編と同じものを使う
     BossParticles::GetInstance()->Init();
     BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
@@ -137,6 +156,19 @@ void TutorialScene::Initialize() {
         reticle_->Update(report, *GetViewProjection(), Frame::DeltaTime());
     });
 
+    // HUD。体力とボスの体力はチュートリアルでは出さない
+    hud_ = std::make_unique<GameHud>();
+    hud_->Init(boss_->GetPalette());
+    hud_->RegisterParams();
+    hud_->SetHeartsVisible(false);
+    hud_->SetBossBarVisible(false);
+
+    // 弾の回復エリア。調整値は本番と同じボスデータを参照させる
+    recoveryZones_.Init("TutorialRecoveryZone", &boss_->GetMutableParameters().RecoveryZone());
+    recoveryZones_.SetTargetLocator(playerBridge_.get());
+    recoveryZones_.SetAmmoSink(playerBridge_.get());
+    recoveryZones_.SetFieldBounds(field_.get());
+
     tutorial_ = std::make_unique<TutorialDirector>();
     tutorial_->Init();
     // 文字やテロップの大きさは ゲームパラメータ の Tutorial から変えられる
@@ -154,6 +186,10 @@ void TutorialScene::Finalize() {
     if (tutorial_) {
         tutorial_->Finalize();
     }
+    if (hud_) {
+        hud_->Finalize();
+    }
+    recoveryZones_.ClearAll();
     BaseScene::Finalize();
 }
 
@@ -189,8 +225,30 @@ void TutorialScene::Update() {
     CameraUpdate();
     UpdateAim();
 
+    // 弾の回復エリアを教える段になったら、1つ出してやる
+    if (tutorial_->IsRecoveryStageReached() && !hasSpawnedRecoveryZone_) {
+        hasSpawnedRecoveryZone_ = true;
+
+        // ここから弾は減るようにする。合わせて残りを減らしておかないと、
+        // 満タンのままエリアに乗ることになって「戻っている」ところが見えない
+        player_->SetInfiniteAmmo(false);
+        const int start = (std::max)(1, player_->GetAmmo().GetMaxAmmo() / 5);
+        for (int index = 0; index < kGameColorCount; ++index) {
+            player_->SetAmmo(FromColorIndex(index), start);
+        }
+
+        recoveryZones_.NotifyAttackFinished(boss_->GetBossPosition(), boss_->GetPalette());
+    }
+    // 出したエリアが閉じきってしまったら、もう一度出す（乗り損ねても詰まらないように）
+    if (hasSpawnedRecoveryZone_ && !recoveryZones_.HasActiveZone()) {
+        recoveryZones_.NotifyAttackFinished(boss_->GetBossPosition(), boss_->GetPalette());
+    }
+    recoveryZones_.Update(deltaTime);
+
     // 進行役へ「今フレーム何が起きたか」を渡す
     tutorial_->Update(deltaTime, CollectSignals(deltaTime));
+
+    UpdateHud(deltaTime);
 
     // 終わったら、完了テロップを少し見せてから本編へ送る
     if (tutorial_->IsFinished()) {
@@ -217,14 +275,16 @@ TutorialSignals TutorialScene::CollectSignals(float deltaTime) {
     signals.jumped = input.jump;
     signals.dashing = input.dash;
     signals.shot = input.attack;
-    signals.selectedColorIndex = input.selectColorIndex;
+    // 色は「押したボタン」ではなく「いま選んでいる色」を渡す。
+    // 十字ボタンでも LB/RB でも同じように数えたい（文言も両方できると言っている）
+    signals.selectedColorIndex = ToColorIndex(player_->GetSelectedColor());
 
     // 殻は同色がそろったときにしか減らないので、削れ具合が増えた＝連鎖が成立した
     const float exposure = boss_->GetExposure();
     signals.chainCleared = (exposure > previousExposure_ + 0.0001f);
     previousExposure_ = exposure;
 
-    signals.shellCleared = boss_->IsShellCleared();
+    signals.inRecoveryZone = recoveryZones_.IsTargetInsideAny();
     return signals;
 }
 
@@ -236,6 +296,32 @@ bool TutorialScene::ShouldDrawReticle() const {
         return false;
     }
     return !PauseMenu::GetInstance()->IsPaused() && !player_->IsDead();
+}
+
+void TutorialScene::UpdateHud(float deltaTime) {
+    if (!hud_) {
+        return;
+    }
+
+    GameHudSnapshot snapshot{};
+    snapshot.playerColor = player_->GetSelectedColor();
+    snapshot.ammo = player_->GetAmmo().GetAmmo(snapshot.playerColor);
+    snapshot.maxAmmo = player_->GetAmmo().GetMaxAmmo();
+    // 体力とボスの体力は出さないので、値は入れなくてよい
+
+    // 回復エリアに乗っているあいだは、そのエリアの色と残弾を出す（本編と同じ）
+    Color reloadColor = snapshot.playerColor;
+    if (recoveryZones_.TryGetOccupiedColor(reloadColor)) {
+        snapshot.reloadActive = true;
+        snapshot.reloadColor = reloadColor;
+        snapshot.reloadAmmo = player_->GetAmmo().GetAmmo(reloadColor);
+    }
+
+    if (gameInput_->GetInputContext().attack) {
+        hud_->PlayShot();
+    }
+
+    hud_->Update(deltaTime, snapshot);
 }
 
 void TutorialScene::UpdateAim() {

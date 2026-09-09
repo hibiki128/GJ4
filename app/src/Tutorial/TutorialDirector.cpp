@@ -20,11 +20,12 @@ constexpr const char *kGlyphFiles[] = {
     "stick_l.png",   // 移動
     "stick_r.png",   // 視点
     "btn_a.png",     // ジャンプ
-    "btn_rb.png",    // ダッシュ
+    "btn_lt.png",    // ダッシュ
     "btn_rt.png",    // 射撃
     "dpad.png",      // 色変え
     "icon_chain.png", // 3つつなげる
-    "icon_strip.png", // 殻を剥がす
+    "icon_strip.png", // 何回か消す
+    "icon_zone.png",  // 弾の回復エリア
 };
 
 /// <summary>達成の判定に使う量。増やすとゆっくり進む</summary>
@@ -32,6 +33,8 @@ constexpr float kMoveHoldTime = 1.2f;  // 移動し続ける時間（秒）
 constexpr float kLookHoldTime = 1.0f;  // 見回し続ける時間（秒）
 constexpr float kDashHoldTime = 0.5f;  // ダッシュし続ける時間（秒）
 constexpr int kShootCount = 3;         // 撃つ回数
+constexpr int kClearCount = 5;         // 球を消す回数（ぜんぶ剥がすのは長すぎるので回数で区切る）
+constexpr float kZoneHoldTime = 3.0f;  // 回復エリアに乗っていてほしい時間（秒）
 
 /// <summary>スティックを「倒した」とみなす量</summary>
 constexpr float kStickDeadZone = 0.45f;
@@ -42,9 +45,7 @@ constexpr float kStageClearWait = 1.1f;
 /// <summary>チェックが付いた瞬間の弾む時間（秒）</summary>
 constexpr float kCheckPopTime = 0.35f;
 
-/// --- テロップの配置（仮想解像度 1760x990 基準） ---
-constexpr float kPanelLeft = 48.0f;
-constexpr float kPanelBottomMargin = 48.0f;
+/// --- テロップの配置 ---
 constexpr float kPanelPadding = 22.0f;
 
 const Vector4 kPanelColor = {0.07f, 0.09f, 0.15f, 0.84f};
@@ -67,9 +68,13 @@ void TutorialDirector::GetStageRange(int stage, int &outBegin, int &outEnd) {
         outBegin = kTaskShoot;
         outEnd = kTaskColor + 1;
         return;
-    default:
+    case kStageBreak:
         outBegin = kTaskChain;
-        outEnd = kTaskStrip + 1;
+        outEnd = kTaskClear + 1;
+        return;
+    default:
+        outBegin = kTaskRecover;
+        outEnd = kTaskRecover + 1;
         return;
     }
 }
@@ -84,21 +89,28 @@ void TutorialDirector::Init() {
 
     stageTitles_[kStageMove].Create("Tutorial_Stage0", "うごかしてみよう");
     stageTitles_[kStageCombat].Create("Tutorial_Stage1", "うってみよう");
-    stageTitles_[kStageBreak].Create("Tutorial_Stage2", "ボスをたおそう");
+    stageTitles_[kStageBreak].Create("Tutorial_Stage2", "てきを けずろう");
+    stageTitles_[kStageRecover].Create("Tutorial_Stage3", "たまを ほきゅうしよう");
+
+    // 段ごとのひとこと。操作を並べただけでは伝わらない決まりをここで言う
+    stageHints_[kStageMove].Create("Tutorial_Hint0", "まずは 体の うごかし方から", 3.0f);
+    stageHints_[kStageCombat].Create("Tutorial_Hint1", "うつ たまの 色は じぶんで えらべる", 3.0f);
+    stageHints_[kStageBreak].Create("Tutorial_Hint2", "同じ色が 3つ そろうと 消える。ぜんぶ 消せば たおせる", 3.0f);
+    stageHints_[kStageRecover].Create("Tutorial_Hint3", "ゆかと 同じ色の たまが はやく もどる", 3.0f);
 
     // 文言はボタン名を先に置く。図と読み上げの順が揃っていたほうが探しやすい
-    taskLabels_[kTaskMove].Create("Tutorial_TaskMove", "左スティックで うごく", 3.0f);
-    taskLabels_[kTaskLook].Create("Tutorial_TaskLook", "右スティックで まわりを見る", 3.0f);
-    taskLabels_[kTaskJump].Create("Tutorial_TaskJump", "A で ジャンプ", 3.0f);
-    taskLabels_[kTaskDash].Create("Tutorial_TaskDash", "RB で ダッシュ", 3.0f);
-    taskLabels_[kTaskShoot].Create("Tutorial_TaskShoot", "RT で うつ", 3.0f);
-    taskLabels_[kTaskColor].Create("Tutorial_TaskColor", "十字ボタンで 色をかえる", 3.0f);
-    taskLabels_[kTaskChain].Create("Tutorial_TaskChain", "同じ色を 3つつなげて消す", 3.0f);
-    // 「殻」はUIフォント（Buildingsandundertherailwaytracks）に入っておらず豆腐になる。
-    // 意味も伝わりやすいので、まとっている色つきの球そのものを指す言い方にした
-    taskLabels_[kTaskStrip].Create("Tutorial_TaskStrip", "いろだまを ぜんぶ はがす", 3.0f);
+    taskLabels_[kTaskMove].Create("Tutorial_TaskMove", "左を たおして うごく", 3.0f);
+    taskLabels_[kTaskLook].Create("Tutorial_TaskLook", "右を たおして 見まわす", 3.0f);
+    taskLabels_[kTaskJump].Create("Tutorial_TaskJump", "A で とぶ", 3.0f);
+    taskLabels_[kTaskDash].Create("Tutorial_TaskDash", "LT で はやく はしる", 3.0f);
+    taskLabels_[kTaskShoot].Create("Tutorial_TaskShoot", "RT で たまを うつ", 3.0f);
+    taskLabels_[kTaskColor].Create("Tutorial_TaskColor", "十字 と LB RB で 色をかえる", 3.0f);
+    taskLabels_[kTaskChain].Create("Tutorial_TaskChain", "同じ色を 3つ つなげて 消す", 3.0f);
+    // ぜんぶ剥がすのは時間がかかりすぎるので、回数で区切る
+    taskLabels_[kTaskClear].Create("Tutorial_TaskClear", "色だまを 5かい 消す", 3.0f);
+    taskLabels_[kTaskRecover].Create("Tutorial_TaskRecover", "まるい ゆかに 3びょう のる", 3.0f);
 
-    finishTitle_.Create("Tutorial_FinishTitle", "チュートリアル かんりょう！");
+    finishTitle_.Create("Tutorial_FinishTitle", "れんしゅう かんりょう！");
     finishHint_.Create("Tutorial_FinishHint", "ほんばんへ すすみます", 3.0f);
 
     for (int index = 0; index < kTaskCount; ++index) {
@@ -113,7 +125,9 @@ void TutorialDirector::Init() {
 void TutorialDirector::RegisterParams() {
     // 文字の大きさはここから変えられる。行の高さや板の幅も一緒に置いてあるので、
     // 文字を大きくしたときに窮屈にならないよう合わせて広げられる
+    params_.Register("PanelMargin", &panelMargin_, {1.0f});
     params_.Register("StageTitleSize", &stageTitleSize_, {0.5f, 8.0f, 120.0f});
+    params_.Register("StageHintSize", &stageHintSize_, {0.5f, 8.0f, 120.0f});
     params_.Register("TaskLabelSize", &taskLabelSize_, {0.5f, 8.0f, 120.0f});
     params_.Register("FinishTitleSize", &finishTitleSize_, {0.5f, 8.0f, 160.0f});
     params_.Register("FinishHintSize", &finishHintSize_, {0.5f, 8.0f, 120.0f});
@@ -127,6 +141,9 @@ void TutorialDirector::Finalize() {
     rects_.Finalize();
     for (GameUi::UiText &title : stageTitles_) {
         title.Finalize();
+    }
+    for (GameUi::UiText &hint : stageHints_) {
+        hint.Finalize();
     }
     for (GameUi::UiText &label : taskLabels_) {
         label.Finalize();
@@ -220,7 +237,7 @@ void TutorialDirector::UpdateTasks(float deltaTime, const TutorialSignals &signa
                 pressedColorMask_ |= (1 << signals.selectedColorIndex);
             }
             {
-                // 4色ぜんぶ押せたら達成。何色押したかをそのまま進み具合にする
+                // 4色ぜんぶ選べたら達成。何色ぶん選んだかをそのまま進み具合にする
                 int pressed = 0;
                 for (int bit = 0; bit < kGameColorCount; ++bit) {
                     if (pressedColorMask_ & (1 << bit)) {
@@ -235,9 +252,15 @@ void TutorialDirector::UpdateTasks(float deltaTime, const TutorialSignals &signa
                 task.progress = 1.0f;
             }
             break;
-        case kTaskStrip:
-            if (signals.shellCleared) {
-                task.progress = 1.0f;
+        case kTaskClear:
+            if (signals.chainCleared) {
+                task.progress += 1.0f / static_cast<float>(kClearCount);
+            }
+            break;
+        case kTaskRecover:
+            // 乗っているあいだだけ進む。降りても戻さないので、何回かに分けて乗ってもよい
+            if (signals.inRecoveryZone) {
+                task.progress += deltaTime / kZoneHoldTime;
             }
             break;
         default:
@@ -320,21 +343,24 @@ void TutorialDirector::Draw() {
     GetStageRange(stageIndex_, begin, end);
     const int rowCount = end - begin;
 
-    // 段が変わったときに左からすべり込ませる
+    // 段が変わったときに右からすべり込ませる
     const float slide = 1.0f - std::clamp(stageTimer_ / 0.35f, 0.0f, 1.0f);
-    const float panelLeft = kPanelLeft - slide * (panelWidth_ + kPanelLeft);
+    const float panelLeft =
+        screenWidth - panelMargin_.x - panelWidth_ + slide * (panelWidth_ + panelMargin_.x);
 
     // 見出しのぶんの高さは文字の大きさから決める
     const float headerHeight = stageTitleSize_ + 26.0f;
-    const float panelHeight =
-        headerHeight + static_cast<float>(rowCount) * rowHeight_ + kPanelPadding;
-    const float panelTop = screenHeight - kPanelBottomMargin - panelHeight;
+    // 一番下にひとこと説明を置くぶんの高さ
+    const float hintRowHeight = stageHintSize_ * 2.1f;
+    const float panelHeight = headerHeight + static_cast<float>(rowCount) * rowHeight_ +
+                              hintRowHeight + kPanelPadding;
+    const float panelTop = panelMargin_.y;
     const float panelCenterX = panelLeft + panelWidth_ * 0.5f;
     const float panelCenterY = panelTop + panelHeight * 0.5f;
 
     // 背景の板と、左端の色帯
     rects_.Draw({panelCenterX, panelCenterY}, {panelWidth_, panelHeight}, kPanelColor);
-    rects_.Draw({panelLeft + 4.0f, panelCenterY}, {8.0f, panelHeight}, kAccentColor);
+    rects_.Draw({panelLeft + panelWidth_ - 4.0f, panelCenterY}, {8.0f, panelHeight}, kAccentColor);
 
     // 見出し
     stageTitles_[stageIndex_].DrawLeft(panelLeft + 30.0f, panelTop + headerHeight * 0.55f,
@@ -382,6 +408,24 @@ void TutorialDirector::Draw() {
             checkOff_[row].Draw(boxCenter, {boxSize, boxSize}, kWhite);
         }
     }
+
+    // 段のひとこと説明。やることの下に、区切り線を挟んで置く。
+    // 文が長いと板からはみ出すので、入りきらないぶんは文字を縮めて幅に合わせる
+    {
+        const float innerWidth = panelWidth_ - kPanelPadding * 2.0f;
+        float hintHeight = stageHintSize_;
+        const float hintWidth = stageHints_[stageIndex_].WidthAt(hintHeight);
+        if (hintWidth > innerWidth && hintWidth > 0.0f) {
+            hintHeight *= innerWidth / hintWidth;
+        }
+
+        const float rowsBottom =
+            panelTop + headerHeight + static_cast<float>(rowCount) * rowHeight_;
+        rects_.Draw({panelCenterX, rowsBottom + 2.0f}, {innerWidth, 2.0f}, kBarBackColor);
+        stageHints_[stageIndex_].DrawLeft(panelLeft + kPanelPadding,
+                                          rowsBottom + hintRowHeight * 0.5f, hintHeight,
+                                          kAccentColor);
+    }
 }
 
 void TutorialDirector::DrawImGui() {
@@ -390,7 +434,8 @@ void TutorialDirector::DrawImGui() {
         return;
     }
 
-    static const char *kStageNames[kStageCount] = {"うごかしてみよう", "うってみよう", "ボスをたおそう"};
+    static const char *kStageNames[kStageCount] = {"うごかしてみよう", "うってみよう",
+                                                  "てきを けずろう", "たまを ほきゅうしよう"};
     ImGui::Text("いまの段: %s", isFinished_ ? "完了" : kStageNames[stageIndex_]);
 
     int begin = 0;
