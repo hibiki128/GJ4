@@ -54,6 +54,31 @@ public:
     void ApplyRadius(const BossShellParams &shell);
 
     /// <summary>
+    /// 殻をコアから遠ざける／近づける。格子の位置に倍率を掛けるだけなので、
+    /// 並び・色・球の大きさは変わらず、殻全体が膨らんだり縮んだりする。
+    /// 1.0 が本来の位置。大きくすると同色の融合が切れて殻がばらける
+    /// </summary>
+    /// <param name="scale">格子の位置に掛ける倍率</param>
+    void SetShellExpansion(float scale);
+
+    /// <summary>
+    /// 殻を、指定の向きの上端から下端へ波打たせる。
+    /// SetShellExpansion が全球へ同じ倍率を掛けるのに対し、こちらはセルの高さで
+    /// 倍率をずらすので、膨らみが上から順に伝わっていく。
+    /// 位相を時間で進めながら毎フレーム呼ぶこと
+    /// </summary>
+    /// <param name="upAxis">波の起点になる向き（ローカル空間。この向きの端が上）</param>
+    /// <param name="minScale">いちばん縮んだときの倍率</param>
+    /// <param name="maxScale">いちばん広がったときの倍率</param>
+    /// <param name="phase">波の位相（ラジアン。増やすと上から下へ流れる）</param>
+    /// <param name="waveCount">上端から下端までに入る波の数</param>
+    void SetShellExpansionWave(const Hagine::Vector3 &upAxis, float minScale, float maxScale,
+                               float phase, float waveCount);
+
+    /// <summary>いまの殻の広がり（1.0 が本来の位置。波のときは真ん中の倍率）</summary>
+    float GetShellExpansion() const { return shellExpansion_; }
+
+    /// <summary>
     /// 吸着・消滅の演出を進める（毎フレーム呼ぶ）。
     /// 消え切った球はここでプールへ返る
     /// </summary>
@@ -215,6 +240,13 @@ private:
     /// <summary>全色の融合メッシュを作り直させる</summary>
     void MarkAllColorsDirty();
 
+    /// <summary>
+    /// セルの定位置（広がりの倍率込み）。球を置く・引き直すときは必ずここを通す
+    /// </summary>
+    /// <param name="cell">対象のセル</param>
+    /// <returns>Vector3: 球を置くローカル座標</returns>
+    Hagine::Vector3 CellLocalPosition(const ShellCell &cell) const;
+
     /// <summary>ボスの平行移動と回転だけを持つ行列（格子空間への変換に使う。スケールは含めない）</summary>
     Hagine::Matrix4x4 MakeShellMatrix();
 
@@ -258,6 +290,8 @@ private:
     Hagine::BaseObject *pParent_ = nullptr; // 親（非所有）
     int initialCount_ = 0;                  // 初期状態の球数（露出度の基準）
     float sphereRadius_ = 0.45f;            // 球の半径
+    float shellExpansion_ = 1.0f;           // 殻の広がり（格子の位置に掛ける倍率。1.0で本来の位置）
+    bool shellExpansionWave_ = false;       // 球ごとに位置をずらしているか（一律の広がりへ戻すときの判定に使う）
 
     ShellCell highlightedCell_{};  // ロックオン強調中のセル
     bool hasHighlight_ = false;

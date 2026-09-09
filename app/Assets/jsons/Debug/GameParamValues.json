@@ -57,6 +57,30 @@
     "Boss/Boss01/露出度:突進速度の倍率(露出1)": 1.600000023841858,
     "Boss/Boss01/露出度:落下回数(露出0)": 1,
     "Boss/Boss01/露出度:落下回数(露出1)": 5,
+    "GameOver/Boss/Spider/FacingDeg": -52.0,
+    "GameOver/Boss/Spider/LegStanceBend": 0.10000000149011612,
+    "GameOver/Boss/Spider/StepSwayPeriod": 9.100000381469727,
+    "GameOver/Boss/Spider/StepSwayRadius": 4.0,
+    "GameOver/Staging/Sphere/BossPosition": {
+        "x": -6.0,
+        "y": 0.800000011920929,
+        "z": 5.0
+    },
+    "GameOver/Staging/Sphere/CameraFovDeg": 55.0,
+    "GameOver/Staging/Sphere/CameraPosition": {
+        "x": 0.0,
+        "y": 1.2000000476837158,
+        "z": -9.0
+    },
+    "GameOver/Staging/Sphere/CameraRotationDeg": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "GameOver/Staging/Sphere/PlayerPosition": {
+        "x": 6.0,
+        "y": 0.6000000238418579,
+        "z": 5.5
     "Player/Dash/Amplitude": 0.20000000298023224,
     "Player/Dash/MoveSpeed": 15.0,
     "Player/Dash/Period": 1.0,

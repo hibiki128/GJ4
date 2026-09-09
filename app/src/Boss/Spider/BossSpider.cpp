@@ -757,7 +757,7 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
         // 攻撃と攻撃のあいだは歩いて間合いを取る
         attackCoolDown_ = (std::max)(0.0f, attackCoolDown_ - deltaTime);
         const Vector3 moveDirection = UpdateBodyMove(deltaTime);
-        if (attackCoolDown_ <= 0.0f) {
+        if (isAttackEnabled_ && attackCoolDown_ <= 0.0f) {
             pCurrentAttack_ = PickAttack();
             if (pCurrentAttack_) {
                 pCurrentAttack_->Start(context);

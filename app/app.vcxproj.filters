@@ -28,6 +28,14 @@
     <ClCompile Include="src\Field\Field.cpp">
       <Filter>src\Field</Filter>
     </ClCompile>
+    <ClCompile Include="src\GameOver\GameOverBossActor.cpp">
+      <Filter>src\GameOver</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameOver\GameOverPlayerActor.cpp">
+      <Filter>src\GameOver</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameOver\GameOverStaging.cpp">
+      <Filter>src\GameOver</Filter>
     <ClCompile Include="src\Clear\ClearBossRemains.cpp">
       <Filter>src\Clear</Filter>
     </ClCompile>
@@ -193,6 +201,9 @@
     <Filter Include="src\framework">
       <UniqueIdentifier>{CF54C32F-4A7F-DA77-7AED-54D4A08E1C58}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\GameOver">
+      <UniqueIdentifier>{6fb08bcd-677c-40e9-a2a0-02bb73a6b0e8}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\Input">
       <UniqueIdentifier>{72777B0C-A4E8-ADAB-B541-DCFC9915AD6D}</UniqueIdentifier>
     </Filter>
@@ -342,6 +353,17 @@
     <ClInclude Include="src\Field\Field.h">
       <Filter>src\Field</Filter>
     </ClInclude>
+    <ClInclude Include="src\GameOver\GameOverBossActor.h">
+      <Filter>src\GameOver</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameOver\GameOverContext.h">
+      <Filter>src\GameOver</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameOver\GameOverPlayerActor.h">
+      <Filter>src\GameOver</Filter>
+    </ClInclude>
+    <ClInclude Include="src\GameOver\GameOverStaging.h">
+      <Filter>src\GameOver</Filter>
     <ClInclude Include="src\Clear\ClearBossRemains.h">
       <Filter>src\Clear</Filter>
     </ClInclude>
