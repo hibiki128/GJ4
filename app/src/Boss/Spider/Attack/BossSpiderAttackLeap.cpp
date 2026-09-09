@@ -3,6 +3,7 @@
 #include "Random.h"
 #include "src/Boss/Data/BossEasing.h"
 #include "camera/projection/ViewProjection.h"
+#include "src/Audio/GameSounds.h"
 #include "src/Boss/Effect/BossParticles.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Interface/ITargetLocator.h"
@@ -125,6 +126,7 @@ void BossSpiderAttackLeap::Update(const BossAttackContext &context) {
             timer_ = 0.0f;
             // 着地。踏み潰した土煙を出し、予告の塗りが外枠に追いついたところなので消す
             BossParticles::GetInstance()->BurstOnGround(BossParticles::Id::LandDust, landingPoint_);
+            GameSounds::GetInstance()->Play(GameSounds::Id::Landing);
             marker_.Hide();
             spider->ReportHit(Vector3{landingPoint_.x, 0.0f, landingPoint_.z},
                               pParams_->impactRadius, pParams_->damage);

@@ -6,12 +6,14 @@
 #include "src/Character/Player/Components/Reaction/PlayerComponentReaction.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "Utility/Debug/Param/GameParamHub.h"
+#include "Frame/Frame.h"
 
 void PlayerStateJump::RegisterParams() {
 	const std::string paramOwnerLabel = "Player/Jump";
 	Hagine::GameParamHub* hub = Hagine::GameParamHub::GetInstance();
 
 	hub->Register(paramOwnerLabel, "JumpForce", &kJumpForce, {0.1f, 0.0f, 30.0f});
+	hub->Register(paramOwnerLabel, "AirMoveSpeed", &kAirMoveSpeed, {0.1f, 0.0f, 60.0f});
 	hub->Register(paramOwnerLabel, "RefSpeed", &kRefSpeed, {0.1f, 0.1f, 30.0f});
 	hub->Register(paramOwnerLabel, "RiseStretch", &kRiseStretch, {0.01f, 0.0f, 1.0f});
 	hub->Register(paramOwnerLabel, "FallStretch", &kFallStretch, {0.01f, 0.0f, 1.0f});
@@ -34,7 +36,10 @@ void PlayerStateJump::Update(Player& player, PlayerContext& context) {
 	context.reactionComponent_->SetAirStretch(stretch * t); // 正の値 = 縦に伸びて細い
 
 	context.jumpComponent_->UpdateJump(context);
-	context.moveComponent_->Move(context, context.input_.dir, 0.2f);
+	// 空中の移動も接地と同じ「単位/秒」でそろえる。
+	// ここだけ 1フレームあたりの量（0.2）を直接渡していたので、
+	// フレームレートが変わると空中だけ速さが変わっていた
+	context.moveComponent_->Move(context, context.input_.dir, kAirMoveSpeed * Hagine::Frame::DeltaTime());
 
 	if (context.jumpComponent_->ConsumeLanded()) {
 		// 高いところから落ちたときほど大きく潰れる

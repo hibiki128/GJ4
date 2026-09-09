@@ -15,7 +15,8 @@ void PlayerStateMove::RegisterParams() {
 	hub->Register(paramOwnerLabel, "Period", &kPeriod, {0.01f, 0.05f, 5.0f});
 	hub->Register(paramOwnerLabel, "Sharpness", &kSharpness, {0.01f, 0.0f, 1.0f});
 	hub->Register(paramOwnerLabel, "Phase", &kPhase, {0.01f, 0.0f, 1.0f});
-	hub->Register(paramOwnerLabel, "MoveSpeed", &kMoveSpeed, {0.01f, 0.0f, 10.0f});
+	// 単位/秒なので、1フレームあたりだった頃の 0〜10 では足りない
+	hub->Register(paramOwnerLabel, "MoveSpeed", &kMoveSpeed, {0.1f, 0.0f, 60.0f});
 }
 
 void PlayerStateMove::Enter(Player& player, PlayerContext& context) {
