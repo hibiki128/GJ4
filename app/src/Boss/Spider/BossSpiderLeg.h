@@ -45,6 +45,15 @@ public:
     /// <param name="hidden">隠すなら true</param>
     void SetHidden(bool hidden);
 
+    /// <summary>
+    /// 球の半径だけを入れ替える（組み直さない）。
+    ///
+    /// 全体の大きさを変えたときに使う。Configure と違って連なりの中身に触らないので、
+    /// くっついた球も切り落とし中の球もそのまま残る
+    /// </summary>
+    /// <param name="radius">新しい球の半径</param>
+    void ApplySphereRadius(float radius);
+
     /// <summary>足先を地面の初期位置へ置く</summary>
     /// <param name="bodyPosition">胴の位置</param>
     /// <param name="bodyYaw">胴の向き（ラジアン）</param>

@@ -98,6 +98,15 @@ void BossSpider::RebuildLegs() {
     transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
     transform_->UpdateMatrix();
     SetColor(Vector4{0.16f, 0.16f, 0.20f, 1.0f});
+
+    // Configure は組み直した脚を必ず出す状態にするので、
+    // まだ出ていない（変形前の）ときは隠し直す。
+    // これをしないと、調整UIで大きさを触っただけで脚が胴のところに現れる
+    if (phase_ == Phase::Hidden) {
+        for (int index = 0; index < activeLegCount_; ++index) {
+            legs_[static_cast<size_t>(index)]->SetHidden(true);
+        }
+    }
 }
 
 void BossSpider::LoadParameters() {
@@ -669,13 +678,24 @@ void BossSpider::ScaleSizesBy(float ratio) {
     // どの値が「長さ」なのかは BossParameters 側にまとめてある
     ScaleSpiderLengths(parameters_, ratio);
 
-    // 脚の球の数は長さと半径の比で決まるので、比率で掛けている限り本数は変わらない。
-    // それでも足の置き場所は半径ぶん外へずれるので、置き直してから高さを取り直す
-    RebuildLegs();
-    ReplantFeet();
-    standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
+    // 脚の球の数は「長さ ÷ 球の直径」で決まり、比率で掛けている限り変わらない。
+    // なので組み直さず、半径を配り直すだけで足りる。
+    // ここで RebuildLegs を呼ぶと Configure が連なりを作り直してしまい、
+    // くっついた球も切り落とし中の球も消えるうえ、隠していた脚まで出てきてしまう
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->ApplySphereRadius(parameters_.legSphereRadius);
+    }
+    transform_->scale_ = Vector3{parameters_.bodyRadius, parameters_.bodyRadius, parameters_.bodyRadius};
+    transform_->UpdateMatrix();
+
+    // 足の置き場所は半径ぶん外へずれるので、立っているときだけ置き直して高さを取り直す。
+    // 変形中や跳躍中に置き直すと、動きの途中で足がワープする
     if (phase_ == Phase::Active) {
+        ReplantFeet();
+        standHeight_ = CalcFootAverageHeight() + parameters_.bodyHeight;
         bodyPosition_.y = standHeight_;
+    } else {
+        standHeight_ = parameters_.legSphereRadius + parameters_.bodyHeight;
     }
 }
 

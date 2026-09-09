@@ -95,20 +95,25 @@ void Boss::Update() {
         return;
     }
 
+    const float deltaTime = Frame::DeltaTime();
+
     // 第2形態が出ているあいだ、この形態は描いていない。
-    // 更新まで続けると、姿の見えないまま突進や落下でプレイヤーを殴ってしまい、
-    // 予告線や着弾の警告表示だけが地面に出る。描かないなら動きも止める
+    // 攻撃まで続けると、姿の見えないまま突進や落下でプレイヤーを殴ってしまい、
+    // 予告線や着弾の警告表示だけが地面に出る。動く処理はここで止める。
+    //
+    // ただし球まわりの後片付けは進める。ここを飛ばすと、消えかけの球が
+    // 消え切らないまま残ってプールへも戻らない
     if (!formVisible_) {
         if (pCurrentAttack_) {
             // 進行中の攻撃を畳む（予告線・警告表示もここで消える）
             EndCurrentAttack();
             RequestState(BossStateId::Idle);
         }
+        cluster_.SetEffectParams(parameters_.Effect());
+        cluster_.UpdateMotions(deltaTime);
         cluster_.Update();
         return;
     }
-
-    const float deltaTime = Frame::DeltaTime();
 
     if (staggerTimer_ > 0.0f) {
         staggerTimer_ = (std::max)(0.0f, staggerTimer_ - deltaTime);
