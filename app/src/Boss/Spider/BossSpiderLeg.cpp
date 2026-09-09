@@ -327,11 +327,11 @@ float BossSpiderLeg::AdvanceExtension(float deltaTime) {
 
 int BossSpiderLeg::FindRunStart(int index) const {
     // 差し込んだ球と同じ色が、どこから続いているかを探す。
-    // 膝（と、そのすぐ先の1個）は残すので、そこより内側へは伸ばさない
-    const int limit = upperSphereCount_ + 1;
+    // 付け根の球まで含めて消せるようにしてあるので、並びの内側に下限は置かない。
+    // 付け根で消せば、そこから先はまとめて切り落とされて脚が根元から無くなる
     const Color color = chain_[static_cast<size_t>(index)].color;
     int start = index;
-    while (start > limit && chain_[static_cast<size_t>(start - 1)].color == color) {
+    while (start > 0 && chain_[static_cast<size_t>(start - 1)].color == color) {
         --start;
     }
     return start;
@@ -371,10 +371,10 @@ bool BossSpiderLeg::Attach(Color color, const Vector3 &hitPoint, int hitIndex,
     BossSphere *sphere = freeAttached_.back();
     freeAttached_.pop_back();
 
-    // 当たった球のすぐ外側へ差し込む。先端に当たればこれまでどおり先へ伸び、
-    // 途中に当たればそこへ割り込んで、その先はまとめて外側へ押し出される。
-    // 膝の側は守るので、内側に当たっても最低限そこまでしか入らない
-    int insertAt = std::clamp(hitIndex + 1, upperSphereCount_ + 1, static_cast<int>(chain_.size()));
+    // 当たった球のすぐ外側へ差し込む。先端に当たれば先へ伸び、
+    // 途中や付け根に当たればそこへ割り込んで、その先はまとめて外側へ押し出される。
+    // 膝より内側を守る下限は置かない（狙った球の隣に必ず繋がる）
+    const int insertAt = std::clamp(hitIndex + 1, 0, static_cast<int>(chain_.size()));
 
     sphere->Place(ShellCell{legIndex_, insertAt}, footPosition_, color, palette.GetRgba(color));
     sphere->SetSphereRadius(params.legSphereRadius);
@@ -613,9 +613,25 @@ void BossSpiderLeg::PlacePose(const Vector3 &bodyPosition, float bodyYaw, const 
         BossSphere *sphere = chain_[static_cast<size_t>(joint)].sphere;
 
         const float appear = std::clamp(emerged - static_cast<float>(joint), 0.0f, 1.0f);
+
+        // 生えきる前は描かない。
+        //
+        // 以前は「胴の中へ置いておけば見えない」としていたが、変形の始めのコアは
+        // 球体形態のコアの大きさを引き継いでいて小さく、脚の球のほうが大きいことがある。
+        // そのときは胴からはみ出して、コアに球が固まって刺さったように見えていた
+        const bool isGrowing = growth < 1.0f;
         if (appear <= 0.0f) {
-            sphere->SetLocalPosition(bodyPosition); // 胴の中へ隠す
+            sphere->SetIsModelDraw(false);
+            sphere->SetLocalPosition(bodyPosition);
             continue;
+        }
+        // 出しに戻すのは生えかけかどうかに関わらず行う。
+        // 生えきる直前で隠したまま Active へ移ると、その球だけ出てこなくなる
+        sphere->SetIsModelDraw(true);
+        if (isGrowing) {
+            // 生えかけは小さく。まるごと0にすると行列が潰れて法線が壊れるので、
+            // ごく小さい値で止めてから膨らませる
+            sphere->SetSphereRadius(params.legSphereRadius * (std::max)(0.05f, appear));
         }
 
         // 胴の中から自分の位置へ出てくる。appear=0 のときは胴の中と一致するので、

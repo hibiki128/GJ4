@@ -209,6 +209,7 @@ const char *BossSpider::GetPhaseName() const {
 void BossSpider::SkipTransform() {
     phase_ = Phase::Active;
     transformTime_ = 0.0f;
+    RestoreLegSphereRadius();
     attackCoolDown_ = (std::max)(0.0f, parameters_.attack.firstDelay);
     bodyPosition_.y = standHeight_;
     transform_->translation_ = bodyPosition_;
@@ -304,6 +305,8 @@ void BossSpider::UpdateTransform(float deltaTime) {
     if (transformTime_ >= CalcTransformDuration()) {
         phase_ = Phase::Active;
         transformTime_ = 0.0f;
+        // 生えかけのあいだ球を小さくしていたので、最後にきっちり元の大きさへそろえる
+        RestoreLegSphereRadius();
         // 変形の余韻を邪魔しないよう、最初の攻撃までは間を置く
         attackCoolDown_ = (std::max)(0.0f, parameters_.attack.firstDelay);
     }
@@ -706,6 +709,13 @@ void BossSpider::ScaleSizesBy(float ratio) {
         bodyPosition_.y = standHeight_;
     } else {
         standHeight_ = parameters_.legSphereRadius + parameters_.bodyHeight;
+    }
+}
+
+void BossSpider::RestoreLegSphereRadius() {
+    // 変形中は生えかけの球を小さく描いているので、生えきったところで戻す
+    for (int index = 0; index < activeLegCount_; ++index) {
+        legs_[static_cast<size_t>(index)]->ApplySphereRadius(parameters_.legSphereRadius);
     }
 }
 

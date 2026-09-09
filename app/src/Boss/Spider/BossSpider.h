@@ -298,6 +298,9 @@ public:
     /// <summary>足を今の胴のまわりへ置き直す（変形直後など、補間が要らないときだけ）</summary>
     void ReplantFeet();
 
+    /// <summary>脚の球の大きさを既定へ戻す（変形で小さくしていたぶんの後始末）</summary>
+    void RestoreLegSphereRadius();
+
     /// <summary>
     /// 変形を最後まで飛ばして、その場に立った状態にする。
     /// デバッグの「変形を飛ばす」のほか、ゲームオーバー画面のように
