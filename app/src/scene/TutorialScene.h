@@ -7,6 +7,7 @@
 #include "src/Field/FieldSurround.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
 #include "src/Tutorial/TutorialDirector.h"
+#include "src/UI/Reticle/PlayerReticle.h"
 
 /// <summary>
 /// チュートリアルシーン。
@@ -15,9 +16,10 @@
 /// 進行の中身（何を・どの順で・どこまでやれば達成か）は TutorialDirector が持っていて、
 /// このシーンは「今フレーム何が起きたか」を集めて渡す係。
 ///
-/// ボスは第1形態だけを出し、ずっと停止させてある。止めていても殻の描画と着弾判定は
-/// 生きているので、動かない的として撃ち放題になる。攻撃してこないぶん、
-/// 操作を覚えることだけに集中できる（難しくしたいときは pausesBoss_ を切る）。
+/// ボスは第1形態だけを出し、攻撃だけを止めてある。SetPaused で丸ごと止めると
+/// 登場状態から抜けられず、RaycastAttach が IsAppearing() で弾いてしまって
+/// いくら撃っても当たらない。攻撃だけ切れば、登場演出も怯みも撃破も普通に動くまま、
+/// 反撃だけしてこない的になる。
 /// </summary>
 class TutorialScene : public Hagine::BaseScene {
 public:
@@ -70,6 +72,7 @@ private:
     std::unique_ptr<FunctionalPlayerBridge> playerBridge_;
     std::unique_ptr<FollowCamera> followCamera_;
     std::unique_ptr<TutorialDirector> tutorial_;
+    std::unique_ptr<PlayerReticle> reticle_;
 
     // 殻がどれだけ削れたかを前フレームと比べて「消えた瞬間」を拾う。
     // 殻が減るのは同色がそろって消えたときだけなので、これで連鎖の成立が分かる
@@ -78,6 +81,9 @@ private:
     // 完了テロップを見せてから本編へ送るまでの残り時間（負なら未完了）
     float finishWait_ = -1.0f;
 
-    // ボスを止めておくか（チュートリアルなので既定は止める）
-    bool pausesBoss_ = true;
+    // ボスに攻撃させるか（チュートリアルなので既定は攻撃なし）
+    bool bossAttacks_ = false;
+
+    /// <summary>レティクルを出してよい場面か</summary>
+    bool ShouldDrawReticle() const;
 };

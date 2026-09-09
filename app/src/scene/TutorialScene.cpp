@@ -45,6 +45,10 @@ void TutorialScene::Initialize() {
     pDrawSystem_->Register("TutorialScene_PostDraw", DrawLayer::PostEffect,
                            [this](const ViewProjection &) {
                                pSpriteManager_->DrawAll();
+                               // レティクルはテロップより下。テロップに隠れても構わない
+                               if (ShouldDrawReticle()) {
+                                   reticle_->Draw();
+                               }
                                if (tutorial_) {
                                    tutorial_->Draw();
                                }
@@ -75,14 +79,13 @@ void TutorialScene::Initialize() {
 
     pObjectManager_->RegisterExternal(player_.get());
 
-    // 的になるボス。第1形態だけを出す
+    // 的になるボス。第1形態だけを出す。
+    // 反撃はさせないが、それ以外（登場演出・怯み・撃破）は本番どおり動かす。
+    // 丸ごと止めると登場状態のまま無敵になり、弾がすり抜けてしまう
     boss_ = std::make_unique<Boss>();
     boss_->Init("Boss");
     boss_->SetFieldBounds(field_.get());
-    // 登場演出は見せず、いきなり殻がそろった状態から始める。
-    // そのうえで止めると、攻撃も移動もしない「動かない的」になる
-    boss_->EndAppear();
-    boss_->SetPaused(pausesBoss_);
+    boss_->SetAttackEnabled(bossAttacks_);
     pObjectManager_->RegisterExternal(boss_.get());
 
     player_->SetColorPalette(boss_->GetPalette());
@@ -125,6 +128,14 @@ void TutorialScene::Initialize() {
     // 撃つ段になったら BossBattle へ切り替える
     followCamera_->SetMode(CameraMode::Normal);
     followCamera_->Activate();
+
+    // 照準レティクル。本番と同じく、狙いが決まった直後に通知を受けて画面座標へ落とす
+    reticle_ = std::make_unique<PlayerReticle>();
+    reticle_->Init();
+    reticle_->RegisterParams();
+    player_->SetOnAimReport([this](const PlayerAimReport &report) {
+        reticle_->Update(report, *GetViewProjection(), Frame::DeltaTime());
+    });
 
     tutorial_ = std::make_unique<TutorialDirector>();
     tutorial_->Init();
@@ -217,6 +228,16 @@ TutorialSignals TutorialScene::CollectSignals(float deltaTime) {
     return signals;
 }
 
+bool TutorialScene::ShouldDrawReticle() const {
+    /// ===================================================
+    /// レティクルを出してよい場面か
+    /// ===================================================
+    if (!reticle_ || !player_) {
+        return false;
+    }
+    return !PauseMenu::GetInstance()->IsPaused() && !player_->IsDead();
+}
+
 void TutorialScene::UpdateAim() {
     /// ===================================================
     /// 照準（カメラの射線）をプレイヤーへ配る
@@ -255,10 +276,10 @@ void TutorialScene::AddObjectSetting() {
     }
 
 #ifdef USE_IMGUI
-    if (ImGui::Checkbox("ボスを止める", &pausesBoss_)) {
-        boss_->SetPaused(pausesBoss_);
+    if (ImGui::Checkbox("ボスに攻撃させる", &bossAttacks_)) {
+        boss_->SetAttackEnabled(bossAttacks_);
     }
-    ImGui::TextDisabled("止めているあいだも殻の描画と着弾判定は生きている");
+    ImGui::TextDisabled("切っていても登場・怯み・撃破は動く（撃てば普通に当たる）");
 #endif // USE_IMGUI
 
     if (player_) {

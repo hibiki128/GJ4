@@ -44,7 +44,9 @@ void DrawSprite(Sprite *sprite, const Vector2 &center, const Vector2 &size, cons
 
 std::string FontKey()
 {
-    return TextureManager::MakeFontKey(kFontFile, kFontSize);
+    // 読み込み済みのものをファイル名で引く。サイズはエンジン側の
+    // LoadFontTexture に書いてある値がそのまま使われる
+    return TextureManager::GetInstance()->FindFontKey(kFontFile);
 }
 
 /// ===================================================
@@ -182,8 +184,20 @@ float UiText::WidthAt(float height) const
 
 void UiNumber::Create(const std::string &id, int capacity)
 {
+    // 文字は読み込んだフォントサイズのピクセル数で焼かれるので、セルもそこから決める。
+    // 固定値にすると、フォントを大きく読み込んだときに字がセルをはみ出て切れる
+    float fontSize = 60.0f;
+    if (const TextureManager::FontData *fontData =
+            TextureManager::GetInstance()->GetFontData(FontKey()))
+    {
+        fontSize = fontData->fontSize;
+    }
+    // 縦は行の高さぶん、横は最も太い文字ぶんの余裕を見る。フチの太さも足しておく
+    cellWidth_ = static_cast<int>(fontSize * 0.78f) + 8;
+    cellHeight_ = static_cast<int>(fontSize * 1.32f) + 8;
+
     TextRenderer::GetInstance()->CreateCharacterAtlasSprite(
-        id, kChars, FontKey(), kCellWidth, kCellHeight,
+        id, kChars, FontKey(), cellWidth_, cellHeight_,
         {0.0f, 0.0f}, {1.0f, 1.0f, 1.0f, 1.0f},
         true, 3.0f, {0.05f, 0.05f, 0.09f, 1.0f});
 
@@ -197,8 +211,8 @@ void UiNumber::DrawRight(const std::string &text, float right, float centerY, fl
         return;
     }
 
-    const float scale = height / static_cast<float>(kCellHeight);
-    const float advance = static_cast<float>(kCellWidth) * scale;
+    const float scale = height / static_cast<float>(cellHeight_);
+    const float advance = static_cast<float>(cellWidth_) * scale;
     const std::string_view chars(kChars);
     const int count = static_cast<int>(text.size());
 
@@ -217,8 +231,8 @@ void UiNumber::DrawRight(const std::string &text, float right, float centerY, fl
         }
 
         // 何文字目のセルを使うかを左上座標で指定する
-        sprite->SetTexLeftTop({static_cast<float>(charIndex) * kCellWidth, 0.0f});
-        sprite->SetTexSize({static_cast<float>(kCellWidth), static_cast<float>(kCellHeight)});
+        sprite->SetTexLeftTop({static_cast<float>(charIndex) * cellWidth_, 0.0f});
+        sprite->SetTexSize({static_cast<float>(cellWidth_), static_cast<float>(cellHeight_)});
 
         // 右端から数えた位置に置く
         const float centerX = right - advance * (static_cast<float>(count - i) - 0.5f);

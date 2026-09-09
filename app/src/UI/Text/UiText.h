@@ -17,10 +17,13 @@
 namespace GameUi {
 
 /// <summary>
-/// 使用するフォント。エンジンが起動時にサイズ60でロード済み（Framework::LoadResource）
+/// 使用するフォント。読み込みとサイズ指定はエンジン側（Framework::LoadResource）で行う。
+///
+/// サイズはここに持たない。持つと LoadFontTexture 側と2箇所で一致させる必要があり、
+/// 片方だけ変えるとフォントが引けずにテキスト生成が落ちる。
+/// 実際に読み込まれたサイズは FontKey() がファイル名から引き当てる
 /// </summary>
 inline constexpr const char *kFontFile = "Buildingsandundertherailwaytracksfree_ver.otf";
-inline constexpr float kFontSize = 60.0f;
 
 /// <summary>
 /// このUIで使うフォントキーを返す
@@ -227,9 +230,10 @@ public:
 private:
     // アトラスに並べる文字。ここに無い文字は描けない
     static constexpr const char *kChars = "0123456789.%";
-    // 1文字あたりのセルの大きさ（フォントサイズ60に対して余裕を持たせた値）
-    static constexpr int kCellWidth = 44;
-    static constexpr int kCellHeight = 76;
+    // 1文字あたりのセルの大きさ。読み込んだフォントサイズから Create で決める。
+    // 固定値にしておくと、フォントを高解像度で読み込んだときに字がセルからはみ出て欠ける
+    int cellWidth_ = 44;
+    int cellHeight_ = 76;
 
     UiSpritePool pool_; // 1文字ぶんのスプライトの置き場
 };
