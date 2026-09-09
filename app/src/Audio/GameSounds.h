@@ -28,7 +28,8 @@ public:
         Appear,        // 第2形態が起き上がる
         PlayerDamaged, // プレイヤーが被弾した
         PlayerDodge,   // プレイヤーが回避した
-        Bgm,           // 戦闘中のBGM
+        Bgm,           // 戦闘中のBGM（鳴らし続ける）
+        BgmTutorial,   // チュートリアル中のBGM（鳴らし続ける）
         Count
     };
 
