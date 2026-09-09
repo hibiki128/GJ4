@@ -777,6 +777,10 @@ Vector3 BossSpider::UpdateAttack(float deltaTime) {
     if (pCurrentAttack_->IsFinished()) {
         pCurrentAttack_ = nullptr;
         attackCoolDown_ = (std::max)(0.0f, parameters_.attack.interval);
+        // やり切ったときだけ知らせる（残弾の回復エリアがここで生まれる）
+        if (attackFinishedCallback_) {
+            attackFinishedCallback_();
+        }
     }
     return moveDirection;
 }

@@ -242,6 +242,12 @@ public:
     void ScaleSizesBy(float ratio);
 
     /// <summary>
+    /// 攻撃の届く範囲だけへ比率を掛ける（1回きりの埋め合わせ用）
+    /// </summary>
+    /// <param name="ratio">掛ける比率</param>
+    void ScaleAttackRangesBy(float ratio) { ScaleSpiderAttackRanges(parameters_, ratio); }
+
+    /// <summary>
     /// しばらく動けなくする（回転攻撃のあとの隙）。
     /// このあいだは歩きも攻撃もせずその場に立ち、頭上に粒の輪が回る
     /// </summary>
@@ -250,6 +256,14 @@ public:
         if (seconds > staggerTimer_) {
             staggerTimer_ = seconds;
         }
+    }
+
+    /// <summary>
+    /// ひと続きの攻撃を終えたときに呼ばれる先を差す（残弾の回復エリア）。
+    /// 中断されたときは呼ばない（最後までやり切ったご褒美という位置づけのため）
+    /// </summary>
+    void SetAttackFinishedCallback(std::function<void()> callback) {
+        attackFinishedCallback_ = std::move(callback);
     }
 
     /// <summary>動けない状態を打ち切る（攻撃を中断したときなど）</summary>
@@ -443,6 +457,7 @@ private:
     IBossAttack *pCurrentAttack_ = nullptr;               // 進行中の攻撃（非所有）
     float attackCoolDown_ = 0.0f;                         // 次の攻撃までの残り時間（秒）
     float staggerTimer_ = 0.0f;                           // 動けない残り時間（秒）
+    std::function<void()> attackFinishedCallback_{};      // 攻撃をやり切ったときの通知先
     HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
 
     // --- 弾 ---

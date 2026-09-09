@@ -274,10 +274,17 @@ bool Boss::UpdateCurrentAttack(float deltaTime) {
 void Boss::EndCurrentAttack() {
     if (pCurrentAttack_) {
         // 怯みで割り込まれた場合はここが中断処理になる
-        if (!pCurrentAttack_->IsFinished()) {
+        const bool completed = pCurrentAttack_->IsFinished();
+        if (!completed) {
             pCurrentAttack_->Cancel(MakeAttackContext(0.0f));
         }
         pCurrentAttack_ = nullptr;
+
+        // やり切ったときだけ知らせる。中断（怯み・形態交代）で出してしまうと、
+        // ボスを止めるほど回復エリアが増えて的にならなくなる
+        if (completed && attackFinishedCallback_) {
+            attackFinishedCallback_();
+        }
     }
     scheduler_.NotifyAttackFinished();
 }
@@ -929,6 +936,18 @@ void Boss::DrawGameplayImGui() {
 
     ImGui::SeparatorText("殻の形");
     BossShellParams &shell = parameters_.Shell();
+
+    // 全体の倍率は「値へ掛けたうえで、何倍ぶん掛けたかを覚える」作りなので、
+    // 倍率が1以外のときにここを手で書き換えると、その値まで倍率ぶん割り戻されてしまう。
+    // 気づかずに小さくなりすぎるのを防ぐため、そのときだけ注意を出す
+    if (std::abs(parameters_.GetMasterScale() - 1.0f) > 0.001f) {
+        ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f},
+                           "全体の倍率が %.2f 倍です。ここの値は 1.00 倍のときに触ってください",
+                           parameters_.GetMasterScale());
+        HelpMarker("倍率が掛かった状態で書き換えると、その数値が「倍率込みの値」として\n"
+                   "扱われます。等倍に戻したときに小さくなりすぎたら、\n"
+                   "「ボス全体の大きさ」の「いまの大きさを1倍にする」で基準を取り直せます");
+    }
     bool radiusChanged = false;
     bool bandChanged = false;
     radiusChanged |= ImGui::DragFloat("球の半径(0で自動)", &shell.sphereRadius, 0.01f, 0.0f, 3.0f);

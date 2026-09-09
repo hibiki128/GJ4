@@ -1,5 +1,6 @@
 #pragma once
 #include "src/Character/ColorStruct.h"
+#include <array>
 #include <vector>
 
 /// <summary>
@@ -12,8 +13,9 @@
 /// 要求式なら効かせたい間だけ毎フレーム呼べばよく、重複も自然に解ける。
 /// PlayerHealthComponent と同じく、更新の順番で結果が変わらないようにするための作り。
 ///
-/// 弾数はいまのところ色をまたいだ1本のプールで、公開する口だけ Color を受け取る形にしてある。
-/// 色別に分けたくなってもこのクラスの中と表示側だけの変更で済み、撃つ側は触らずにすむ。
+/// 弾数は色ごとに別のプールで持つ。撃った色だけが減り、回復も色ごとに進む。
+/// 回復エリアのように「この色だけ早める」ギミックがあるので、倍率の要求も色を取る
+/// （色を指定しない要求は全色へ効く）。
 /// </summary>
 class PlayerAmmoComponent {
 public:
@@ -62,6 +64,14 @@ public:
 	void RequestRegenScale(float scale);
 
 	/// <summary>
+	/// この1フレームだけ、指定した色の回復倍率を要求する。
+	/// 回復エリアのように「その色だけ早める」ギミックが毎フレーム呼ぶ
+	/// </summary>
+	/// <param name="color">早めたい色</param>
+	/// <param name="scale">回復速度の倍率（2.0f で倍速）</param>
+	void RequestRegenScale(Color color, float scale);
+
+	/// <summary>
 	/// 一定時間だけ効く回復倍率を足す。拾ったらしばらく速いアイテムのような
 	/// 時限型のギミックが1回だけ呼ぶ
 	/// </summary>
@@ -77,12 +87,14 @@ public:
 	// 残量の割合（0〜1）。弾数ゲージの表示に使う
 	float GetRatio(Color color) const;
 	bool IsEmpty(Color color) const { return GetAmmo(color) <= 0; }
-	// いま実際に効いている回復速度（発/秒）。表示と確認に使う
-	float GetEffectiveRegenPerSecond() const;
-	// いま効いている回復倍率（1.0 なら素の速さ）
-	float GetRegenScale() const;
+	// その色がいま実際に回復している速度（発/秒）。表示と確認に使う
+	float GetEffectiveRegenPerSecond(Color color) const;
+	// その色にいま効いている回復倍率（1.0 なら素の速さ）
+	float GetRegenScale(Color color) const;
 	// 撃った直後の回復待ちの残り（0 なら回復中）
-	float GetRegenDelayTimer() const { return regenDelayTimer_; }
+	float GetRegenDelayTimer(Color color) const { return regenDelayTimer_[ToColorIndex(color)]; }
+	// その色が満タンか（回復エリアを畳むかの判断に使う）
+	bool IsFull(Color color) const { return GetAmmo(color) >= params_.maxAmmo; }
 
 	// 残弾の状態を表示する（シーンの「オブジェクト設定」窓から呼ぶ）
 	void DrawImGui();
@@ -97,11 +109,12 @@ private:
 	// --- 調整パラメータ ---
 	Params params_{};
 
-	// --- 状態 ---
-	int ammo_ = 0;
+	// --- 状態（すべて色ごと）---
+	std::array<int, kGameColorCount> ammo_{};
 	// 回復は毎秒の実数、弾数は整数なので、1発に満たない端数をここに貯める
-	float regenAccumulator_ = 0.0f;
-	float regenDelayTimer_ = 0.0f;  // 撃った後の回復待ちの残り（秒）
-	float frameScaleRequest_ = 1.0f; // 継続型の要求（Update の最後で 1.0 に戻す）
-	std::vector<RegenBoost> boosts_; // 時限型の倍率
+	std::array<float, kGameColorCount> regenAccumulator_{};
+	std::array<float, kGameColorCount> regenDelayTimer_{}; // 撃った後の回復待ちの残り（秒）
+	// 継続型の要求（Update の最後で 1.0 に戻す）
+	std::array<float, kGameColorCount> frameScaleRequest_{};
+	std::vector<RegenBoost> boosts_; // 時限型の倍率（色を問わず全色へ効く）
 };

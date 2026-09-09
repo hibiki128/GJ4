@@ -35,6 +35,8 @@ constexpr EffectDesc kEffectDescs[] = {
     {BossParticles::Id::DefeatBurst, "Spider_DefeatBurst", "蜘蛛: 撃破の破片", 1},
     // 輪は3体で1/3周ずつ受け持つ。1体だと粒が弧にしか並ばず、輪がつながらない
     {BossParticles::Id::StaggerRing, "Boss_StaggerRing", "ひるみ: 頭上を回る輪", 3},
+    {BossParticles::Id::ZonePop, "Boss_ZonePop", "回復エリア: 飛び出しと着地", 2},
+    {BossParticles::Id::ZoneAura, "Boss_ZoneAura", "回復エリア: 立ちのぼる粒", 3},
 };
 
 /// <summary>テンプレートから1体出して、ボス用の使い方に合わせる</summary>
@@ -90,6 +92,8 @@ void BossParticles::Init() {
         DataHandler source("ParticleCS", desc.templateName);
         effect.baseVelocityMin = source.Load<Vector3>("group_0_minVelocity", Vector3{});
         effect.baseVelocityMax = source.Load<Vector3>("group_0_maxVelocity", Vector3{});
+        effect.baseStartColor = source.Load<Vector4>("group_0_startColor", Vector4{1.0f, 1.0f, 1.0f, 1.0f});
+        effect.baseEndColor = source.Load<Vector4>("group_0_endColor", Vector4{1.0f, 1.0f, 1.0f, 0.0f});
         effect.next = 0;
     }
 
@@ -188,6 +192,30 @@ void BossParticles::Burst(Id id, const Vector3 &position) {
 
     emitter->SetTranslate(position);
     emitter->EmitOnce();
+}
+
+void BossParticles::SetNextColor(Id id, const Vector4 &rgba) {
+    if (id == Id::Count) {
+        return;
+    }
+    Effect &effect = Get(id);
+    if (effect.emitters.empty()) {
+        return;
+    }
+
+    // 次に使われるエミッターだけを塗る（Burst は順番に使い回している）
+    ParticleCSEmitter *emitter = effect.emitters[effect.next];
+    if (!ParticleCSSpawner::GetInstance()->IsAlive(emitter)) {
+        return;
+    }
+    // 濃さの付き方（開始で濃く、終わりで透明）は json のまま活かし、色みだけ差し替える。
+    //
+    // 出したあとに json の色へ戻さないのは、EmitOnce が「次のコンピュートで出す」という
+    // 印を立てるだけで、実際に粒が作られるのはこのフレームの描画フェーズだから。
+    // その場で戻すと、出来上がる粒には戻したあとの色（＝白）が乗ってしまう。
+    // 色を使う効果は毎回ここを通るので、塗りっぱなしでも混ざらない
+    emitter->SetStartColor(Vector4{rgba.x, rgba.y, rgba.z, effect.baseStartColor.w});
+    emitter->SetEndColor(Vector4{rgba.x * 0.6f, rgba.y * 0.6f, rgba.z * 0.6f, effect.baseEndColor.w});
 }
 
 void BossParticles::BurstOnGround(Id id, const Vector3 &point) {

@@ -29,6 +29,7 @@ void GameScene::Initialize()
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
 			pObjectManager_->Draw(vp);
+			recoveryZones_.Draw(vp);
 		});
 
 	// ボスの殻（メタボール）をGPUで作り直す。
@@ -124,6 +125,15 @@ void GameScene::Initialize()
 	// 倒れたプレイヤーは狙わせない（ボスの攻撃は ITargetLocator::IsTargetValid を見ている）
 	playerBridge_->SetValidGetter([pPlayer = player_.get()] { return !pPlayer->IsDead(); });
 
+	// 残弾の回復エリアからプレイヤーへの導線。エリア側は Player の型を知らず、
+	// 「この色の回復を早めて」と頼むだけ（IAmmoRecoverySink）
+	playerBridge_->SetRegenRequester([pPlayer = player_.get()](Color color, float scale) {
+		pPlayer->RequestAmmoRegenScale(color, scale);
+		});
+	playerBridge_->SetAmmoFullGetter([pPlayer = player_.get()](Color color) {
+		return pPlayer->IsAmmoFull(color);
+		});
+
 	// 被弾の画面演出。プレイヤーはカメラも画面も知らないので、シーンがここで配る。
 	// プレイヤー自身の反動（少し後ろへ押される）は被弾ステートが受け持つ
 	damageVignette_ = std::make_unique<DamageVignette>();
@@ -169,6 +179,22 @@ void GameScene::Initialize()
 	// エミッターの発生範囲はボスの大きさに合わせるので、倍率も渡しておく
 	BossParticles::GetInstance()->Init();
 	BossParticles::GetInstance()->SetMasterScale(boss_->GetParameters().GetMasterScale());
+
+	// 残弾を回復するエリア。ボスがひと続きの攻撃を終えるたびに1つ生まれる。
+	// 調整値はボスデータ（Boss01.json の recoveryZone）に置いてあるので、そこを参照させる
+	recoveryZones_.Init("BossRecoveryZone", &boss_->GetMutableParameters().RecoveryZone());
+	recoveryZones_.SetTargetLocator(playerBridge_.get());
+	recoveryZones_.SetAmmoSink(playerBridge_.get());
+	recoveryZones_.SetFieldBounds(field_.get());
+
+	// どちらの形態でも、攻撃をやり切ったところで出す。
+	// 出る場所はそのときの本体の位置、色はボスが使っている色から毎回ランダム
+	boss_->SetAttackFinishedCallback([this] {
+		recoveryZones_.NotifyAttackFinished(boss_->GetBossPosition(), boss_->GetPalette());
+		});
+	bossSpider_->SetAttackFinishedCallback([this] {
+		recoveryZones_.NotifyAttackFinished(bossSpider_->GetBodyPosition(), boss_->GetPalette());
+		});
 
 	// 撃破演出（黒帯とカメラ寄せ）
 	defeatDirector_ = std::make_unique<BossDefeatDirector>();
@@ -252,6 +278,9 @@ void GameScene::Update()
 	damageVignette_->Update(Frame::DeltaTime());
 
 	player_->CommandExecute(gameInput_->GetInputContext());
+
+	// 出ている回復エリアを進める（乗っていれば、その色の回復がここで早くなる）
+	recoveryZones_.Update(Frame::DeltaTime());
 
 	// 第1形態を倒し切っていたら、そのコアを第2形態へ引き渡す
 	UpdateFormChange();
@@ -412,8 +441,50 @@ void GameScene::AddObjectSetting()
 		bossSpider_->ScaleSizesBy(ratio);
 		BossParticles::GetInstance()->SetMasterScale(1.0f);
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("いまの大きさを1倍にする")) {
+		// 値は1つも変えず、倍率の基準だけを取り直す。
+		// 倍率が1以外のときに個別の大きさを手で書き換えると、その値まで倍率ぶん割られてしまう。
+		// 見えている大きさが正しいときは、ここを押して基準をそろえ直す
+		boss_->RebaseMasterScale();
+		BossParticles::GetInstance()->SetMasterScale(1.0f);
+		ImGuiNotification::Post("いまの大きさを1倍として基準を取り直しました",
+			{0.4f, 0.8f, 1.0f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("(?)");
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("「等倍に戻す」は保存されている倍率で割り戻すので、\n"
+			"倍率が1以外のときに個別の大きさをいじっていると小さくなりすぎます。\n"
+			"いま見えている大きさが正しいなら、こちらで基準を取り直してください\n"
+			"（大きさは変わらず、倍率の表示だけが 1.00 になります）");
+	}
+
+	// 上の落とし穴に気づけるよう、1倍でないときは個別調整を控えるよう出しておく
+	if (std::abs(masterScale - 1.0f) > 0.001f) {
+		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f},
+			"倍率が %.2f 倍です。殻や脚の大きさを個別に触るのは 1.00 倍のときに",
+			masterScale);
+	}
 	ImGui::TextDisabled("殻・球・コア・脚・胴・歩幅・攻撃の届く範囲・土煙の広がり・ひるみの輪が");
 	ImGui::TextDisabled("まとめて変わります（時間・角度・速さ・ダメージ・フィールドの広さは据え置き）");
+
+	// 攻撃範囲を倍率の対象へ入れる前に保存したデータは、体だけ大きくて範囲が置いていかれている。
+	// 差分方式なのでスライダーを動かしても食い違いは埋まらないため、1回だけ掛け直す口を用意する
+	if (ImGui::Button("攻撃範囲だけ今の倍率へそろえ直す")) {
+		const float scale = boss_->GetParameters().GetMasterScale();
+		boss_->ApplyMasterScaleToAttackRanges();
+		bossSpider_->ScaleAttackRangesBy(scale);
+		ImGuiNotification::Post("攻撃範囲を " + std::to_string(scale) + " 倍へそろえました",
+			{0.4f, 0.8f, 1.0f, 1.0f});
+	}
+	ImGui::SameLine();
+	ImGui::TextDisabled("(?)");
+	if (ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("倍率が攻撃範囲に効くようになる前の値を保存していた場合の埋め合わせです。\n"
+			"「体は大きいのに攻撃範囲だけ元のまま」のときに1回だけ押してください。\n"
+			"押すたびに掛かるので、続けて押さないこと");
+	}
 	// 大きさは両形態にまたがるので、保存もここでまとめて押せるようにしておく
 	if (ImGui::Button("大きさを両形態とも保存")) {
 		boss_->SaveParameters();
@@ -439,6 +510,13 @@ void GameScene::AddParticleSetting()
 	// ボスの土煙まとめ。中身はエンジンのGPUパーティクルなので、
 	// ここで見た目を作って保存すれば Assets/jsons/ParticleCS 以下へ残る
 	BossParticles::GetInstance()->DrawImGui();
+
+	// 回復エリアの粒もここに並ぶので、置き方の調整は同じ窓でできる。
+	// 保存先はボスデータなので、書き出しはボスに頼む
+	recoveryZones_.DrawImGui(boss_->GetBossPosition(), boss_->GetPalette(), [this] {
+		boss_->SaveParameters();
+		ImGuiNotification::Post("回復エリアの設定を保存しました", {0.2f, 0.8f, 0.2f, 1.0f});
+		});
 }
 
 void GameScene::CameraUpdate()

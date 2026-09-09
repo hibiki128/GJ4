@@ -1,5 +1,6 @@
 #pragma once
 #include "type/Vector3.h"
+#include "type/Vector4.h"
 #include <array>
 #include <vector>
 
@@ -32,6 +33,8 @@ public:
         StepDust,    // 蜘蛛: 脚を踏み下ろしたときの小さな砂ぼこり
         DefeatBurst, // 蜘蛛: 撃破でコアがはじけた破片
         StaggerRing, // ひるみ中に頭上を回る粒（両形態で共通）
+        ZonePop,     // 回復エリアが飛び出す／着地するときの弾け
+        ZoneAura,    // 回復エリアから立ちのぼる粒
         Count
     };
 
@@ -66,6 +69,17 @@ public:
     void StopStaggerRing();
 
     /// <summary>
+    /// 次の Burst で使うエミッターの色を差し替える。
+    ///
+    /// 回復エリアは色が毎回変わるので、json に書いた色ではなくエリアの色で出す。
+    /// 出すたびにここを通す使い方を前提にしていて、出したあとに戻したりはしない
+    /// （EmitOnce は印を立てるだけで、粒が作られるのは描画フェーズのため）
+    /// </summary>
+    /// <param name="id">効果</param>
+    /// <param name="rgba">出したい色（アルファは開始の濃さ）</param>
+    void SetNextColor(Id id, const Hagine::Vector4 &rgba);
+
+    /// <summary>
     /// ボスの大きさに合わせて効果も大きくする。
     ///
     /// エミッターの発生範囲と、頭上の輪の置き方に掛かる。
@@ -98,6 +112,9 @@ private:
         // json に書いてある飛び散る速さ。倍率はここから毎回掛け直す
         Hagine::Vector3 baseVelocityMin{};
         Hagine::Vector3 baseVelocityMax{};
+        // json に書いてある色。1回だけ差し替えたあと、ここへ戻す
+        Hagine::Vector4 baseStartColor{1.0f, 1.0f, 1.0f, 1.0f};
+        Hagine::Vector4 baseEndColor{1.0f, 1.0f, 1.0f, 0.0f};
         size_t next = 0;              // 次に使うエミッター
         const char *templateName = ""; // json のファイル名
         const char *label = "";        // 調整UIでの表示名

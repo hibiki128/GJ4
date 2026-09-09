@@ -3,6 +3,7 @@
 #include "src/Boss/Boss.h"
 #include "src/Boss/Spider/BossSpider.h"
 #include "src/Boss/Effect/BossDefeatDirector.h"
+#include "src/Boss/Zone/BossRecoveryZoneManager.h"
 #include "src/Character/Player/Player.h"
 #include "src/Field/Field.h"
 #include "src/Interface/FunctionalPlayerBridge.h"
@@ -99,6 +100,8 @@ private:
     // 第2形態（蜘蛛）。球体形態を倒したあとに出現させる
     std::unique_ptr<BossSpider> bossSpider_;
 std::unique_ptr<BossDefeatDirector> defeatDirector_; // 撃破演出（黒帯・カメラ寄せ）
+// 攻撃を終えるたびに出る、残弾を回復する円形エリア
+BossRecoveryZoneManager recoveryZones_;
     bool isBossPaused_ = false;                          // 敵の更新を止めているか（調整用）
 	std::unique_ptr<FollowCamera> followCamera_;
 	// 被弾したときに画面のふちを赤く染めるマスク

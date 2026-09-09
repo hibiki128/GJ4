@@ -8,10 +8,10 @@
 #endif // USE_IMGUI
 
 void PlayerAmmoComponent::Init() {
-	ammo_ = params_.maxAmmo;
-	regenAccumulator_ = 0.0f;
-	regenDelayTimer_ = 0.0f;
-	frameScaleRequest_ = 1.0f;
+	ammo_.fill(params_.maxAmmo);
+	regenAccumulator_.fill(0.0f);
+	regenDelayTimer_.fill(0.0f);
+	frameScaleRequest_.fill(1.0f);
 	boosts_.clear();
 }
 
@@ -24,7 +24,11 @@ void PlayerAmmoComponent::RegisterParams() {
 	maxAmmoOptions.speed = 1.0f;
 	maxAmmoOptions.min = 1.0f;
 	maxAmmoOptions.max = 200.0f;
-	maxAmmoOptions.onChange = [this] { ammo_ = std::clamp(ammo_, 0, params_.maxAmmo); };
+	maxAmmoOptions.onChange = [this] {
+		for (int &amount : ammo_) {
+			amount = std::clamp(amount, 0, params_.maxAmmo);
+		}
+	};
 	hub->Register(paramOwnerLabel, "MaxAmmo", &params_.maxAmmo, maxAmmoOptions);
 
 	hub->Register(paramOwnerLabel, "CostPerShot", &params_.costPerShot, {1.0f, 1.0f, 10.0f});
@@ -43,31 +47,36 @@ void PlayerAmmoComponent::Update() {
 	                             [](const RegenBoost& boost) { return boost.remain <= 0.0f; }),
 	              boosts_.end());
 
-	// 撃った直後は少し待ってから回復を再開する（撃ちっぱなしでも減るようにするため）
-	if (regenDelayTimer_ > 0.0f) {
-		regenDelayTimer_ -= deltaTime;
-	}
+	// 色ごとに独立して回復する。撃った色だけが待たされ、他の色は進み続ける
+	for (int index = 0; index < kGameColorCount; ++index) {
+		const Color color = FromColorIndex(index);
 
-	if (ammo_ >= params_.maxAmmo) {
-		// 満タンのあいだに端数が溜まると、撃った直後に1発ぶんが即座に戻ってしまう
-		ammo_ = params_.maxAmmo;
-		regenAccumulator_ = 0.0f;
-	} else if (regenDelayTimer_ <= 0.0f) {
-		regenAccumulator_ += GetEffectiveRegenPerSecond() * deltaTime;
-
-		// 端数が1発ぶん貯まるたびに1発戻す
-		while (regenAccumulator_ >= 1.0f && ammo_ < params_.maxAmmo) {
-			regenAccumulator_ -= 1.0f;
-			++ammo_;
+		// 撃った直後は少し待ってから回復を再開する（撃ちっぱなしでも減るようにするため）
+		if (regenDelayTimer_[index] > 0.0f) {
+			regenDelayTimer_[index] -= deltaTime;
 		}
-		if (ammo_ >= params_.maxAmmo) {
-			regenAccumulator_ = 0.0f;
+
+		if (ammo_[index] >= params_.maxAmmo) {
+			// 満タンのあいだに端数が溜まると、撃った直後に1発ぶんが即座に戻ってしまう
+			ammo_[index] = params_.maxAmmo;
+			regenAccumulator_[index] = 0.0f;
+		} else if (regenDelayTimer_[index] <= 0.0f) {
+			regenAccumulator_[index] += GetEffectiveRegenPerSecond(color) * deltaTime;
+
+			// 端数が1発ぶん貯まるたびに1発戻す
+			while (regenAccumulator_[index] >= 1.0f && ammo_[index] < params_.maxAmmo) {
+				regenAccumulator_[index] -= 1.0f;
+				++ammo_[index];
+			}
+			if (ammo_[index] >= params_.maxAmmo) {
+				regenAccumulator_[index] = 0.0f;
+			}
 		}
 	}
 
 	// 継続型の要求は1フレームぶんだけ有効。
 	// 次のフレームも効かせたいギミックは、また呼びに来ることになる
-	frameScaleRequest_ = 1.0f;
+	frameScaleRequest_.fill(1.0f);
 }
 
 bool PlayerAmmoComponent::CanFire(Color color) const {
@@ -79,24 +88,32 @@ bool PlayerAmmoComponent::TryConsume(Color color) {
 		return false;
 	}
 
-	ammo_ = std::max(ammo_ - params_.costPerShot, 0);
-	regenDelayTimer_ = params_.regenDelayAfterShot;
+	const int index = ToColorIndex(color);
+	ammo_[index] = std::max(ammo_[index] - params_.costPerShot, 0);
+	regenDelayTimer_[index] = params_.regenDelayAfterShot;
 	// 撃つと回復待ちに入るので、端数を残しておくと待ち明けの瞬間に1発が即座に戻ってしまう
-	regenAccumulator_ = 0.0f;
+	regenAccumulator_[index] = 0.0f;
 	return true;
 }
 
 void PlayerAmmoComponent::Refund(Color color) {
-	// いまは単一プールなので、どの色を撃ったかは結果に効かない
-	(void)color;
-	ammo_ = std::min(ammo_ + params_.costPerShot, params_.maxAmmo);
+	const int index = ToColorIndex(color);
+	ammo_[index] = std::min(ammo_[index] + params_.costPerShot, params_.maxAmmo);
 }
 
 void PlayerAmmoComponent::RequestRegenScale(float scale) {
+	// 色を指定しない要求は全色へ効く（速い床のような、色を問わないギミック用）
+	for (int index = 0; index < kGameColorCount; ++index) {
+		RequestRegenScale(FromColorIndex(index), scale);
+	}
+}
+
+void PlayerAmmoComponent::RequestRegenScale(Color color, float scale) {
 	// 一番強い要求だけを採る。掛け合わせるとギミックを重ねたときに
 	// 回復速度が跳ね上がって調整が効かなくなるため。
 	// 重ねがけを許したくなったら、ここと GetRegenScale の合成だけを変えればよい
-	frameScaleRequest_ = std::max(frameScaleRequest_, scale);
+	float &request = frameScaleRequest_[ToColorIndex(color)];
+	request = std::max(request, scale);
 }
 
 void PlayerAmmoComponent::AddRegenBoost(float scale, float duration) {
@@ -112,13 +129,11 @@ void PlayerAmmoComponent::AddRegenBoost(float scale, float duration) {
 
 void PlayerAmmoComponent::ClearRegenBoosts() {
 	boosts_.clear();
-	frameScaleRequest_ = 1.0f;
+	frameScaleRequest_.fill(1.0f);
 }
 
 int PlayerAmmoComponent::GetAmmo(Color color) const {
-	// いまは単一プールなので、どの色でも同じ残弾を返す
-	(void)color;
-	return ammo_;
+	return ammo_[ToColorIndex(color)];
 }
 
 float PlayerAmmoComponent::GetRatio(Color color) const {
@@ -128,16 +143,16 @@ float PlayerAmmoComponent::GetRatio(Color color) const {
 	return static_cast<float>(GetAmmo(color)) / static_cast<float>(params_.maxAmmo);
 }
 
-float PlayerAmmoComponent::GetRegenScale() const {
-	float scale = frameScaleRequest_;
+float PlayerAmmoComponent::GetRegenScale(Color color) const {
+	float scale = frameScaleRequest_[ToColorIndex(color)];
 	for (const RegenBoost& boost : boosts_) {
 		scale = std::max(scale, boost.scale);
 	}
 	return scale;
 }
 
-float PlayerAmmoComponent::GetEffectiveRegenPerSecond() const {
-	return params_.regenPerSecond * GetRegenScale();
+float PlayerAmmoComponent::GetEffectiveRegenPerSecond(Color color) const {
+	return params_.regenPerSecond * GetRegenScale(color);
 }
 
 void PlayerAmmoComponent::DrawImGui() {
@@ -146,28 +161,55 @@ void PlayerAmmoComponent::DrawImGui() {
 		return;
 	}
 
-	const std::string ammoText = std::to_string(ammo_) + " / " + std::to_string(params_.maxAmmo);
-	ImGui::ProgressBar(GetRatio(Color::RED), ImVec2(-1.0f, 0.0f), ammoText.c_str());
+	// 色ごとに別のプールなので、4色ぶんを並べて見せる。
+	// 回復エリアはこのうち1色だけを早めるので、どれが伸びているか見えるようにしておく
+	static constexpr ImVec4 kColorTints[kGameColorCount] = {
+	    ImVec4{0.95f, 0.35f, 0.35f, 1.0f}, // RED
+	    ImVec4{0.40f, 0.60f, 1.00f, 1.0f}, // BLUE
+	    ImVec4{0.40f, 0.90f, 0.50f, 1.0f}, // GREEN
+	    ImVec4{0.95f, 0.85f, 0.35f, 1.0f}, // YELLOW
+	};
 
-	if (IsEmpty(Color::RED)) {
-		ImGui::TextColored(ImVec4{1.0f, 0.4f, 0.4f, 1.0f}, "弾切れ");
-	} else if (regenDelayTimer_ > 0.0f) {
-		ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "回復待ち 残り %.2f秒", regenDelayTimer_);
-	} else if (ammo_ >= params_.maxAmmo) {
-		ImGui::TextDisabled("満タン");
-	} else {
-		ImGui::TextDisabled("回復中（あと %.2f 発ぶん）", 1.0f - regenAccumulator_);
+	for (int index = 0; index < kGameColorCount; ++index) {
+		const Color color = FromColorIndex(index);
+		ImGui::PushID(index);
+		ImGui::PushStyleColor(ImGuiCol_PlotHistogram, kColorTints[index]);
+
+		const std::string ammoText = std::string(GetColorIdText(color)) + "  " +
+		                             std::to_string(ammo_[index]) + " / " +
+		                             std::to_string(params_.maxAmmo);
+		ImGui::ProgressBar(GetRatio(color), ImVec2(-1.0f, 0.0f), ammoText.c_str());
+		ImGui::PopStyleColor();
+
+		const float scale = GetRegenScale(color);
+		if (IsEmpty(color)) {
+			ImGui::TextColored(ImVec4{1.0f, 0.4f, 0.4f, 1.0f}, "  弾切れ");
+		} else if (regenDelayTimer_[index] > 0.0f) {
+			ImGui::TextColored(ImVec4{1.0f, 0.8f, 0.3f, 1.0f}, "  回復待ち 残り %.2f秒",
+			                   regenDelayTimer_[index]);
+		} else if (IsFull(color)) {
+			ImGui::TextDisabled("  満タン");
+		} else if (scale > 1.0f) {
+			ImGui::TextColored(ImVec4{0.4f, 1.0f, 0.6f, 1.0f}, "  %.2f 発/秒（%.2f倍）",
+			                   GetEffectiveRegenPerSecond(color), scale);
+		} else {
+			ImGui::TextDisabled("  %.2f 発/秒（あと %.2f 発ぶん）",
+			                    GetEffectiveRegenPerSecond(color), 1.0f - regenAccumulator_[index]);
+		}
+
+		ImGui::SameLine();
+		if (ImGui::SmallButton("1発消費")) {
+			TryConsume(color);
+		}
+		ImGui::SameLine();
+		if (ImGui::SmallButton("この色を早める")) {
+			RequestRegenScale(color, 4.0f);
+		}
+		ImGui::PopID();
 	}
 
-	ImGui::SeparatorText("回復速度");
-	const float scale = GetRegenScale();
-	if (scale > 1.0f) {
-		ImGui::TextColored(ImVec4{0.4f, 1.0f, 0.6f, 1.0f}, "%.2f 発/秒（%.2f倍）",
-		                   GetEffectiveRegenPerSecond(), scale);
-	} else {
-		ImGui::Text("%.2f 発/秒", GetEffectiveRegenPerSecond());
-	}
-	ImGui::Text("時限ブースト: %d 件", static_cast<int>(boosts_.size()));
+	ImGui::SeparatorText("全色まとめて");
+	ImGui::Text("時限ブースト: %d 件（色を問わず全色へ効く）", static_cast<int>(boosts_.size()));
 
 	// ギミックの導線（倍率を要求する → 回復が速くなる）をギミック抜きで確かめるためのボタン
 	if (ImGui::Button("5秒だけ倍速")) {
@@ -176,11 +218,6 @@ void PlayerAmmoComponent::DrawImGui() {
 	ImGui::SameLine();
 	if (ImGui::Button("ブーストを消す")) {
 		ClearRegenBoosts();
-	}
-
-	ImGui::SeparatorText("残弾");
-	if (ImGui::Button("1発ぶん消費")) {
-		TryConsume(Color::RED);
 	}
 	ImGui::SameLine();
 	if (ImGui::Button("全回復")) {
