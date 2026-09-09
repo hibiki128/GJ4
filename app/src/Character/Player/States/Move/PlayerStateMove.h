@@ -16,5 +16,7 @@ private:
 	float kPeriod = 1.0f; // 揺れの細かさ
 	float kSharpness = 1.0f; // 揺れの鋭さ
 	float kPhase = 0.0f; // 揺れの位相
-	float kMoveSpeed = 0.15f; // 移動速度
+	// 移動速度（単位/秒）。Update で DeltaTime を掛けるので、1フレームあたりの量ではない。
+	// 既定値をここに置いておかないと、調整ファイルが無い環境でほとんど動かなくなる
+	float kMoveSpeed = 7.5f;
 };

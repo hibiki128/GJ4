@@ -3,6 +3,7 @@
 #include "src/GameOver/GameOverContext.h"
 #include "src/Character/Player/Effect/PlayerParticles.h"
 #include "debug/imgui/ImGuiNotification.h"
+#include "debug/param/GameParamHub.h"
 #include <frame/Frame.h>
 #include "MyMath.h"
 #include "src/UI/Pause/PauseMenu.h"
@@ -31,7 +32,13 @@ void GameScene::Initialize()
 	pDrawSystem_->Register("GameScene_PreDraw", DrawLayer::PreEffect, [this](const ViewProjection& vp)
 		{
 			pObjectManager_->Draw(vp);
-			recoveryZones_.Draw(vp);
+			// ポーズ中は回復エリアを描かない。
+			// ポーズからタイトルへ抜けるとき、閉じていく幕の上へエリアの円盤が
+			// 抜けて見えてしまうため（円盤はオブジェクトマネージャーに載せず
+			// ここから直に描いているので、止めるのもここでよい）
+			if (!PauseMenu::GetInstance()->IsPaused()) {
+				recoveryZones_.Draw(vp);
+			}
 		});
 
 	// ボスの殻（メタボール）をGPUで作り直す。
@@ -275,6 +282,37 @@ void GameScene::Finalize()
 	/// ===================================================
 	/// 終了処理
 	/// ===================================================
+
+	// ゲームパラメータの登録を外す。
+	//
+	// GameParamHub はシーンをまたいで生き続け、登録された「変数のアドレス」を
+	// そのまま持っている。ここで外さないと、このシーンのプレイヤーや画面演出が
+	// 破棄されたあとも解放済みのアドレスを指したままになり、
+	// 次のシーンでハブのウィンドウを描いた瞬間に落ちる。
+	//
+	// ボスやカメラのように GameParamOwner を持っている側は破棄時に自分で外すので、
+	// ここに並べるのは「GameParamHub へ直に登録している出所」だけでよい。
+	// 出所を増やしたときは、ここへも足すこと（Finalize はメンバの破棄より前に走る）
+	static constexpr const char *kDirectParamOwners[] = {
+		"Player",
+		"Player/Ammo",
+		"Player/Color",
+		"Player/Damaged",
+		"Player/DamageVignette",
+		"Player/Dash",
+		"Player/Dodge",
+		"Player/Health",
+		"Player/Idle",
+		"Player/Jump",
+		"Player/Move",
+		"Player/PerfectDodge",
+		"Player/Reaction",
+		"Player/Shoot",
+	};
+	for (const char *owner : kDirectParamOwners) {
+		GameParamHub::GetInstance()->Unregister(owner);
+	}
+
 	BaseScene::Finalize();
 }
 

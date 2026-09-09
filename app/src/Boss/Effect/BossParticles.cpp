@@ -63,17 +63,20 @@ BossParticles *BossParticles::GetInstance() {
 }
 
 void BossParticles::Init() {
-    ParticleCSSpawner *spawner = ParticleCSSpawner::GetInstance();
-
     for (const EffectDesc &desc : kEffectDescs) {
         Effect &effect = Get(desc.id);
         effect.templateName = desc.templateName;
         effect.label = desc.label;
 
-        // シーンを切り替えると ParticleCSSpawner が実体を捨てるので、
-        // 死んだぶんだけ落として足りない数を出し直す
-        std::erase_if(effect.emitters,
-                      [spawner](const ParticleCSEmitter *emitter) { return !spawner->IsAlive(emitter); });
+        // 覚えているポインタは無条件に捨てて、必ず出し直す。
+        //
+        // シーンを切り替えると ParticleCSSpawner が実体を捨てるので、ここへ来る時点で
+        // 前のシーンのポインタはすべて無効になっている。
+        // 「生きているか」で選り分けてはいけない。IsAlive はアドレスの一致で見るので、
+        // 解放された跡地に別の効果のエミッターが確保されると「生きている」と誤判定し、
+        // よその効果のエミッターを掴んだまま使い続けてしまう
+        // （どの効果とぶつかるかはヒープの再利用まかせなので、周回ごとに変わる）
+        effect.emitters.clear();
 
         while (static_cast<int>(effect.emitters.size()) < desc.instanceCount) {
             ParticleCSEmitter *emitter = SpawnOne(desc.templateName);

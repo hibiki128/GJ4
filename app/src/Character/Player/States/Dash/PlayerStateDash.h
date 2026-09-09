@@ -10,7 +10,8 @@ public:
 	void Update(Player& player, PlayerContext& context) override;
 	void Exit(Player& player, PlayerContext& context) override;
 private:
-	float kMoveSpeed = 0.15f; // 移動速度
+	// 走る速度（単位/秒）。歩きと同じく DeltaTime を掛けて使う
+	float kMoveSpeed = 15.0f;
 	float kAmplitude = 0.2f;  // 潰れる量
 	float kPeriod = 1.0f; // 揺れの細かさ
 	float kSharpness = 1.0f; // 揺れの鋭さ
