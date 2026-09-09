@@ -55,6 +55,7 @@ void PlayerBullet::Fire(const Shot& shot) {
 
 	direction_ = (shot.direction.LengthSq() > 0.0f) ? shot.direction.Normalize()
 	                                                : Hagine::Vector3{0.0f, 0.0f, 1.0f};
+	radius_ = shot.radius;
 	speed_ = shot.speed;
 	lifeTime_ = shot.lifeTime;
 	correctionRate_ = shot.correctionRate;
@@ -81,8 +82,9 @@ void PlayerBullet::Update() {
 	const Hagine::Vector3 previousPosition = transform_->translation_;
 	transform_->translation_ += direction_ * (speed_ * deltaTime);
 
-	// 着弾判定は「動いた線分」で行う（速い弾でもすり抜けない）
-	if (hitTester_ && hitTester_(previousPosition, transform_->translation_)) {
+	// 着弾判定は「動いた線分」で行う（速い弾でもすり抜けない）。
+	// 半径も渡して見た目どおりの太さで判定してもらう
+	if (hitTester_ && hitTester_(previousPosition, transform_->translation_, radius_)) {
 		Deactivate();
 		return;
 	}
@@ -137,6 +139,7 @@ void PlayerBullet::Draw(const Hagine::ViewProjection& viewProjection) {
 
 void PlayerBullet::Deactivate() {
 	isActive_ = false;
+	radius_ = 0.0f;
 	speed_ = 0.0f;
 	maxTurnDegreesPerSecond_ = 0.0f;
 

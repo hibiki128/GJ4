@@ -105,6 +105,14 @@ private:
                               AimHit& outHit);
 
     /// <summary>
+    /// 判定に使う弾の太さ（武器が持っている弾の半径）。
+    /// 照準・発射レティクル・実際の着弾がすべてここを見るので、
+    /// 弾のサイズを変えても「見えている当たり方」と食い違わない
+    /// </summary>
+    /// <returns>float: 弾の半径（武器が未設定なら 0＝太さ無し）</returns>
+    float BulletRadius() const;
+
+    /// <summary>
     /// 画面中心の射線を飛ばして着弾地点を求める。
     /// 何にも当たらなければ射程の端（origin + direction * aimRayLength_）を返すので、
     /// 相手がいない方向へ撃っても弾は素直に真っ直ぐ飛ぶ

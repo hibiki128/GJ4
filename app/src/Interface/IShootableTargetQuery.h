@@ -39,9 +39,10 @@ public:
     /// <param name="worldStart">線分の始点（前フレームの弾の位置）</param>
     /// <param name="worldEnd">線分の終点（現在の弾の位置）</param>
     /// <param name="color">弾の色</param>
+    /// <param name="bulletRadius">弾の半径（線分をこの太さで判定する。0 なら太さ無し）</param>
     /// <returns>bool: 当たったら true（弾を消してよい）</returns>
     virtual bool RaycastHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                            Color color) = 0;
+                            Color color, float bulletRadius) = 0;
 
     /// <summary>
     /// 線分が最初に当たる点を返すだけの問い合わせ（副作用は起こさない）。
@@ -50,10 +51,11 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色によってすり抜ける相手がいる）</param>
+    /// <param name="bulletRadius">弾の半径（RaycastHit と同じ値を渡すこと）</param>
     /// <param name="outHit">最初に当たった点と、その的の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     virtual bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                              Color color, AimHit &outHit) = 0;
+                              Color color, float bulletRadius, AimHit &outHit) = 0;
 
     /// <summary>
     /// ソフトロックオンの対象を探す（色一致のもののみ対象）。

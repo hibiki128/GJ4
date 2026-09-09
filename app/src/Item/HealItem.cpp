@@ -162,8 +162,8 @@ void HealItem::Update() {
     BaseObject::Update();
 }
 
-bool HealItem::RaycastSeal(const Vector3 &from, const Vector3 &to, float &outDistance,
-                           Vector3 &outPoint) const {
+bool HealItem::RaycastSeal(const Vector3 &from, const Vector3 &to, float bulletRadius,
+                           float &outDistance, Vector3 &outPoint) const {
     if (state_ != State::Sealed) {
         return false;
     }
@@ -176,10 +176,12 @@ bool HealItem::RaycastSeal(const Vector3 &from, const Vector3 &to, float &outDis
     const Vector3 direction = segment / length;
 
     // 線分と球の交差（BossSphereCluster::RaycastLocal と同じ解き方）。
-    // 膜は定位置に留まるので、判定の中心も出した位置そのままでよい
+    // 膜は定位置に留まるので、判定の中心も出した位置そのままでよい。
+    // 弾の太さは膜側へ足して解く（見た目どおりの太さで当たる）
+    const float radius = params_->sealRadius + (std::max)(0.0f, bulletRadius);
     const Vector3 toStart = from - basePosition_;
     const float b = toStart.Dot(direction);
-    const float c = toStart.LengthSq() - params_->sealRadius * params_->sealRadius;
+    const float c = toStart.LengthSq() - radius * radius;
     const float discriminant = b * b - c;
     if (discriminant < 0.0f) {
         return false;

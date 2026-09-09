@@ -151,11 +151,12 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">弾の色</param>
+    /// <param name="bulletRadius">弾の半径（球の半径に足して判定する）</param>
     /// <param name="chain">連鎖パラメータ</param>
     /// <param name="palette">色パレット（表示色の取得に使う）</param>
     /// <returns>BulletHitResult: 当たったか・付着したか・消えたか</returns>
     BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                                  Color color, const BossChainParams &chain,
+                                  Color color, float bulletRadius, const BossChainParams &chain,
                                   const BossColorPalette &palette);
 
     /// <summary>
@@ -164,11 +165,12 @@ public:
     /// </summary>
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
+    /// <param name="bulletRadius">弾の半径（RaycastAttach と同じ値を渡すこと）</param>
     /// <param name="outPoint">最初に当たった点（ワールド）</param>
     /// <param name="outCell">当たった球の格子セル（不要なら省略可。球の中心を引くのに使う）</param>
     /// <returns>bool: 当たれば true</returns>
     bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                      Hagine::Vector3 &outPoint, ShellCell *outCell = nullptr);
+                      float bulletRadius, Hagine::Vector3 &outPoint, ShellCell *outCell = nullptr);
 
     /// ===================================================
     /// 問い合わせ
@@ -251,16 +253,19 @@ private:
     /// <summary>ボスの平行移動と回転だけを持つ行列（格子空間への変換に使う。スケールは含めない）</summary>
     Hagine::Matrix4x4 MakeShellMatrix();
 
-    /// <summary>線分と占有球の交差を調べ、最も手前の球を返す</summary>
+    /// <summary>
+    /// 線分と占有球の交差を調べ、最も手前の球を返す。
+    /// 判定半径は「球の半径 + 弾の半径」なので、弾の見た目どおりの太さで当たる
+    /// </summary>
     bool RaycastLocal(const Hagine::Vector3 &localStart, const Hagine::Vector3 &localEnd,
-                      ShellCell &outCell, Hagine::Vector3 &outHitPoint) const;
+                      float bulletRadius, ShellCell &outCell, Hagine::Vector3 &outHitPoint) const;
 
     /// <summary>
     /// ワールドの線分をローカルへ移して最初に当たった球を探す（RaycastAttach / RaycastPoint の共通部）。
     /// 呼び出し側が交点をワールドへ戻したり球を置いたりできるよう、殻の行列も返す
     /// </summary>
     bool RaycastWorld(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
-                      ShellCell &outCell, Hagine::Vector3 &outLocalHitPoint,
+                      float bulletRadius, ShellCell &outCell, Hagine::Vector3 &outLocalHitPoint,
                       Hagine::Matrix4x4 &outShellMatrix);
 
     /// <summary>当たった球の隣接から、着弾点に最も近い空きセルを選ぶ</summary>

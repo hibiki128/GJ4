@@ -140,9 +140,11 @@ public:
     /// <param name="worldStart">線分の始点（前フレームの弾の位置）</param>
     /// <param name="worldEnd">線分の終点（現在の弾の位置）</param>
     /// <param name="color">弾の色</param>
+    /// <param name="bulletRadius">弾の半径（球の半径に足して判定する）</param>
     /// <returns>BulletHitResult: 当たったか・付着したか・消えたか</returns>
     BulletHitResult RaycastAttach(const Hagine::Vector3 &worldStart,
-                                  const Hagine::Vector3 &worldEnd, Color color) override;
+                                  const Hagine::Vector3 &worldEnd, Color color,
+                                  float bulletRadius) override;
 
     /// <summary>
     /// 線分が最初に当たる点を返すだけの問い合わせ（付着も消去もしない）。
@@ -151,10 +153,11 @@ public:
     /// <param name="worldStart">線分の始点（ワールド）</param>
     /// <param name="worldEnd">線分の終点（ワールド）</param>
     /// <param name="color">撃とうとしている色（色違いの飛翔弾はすり抜ける）</param>
+    /// <param name="bulletRadius">弾の半径（RaycastAttach と同じ値を渡すこと）</param>
     /// <param name="outHit">最初に当たった点と、その球の中心（ワールド）</param>
     /// <returns>bool: 当たれば true</returns>
     bool RaycastPoint(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
-                      AimHit &outHit) override;
+                      float bulletRadius, AimHit &outHit) override;
 
     /// <summary>ソフトロックオンの対象（脚の球）を探す</summary>
     /// <param name="request">問い合わせ内容</param>
@@ -393,6 +396,13 @@ private:
     /// <summary>距離と確率から次の攻撃を選ぶ</summary>
     IBossAttack *PickAttack();
 
+    /// <summary>
+    /// 弾のプールを作る（Init から1回だけ）。
+    /// 撃つたびに作ると、そのフレームで JSON 探索とモデル生成が走って引っかかるので、
+    /// 上限ぶんを先に作っておき、発射では待機中のものを起こすだけにする
+    /// </summary>
+    void InitBulletPool();
+
     /// <summary>飛んでいる弾を進める</summary>
     /// <param name="deltaTime">経過時間（秒）</param>
     void UpdateBullets(float deltaTime);
@@ -401,19 +411,37 @@ private:
     /// 線分に当たっている飛翔弾を探す（同じ色のものだけが当たる）。
     /// 消す処理は呼び出し側が行うので、ここでは添字を返すだけにしてある
     /// </summary>
+    /// <param name="bulletRadius">撃った弾の半径（飛翔弾の半径に足して判定する）</param>
     /// <param name="outBulletIndex">当たった弾の添字（bullets_ の並び）</param>
+    /// <param name="outDistance">始点から当たった点までの距離</param>
     /// <param name="outPoint">当たった弾の位置</param>
     /// <returns>bool: 当たれば true</returns>
     bool FindBulletHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, Color color,
-                       int &outBulletIndex, Hagine::Vector3 &outPoint) const;
+                       float bulletRadius, int &outBulletIndex, float &outDistance,
+                       Hagine::Vector3 &outPoint) const;
 
     /// <summary>線分がいちばん手前で当たった脚を探す（脚は色に関係なく弾を止める）</summary>
+    /// <param name="bulletRadius">撃った弾の半径</param>
     /// <param name="outLegIndex">当たった脚の番号</param>
     /// <param name="outSphereIndex">当たった球の並び順（付け根から数えた番号）</param>
+    /// <param name="outDistance">始点から着弾までの距離</param>
     /// <param name="outPoint">着弾位置</param>
     /// <returns>bool: 当たれば true</returns>
-    bool FindLegHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd, int &outLegIndex,
-                    int &outSphereIndex, Hagine::Vector3 &outPoint) const;
+    bool FindLegHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                    float bulletRadius, int &outLegIndex, int &outSphereIndex, float &outDistance,
+                    Hagine::Vector3 &outPoint) const;
+
+    /// <summary>
+    /// 線分が胴（黒い球）に当たるかを調べる。
+    /// 胴は撃っても壊せない無敵の的だが、判定が無いと密着して撃ったときに
+    /// 弾が胴をすり抜けて「当たらない」ように見えてしまうので、ここで弾を止める
+    /// </summary>
+    /// <param name="bulletRadius">撃った弾の半径</param>
+    /// <param name="outDistance">始点から当たった点までの距離</param>
+    /// <param name="outPoint">当たった点（ワールド）</param>
+    /// <returns>bool: 当たれば true</returns>
+    bool FindBodyHit(const Hagine::Vector3 &worldStart, const Hagine::Vector3 &worldEnd,
+                     float bulletRadius, float &outDistance, Hagine::Vector3 &outPoint) const;
 
     /// <summary>相手までの水平距離（相手がいなければ負の値）</summary>
     float CalcTargetDistance() const;
@@ -476,7 +504,11 @@ private:
     HitCallback hitCallback_{};                           // 当たりの通知先（未設定なら通知しない）
 
     // --- 弾 ---
-    std::vector<std::unique_ptr<BossSphere>> bulletPool_{}; // 弾の球（所有・増やすだけ）
+
+    /// <summary>同時に飛べる弾の数（Init でこの数だけ作り、以降は増減しない）</summary>
+    static constexpr int kMaxBulletCount = 32;
+
+    std::vector<std::unique_ptr<BossSphere>> bulletPool_{}; // 弾の球（所有・Init で作り切る）
     std::vector<SpiderBullet> bullets_{};                   // 弾の状態（プールと同じ並び）
 
     ITargetLocator *pTargetLocator_ = nullptr;      // 歩いて向かう相手（非所有）

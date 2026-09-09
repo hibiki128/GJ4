@@ -108,11 +108,12 @@ public:
     /// </summary>
     /// <param name="from">線分の始点（ワールド）</param>
     /// <param name="to">線分の終点（ワールド）</param>
+    /// <param name="bulletRadius">弾の半径（膜の半径に足して判定する）</param>
     /// <param name="outDistance">始点から交点までの距離（手前の膜を選ぶのに使う）</param>
     /// <param name="outPoint">交点（ワールド）</param>
     /// <returns>bool: 膜つきの状態で当たっていれば true</returns>
-    bool RaycastSeal(const Hagine::Vector3 &from, const Hagine::Vector3 &to, float &outDistance,
-                     Hagine::Vector3 &outPoint) const;
+    bool RaycastSeal(const Hagine::Vector3 &from, const Hagine::Vector3 &to, float bulletRadius,
+                     float &outDistance, Hagine::Vector3 &outPoint) const;
 
     /// <summary>
     /// 膜に1発当たったことにする。
