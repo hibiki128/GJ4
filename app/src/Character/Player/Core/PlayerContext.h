@@ -9,6 +9,7 @@ class PlayerShootComponent;
 class PlayerComponentReaction;
 class PlayerHealthComponent;
 class PlayerAmmoComponent;
+class PlayerVoiceComponent;
 class PlayerBulletManager;
 
 class PlayerContext {
@@ -20,6 +21,8 @@ public:
 	PlayerComponentReaction* reactionComponent_ = nullptr;
 	PlayerHealthComponent* healthComponent_ = nullptr;
 	PlayerAmmoComponent* ammoComponent_ = nullptr;
+	// 鳴らし続ける音（ぽよぽよ・足音）の間合い。ステートは毎フレーム要求を出すだけでよい
+	PlayerVoiceComponent* voiceComponent_ = nullptr;
 	PlayerBulletManager* bullets = nullptr;
 	PlayerInput input_;
 
